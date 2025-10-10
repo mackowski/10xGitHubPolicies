@@ -1,0 +1,8 @@
+# General .NET Core ignores
+.DS_Store
+[Bb]in/
+[Oo]bj/
+
+# Application settings
+appsettings.Development.json
+**/Properties/launchSettings.json
