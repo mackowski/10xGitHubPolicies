@@ -1,0 +1,15 @@
+---
+description: "Guidelines for project documentation."
+alwaysApply: true
+---
+#### DOC_UPDATES
+
+- Update relevant documentation in /docs when modifying features
+- Keep README.md in sync with new capabilities
+- Maintain changelog entries in `CHANGELOG.md`
+- Keep .cursor/rules and AGENTS.md up to date
+
+#### API Documentation
+- Use `Swagger`/`OpenAPI` for API documentation. The `Swashbuckle.AspNetCore` package should be used for this.
+  - **Note**: This package is not yet installed. Please add it to the `10xGitHubPolicies.App.csproj` project.
+- Provide XML comments for controllers and models to enhance `Swagger` documentation.

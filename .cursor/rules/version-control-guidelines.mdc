@@ -1,0 +1,11 @@
+---
+description: "Guidelines for version control using conventional commits."
+alwaysApply: true
+---
+#### CONVENTIONAL_COMMITS
+
+- Follow the format: `type(scope): description` for all commit messages
+- Use consistent types (feat, fix, docs, style, refactor, test, chore) across the project
+- Include issue references in commit messages to link changes to requirements
+- Use breaking change footer (`!` or `BREAKING CHANGE:`) to clearly mark incompatible changes
+- Configure commitlint to automatically enforce conventional commit format
