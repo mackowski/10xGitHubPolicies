@@ -122,6 +122,7 @@ Follow the official Microsoft documentation and `ASP.NET Core` guides for best p
 - Update relevant documentation in /docs when modifying features
 - Keep README.md in sync with new capabilities
 - Maintain changelog entries in `CHANGELOG.md`
+- Keep .cursor/rules and AGENTS.md up to date
 
 #### API Documentation
 - Use `Swagger`/`OpenAPI` for API documentation. The `Swashbuckle.AspNetCore` package should be used for this.
