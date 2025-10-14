@@ -54,6 +54,7 @@ To get a local copy up and running, follow these simple steps.
 ### Prerequisites
 
 *   [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0)
+*   [Docker Desktop](https://www.docker.com/products/docker-desktop/)
 
 ### Installation
 
@@ -61,15 +62,27 @@ To get a local copy up and running, follow these simple steps.
     ```sh
     git clone https://github.com/your_username/10xGitHubPolicies.git
     ```
-2.  Navigate to the application directory:
+2.  Navigate to the project root directory:
+    ```sh
+    cd 10xGitHubPolicies
+    ```
+3. Start the local SQL Server database:
+    ```sh
+    docker-compose up -d
+    ```
+4.  Navigate to the application directory:
     ```sh
     cd 10xGitHubPolicies/10xGitHubPolicies.App
     ```
-3.  Install dependencies:
+5.  Install dependencies:
     ```sh
     dotnet restore
     ```
-4.  Run the application:
+6. Apply database migrations:
+    ```sh
+    dotnet ef database update
+    ```
+7.  Run the application:
     ```sh
     dotnet run
     ```

@@ -5,9 +5,12 @@ The 10x GitHub Policy Enforcer is a GitHub App with an accompanying web UI desig
 
 ## Setup commands
 To run this project locally:
-1. `cd 10xGitHubPolicies.App`
-2. `dotnet restore`
-3. `dotnet run`
+1. `cd 10xGitHubPolicies`
+2. `docker-compose up -d`
+3. `cd 10xGitHubPolicies.App`
+4. `dotnet restore`
+5. `dotnet ef database update`
+6. `dotnet run`
 
 Alternatively, you can run from the root directory using `dotnet run --project 10xGitHubPolicies.App/10xGitHubPolicies.App.csproj`.
 
