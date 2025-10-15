@@ -20,14 +20,7 @@ This document outlines the approach to integrating with the GitHub API using the
 
 ## Configuration
 
-The GitHub App settings are configured in `appsettings.json` and user secrets:
-```json
-"GitHubApp": {
-  "AppId": "YOUR_APP_ID",
-  "PrivateKey": "YOUR_PRIVATE_KEY",
-  "InstallationId": "YOUR_INSTALLATION_ID"
-}
-```
+The GitHub App settings are configured using the .NET Secret Manager for local development to ensure that private keys and other secrets are not committed to source control. Refer to the main `README.md` for setup instructions.
 
 ## Usage
 

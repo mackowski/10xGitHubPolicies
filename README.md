@@ -98,20 +98,20 @@ dotnet run --project 10xGitHubPolicies.App/10xGitHubPolicies.App.csproj
 The application is configured via `appsettings.json` and user secrets for sensitive data.
 
 ### GitHub App Settings
-You need to configure the GitHub App settings. During development, it's recommended to use the .NET Secret Manager.
+You need to configure the GitHub App settings. During development, it's required to use the .NET Secret Manager to keep secrets out of source control.
 
-1.  Initialize user secrets for the project:
+1.  Initialize user secrets for the project (if you haven't already):
     ```sh
-    dotnet user-secrets init --project 10xGitHubPolicies.App/10xGitHubPolicies.App.csproj
+    cd 10xGitHubPolicies.App
+    dotnet user-secrets init
     ```
-2.  Set the GitHub App secrets:
-    ```json
-    "GitHubApp": {
-      "AppId": "YOUR_APP_ID",
-      "PrivateKey": "YOUR_PRIVATE_KEY",
-      "InstallationId": "YOUR_INSTALLATION_ID"
-    }
+2.  Set the GitHub App secrets. Replace the placeholder values with your App's credentials:
+    ```sh
+    dotnet user-secrets set "GitHubApp:AppId" "YOUR_GITHUB_APP_ID"
+    dotnet user-secrets set "GitHubApp:InstallationId" "YOUR_GITHUB_APP_INSTALLATION_ID"
+    dotnet user-secrets set "GitHubApp:PrivateKey" "PASTE_YOUR_PRIVATE_KEY_CONTENTS_HERE"
     ```
+    **Note**: When setting the `PrivateKey`, paste the full content of the `.pem` file, including the `-----BEGIN RSA PRIVATE KEY-----` and `-----END RSA PRIVATE KEY-----` markers.
 
 ### Policy Configuration
 The policy configuration is managed via a `config.yaml` file located in the root of your organization's `.github` repository.
