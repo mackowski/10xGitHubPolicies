@@ -85,15 +85,4 @@ app.MapGet("/log-job", (IBackgroundJobClient backgroundJobClient) =>
 app.MapBlazorHub();
 app.MapFallbackToPage("/_Host");
 
-// Verification for Step 1
-var gitHubAppOptions = app.Services.GetRequiredService<IOptions<GitHubAppOptions>>().Value;
-if (gitHubAppOptions.AppId == 0)
-{
-    app.Logger.LogWarning("GitHubApp:AppId is not configured. Please check your user secrets.");
-}
-else
-{
-    app.Logger.LogInformation("GitHubApp:AppId is {AppId}", gitHubAppOptions.AppId);
-}
-
 app.Run();
