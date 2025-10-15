@@ -33,7 +33,7 @@ public class GitHubService : IGitHubService
             var jwt = GetJwt();
             var appClient = new GitHubClient(new ProductHeaderValue("10xGitHubPolicies"), new InMemoryCredentialStore(new Credentials(jwt, AuthenticationType.Bearer)));
             
-            var installation = await appClient.GitHubApps.GetInstallationForCurrent(long.Parse(_options.InstallationId.ToString()));
+            var installation = await appClient.GitHubApps.GetInstallationForCurrent(_options.InstallationId);
             var tokenResponse = await appClient.GitHubApps.CreateInstallationToken(installation.Id);
 
             entry.AbsoluteExpiration = tokenResponse.ExpiresAt.AddMinutes(-5); // Cache for 55 minutes
