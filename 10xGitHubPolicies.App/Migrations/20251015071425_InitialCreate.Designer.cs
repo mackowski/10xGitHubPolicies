@@ -12,7 +12,7 @@ using _10xGitHubPolicies.App.Data;
 namespace _10xGitHubPolicies.App.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    [Migration("20251014114245_InitialCreate")]
+    [Migration("20251015071425_InitialCreate")]
     partial class InitialCreate
     {
         /// <inheritdoc />
