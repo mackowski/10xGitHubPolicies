@@ -106,14 +106,17 @@ You are a senior Blazor and .NET developer and an expert in `C#`, `ASP.NET Core`
 - **Dependency Security**: Be cautious when adding new NuGet packages. Verify the publisher and check for signs of typosquatting or "slopsquatting." Comment on any uncommon or low-reputation packages used.
 
 ### GitHub Integration (Octokit.net)
-- (To be defined when `Octokit.net` is integrated)
-- Best practices for `GitHubClient` instantiation and usage.
-- Guidelines for handling API rate limiting.
+- Use the provided `IGitHubService` to get an authenticated `GitHubClient`.
+- The `GitHubService` handles authentication and token caching.
+- Be mindful of API rate limits. Cache responses where appropriate.
+- Use asynchronous methods to avoid blocking threads.
+- Refer to the `Octokit.net` documentation for API usage.
 
 ### Background Jobs (Hangfire)
-- (To be defined when `Hangfire` is integrated)
+- Enqueue background jobs using `IBackgroundJobClient`.
 - Keep background jobs small, idempotent, and focused on a single task.
-- Use the Hangfire Dashboard for monitoring jobs.
+- Use the Hangfire Dashboard (`/hangfire`) for monitoring jobs.
+- Configure queues and workers appropriately for production environments.
 
 Follow the official Microsoft documentation and `ASP.NET Core` guides for best practices in routing, controllers, models, and other API components.
 
