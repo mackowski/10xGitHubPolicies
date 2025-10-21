@@ -6,6 +6,7 @@ using MudBlazor.Services;
 using _10xGitHubPolicies.App.Options;
 using Microsoft.Extensions.Options;
 using _10xGitHubPolicies.App.Services;
+using _10xGitHubPolicies.App.Services.Mock;
 using Hangfire;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -28,7 +29,7 @@ builder.Services.AddHangfireServer();
 builder.Services.AddRazorPages();
 builder.Services.AddServerSideBlazor();
 builder.Services.AddMudServices();
-builder.Services.AddSingleton<WeatherForecastService>();
+builder.Services.AddScoped<IDashboardService, MockDashboardService>();
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();

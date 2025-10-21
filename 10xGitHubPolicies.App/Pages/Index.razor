@@ -1,6 +1,80 @@
 ﻿@page "/"
+@using _10xGitHubPolicies.App.Services
+@using _10xGitHubPolicies.App.ViewModels
+@inject IDashboardService DashboardService
 
-<PageTitle>10x GitHub Policy Enforcer</PageTitle>
+<PageTitle>Compliance Dashboard</PageTitle>
 
-<MudText Typo="Typo.h3" GutterBottom="true">Hello, world!</MudText>
-<MudText>Welcome to the 10x GitHub Policy Enforcer.</MudText>
+<MudGrid Justify="Justify.FlexStart" Spacing="3">
+    <MudItem xs="12" sm="6" md="3">
+        <MudPaper Elevation="2" Class="pa-4" Style="height: 100%;">
+            <MudText Typo="Typo.h6">Overall Compliance</MudText>
+            <MudText Typo="Typo.h3">@($"{_viewModel?.CompliancePercentage:F2}%")</MudText>
+        </MudPaper>
+    </MudItem>
+    <MudItem xs="12" sm="6" md="3">
+        <MudPaper Elevation="2" Class="pa-4" Style="height: 100%;">
+            <MudText Typo="Typo.h6">Total Repositories</MudText>
+            <MudText Typo="Typo.h3">@_viewModel?.TotalRepositories</MudText>
+        </MudPaper>
+    </MudItem>
+    <MudItem xs="12" sm="6" md="3">
+        <MudPaper Elevation="2" Class="pa-4" Style="height: 100%; background-color: var(--mud-palette-success); color: var(--mud-palette-success-text);">
+            <MudText Typo="Typo.h6">Compliant</MudText>
+            <MudText Typo="Typo.h3">@_viewModel?.CompliantRepositories</MudText>
+        </MudPaper>
+    </MudItem>
+    <MudItem xs="12" sm="6" md="3">
+        <MudPaper Elevation="2" Class="pa-4" Style="height: 100%; background-color: var(--mud-palette-error); color: var(--mud-palette-error-text);">
+            <MudText Typo="Typo.h6">Non-Compliant</MudText>
+            <MudText Typo="Typo.h3">@_viewModel?.NonCompliantRepositoriesCount</MudText>
+        </MudPaper>
+    </MudItem>
+</MudGrid>
+
+<MudPaper Elevation="2" Class="mt-4">
+    <MudTable Items="@_viewModel?.NonCompliantRepositories" Dense="true" Hover="true" Filter="new Func<NonCompliantRepositoryViewModel, bool>(FilterFunc)">
+        <ToolBarContent>
+            <MudTextField @bind-Value="_nameFilter" Placeholder="Filter by name..." Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search" IconSize="Size.Medium" Class="mt-0"></MudTextField>
+            <MudSpacer />
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Refresh">Scan Now</MudButton>
+        </ToolBarContent>
+        <HeaderContent>
+            <MudTh>Repository</MudTh>
+            <MudTh>Violations</MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd DataLabel="Repository">
+                <MudLink Href="@context.Url" Target="_blank">@context.Name</MudLink>
+            </MudTd>
+            <MudTd DataLabel="Violations">
+                @foreach (var policy in context.ViolatedPolicies)
+                {
+                    <MudChip T="string" Text="@policy" Color="Color.Error" Size="Size.Small" />
+                }
+            </MudTd>
+        </RowTemplate>
+        <PagerContent>
+            <MudTablePager />
+        </PagerContent>
+    </MudTable>
+</MudPaper>
+
+@code {
+    private DashboardViewModel? _viewModel;
+    private string _nameFilter = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _viewModel = await DashboardService.GetDashboardViewModelAsync();
+    }
+
+    private bool FilterFunc(NonCompliantRepositoryViewModel repo)
+    {
+        if (string.IsNullOrWhiteSpace(_nameFilter))
+            return true;
+        if (repo.Name.Contains(_nameFilter, StringComparison.OrdinalIgnoreCase))
+            return true;
+        return false;
+    }
+}
