@@ -7,4 +7,5 @@ public class GitHubAppOptions
     public long AppId { get; set; }
     public string PrivateKey { get; set; } = string.Empty;
     public long InstallationId { get; set; }
+    public string OrganizationName { get; set; } = string.Empty;
 }

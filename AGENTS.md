@@ -106,11 +106,21 @@ You are a senior Blazor and .NET developer and an expert in `C#`, `ASP.NET Core`
 - **Dependency Security**: Be cautious when adding new NuGet packages. Verify the publisher and check for signs of typosquatting or "slopsquatting." Comment on any uncommon or low-reputation packages used.
 
 ### GitHub Integration (Octokit.net)
-- Use the provided `IGitHubService` to get an authenticated `GitHubClient`.
-- The `GitHubService` handles authentication and token caching.
+- Use the provided `IGitHubService` for all GitHub API interactions.
+- The service provides high-level methods for common operations (repository management, file operations, issue creation, etc.).
+- Do not directly access `GitHubClient` - use the specialized methods provided by `IGitHubService`.
+- The `GitHubService` handles authentication, token caching, and error handling internally.
 - Be mindful of API rate limits. Cache responses where appropriate.
 - Use asynchronous methods to avoid blocking threads.
-- Refer to the `Octokit.net` documentation for API usage.
+- Refer to `/docs/github-integration.md` for detailed usage examples and best practices.
+
+### Configuration Service
+- Use `IConfigurationService` to retrieve the centralized policy configuration from `.github/config.yaml`.
+- The service handles YAML parsing, validation, and caching automatically.
+- Configuration is cached for 15 minutes with sliding expiration.
+- Handle `ConfigurationNotFoundException` and `InvalidConfigurationException` appropriately.
+- Use `forceRefresh: true` parameter sparingly to avoid unnecessary GitHub API calls.
+- Refer to `/docs/configuration-service.md` for detailed usage examples and configuration format.
 
 ### Background Jobs (Hangfire)
 - Enqueue background jobs using `IBackgroundJobClient`.

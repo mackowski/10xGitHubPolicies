@@ -16,6 +16,7 @@ A GitHub App to automate the enforcement of organizational policies and security
   - [Installation](#installation)
 - [Configuration](#configuration)
 - [Project Scope](#project-scope)
+- [Documentation](#documentation)
 - [Project Status](#project-status)
 - [License](#license)
 
@@ -113,6 +114,16 @@ You need to configure the GitHub App settings. During development, it's required
     ```
     **Note**: When setting the `PrivateKey`, paste the full content of the `.pem` file, including the `-----BEGIN RSA PRIVATE KEY-----` and `-----END RSA PRIVATE KEY-----` markers.
 
+3.  Configure the organization name in `appsettings.json`:
+    ```json
+    {
+      "GitHubApp": {
+        "OrganizationName": "your-organization-name"
+      }
+    }
+    ```
+    Replace `your-organization-name` with your GitHub organization's slug.
+
 ### Policy Configuration
 The policy configuration is managed via a `config.yaml` file located in the root of your organization's `.github` repository.
 
@@ -147,6 +158,16 @@ policies:
     type: 'correct_workflow_permissions'
     action: 'archive-repo'
 ```
+
+---
+
+## Documentation
+
+Detailed documentation for specific features and integrations:
+
+- **[GitHub Integration](./docs/github-integration.md)**: How to use the GitHub API service for repository management
+- **[Configuration Service](./docs/configuration-service.md)**: Managing centralized policy configuration from `.github/config.yaml`
+- **[Hangfire Integration](./docs/hangfire-integration.md)**: Background job processing and scheduling
 
 ---
 

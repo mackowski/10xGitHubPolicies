@@ -1,4 +1,5 @@
 using _10xGitHubPolicies.App.Data.Models;
+
 using Microsoft.EntityFrameworkCore;
 
 namespace _10xGitHubPolicies.App.Data;
@@ -22,7 +23,7 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
 
         modelBuilder.Entity<Repository>()
             .HasIndex(r => r.Name);
-            
+
         // Policies
         modelBuilder.Entity<Policy>()
             .HasIndex(p => p.PolicyKey)
@@ -32,7 +33,7 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
         modelBuilder.Entity<PolicyViolation>()
             .HasIndex(pv => new { pv.ScanId, pv.RepositoryId, pv.PolicyId })
             .IsUnique();
-        
+
         modelBuilder.Entity<PolicyViolation>()
             .HasIndex(pv => pv.RepositoryId);
     }

@@ -11,5 +11,4 @@ alwaysApply: true
 
 #### API Documentation
 - Use `Swagger`/`OpenAPI` for API documentation. The `Swashbuckle.AspNetCore` package should be used for this.
-  - **Note**: This package is not yet installed. Please add it to the `10xGitHubPolicies.App.csproj` project.
 - Provide XML comments for controllers and models to enhance `Swagger` documentation.

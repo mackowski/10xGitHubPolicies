@@ -1,12 +1,19 @@
+using System;
+using System.Collections.Generic;
+using System.IdentityModel.Tokens.Jwt;
+using System.Linq;
+using System.Security.Claims;
+using System.Security.Cryptography;
+using System.Threading.Tasks;
+
 using _10xGitHubPolicies.App.Options;
+
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
+
 using Octokit;
 using Octokit.Internal;
-using System.IdentityModel.Tokens.Jwt;
-using System.Security.Claims;
-using System.Security.Cryptography;
 
 namespace _10xGitHubPolicies.App.Services;
 
@@ -24,27 +31,112 @@ public class GitHubService : IGitHubService
         _cache = cache;
     }
 
-    public async Task<GitHubClient> GetAuthenticatedClient()
+    public async Task ArchiveRepositoryAsync(long repositoryId)
+    {
+        var client = await GetAuthenticatedClient();
+        await client.Repository.Edit(repositoryId, new RepositoryUpdate { Archived = true });
+    }
+
+    public async Task<Issue> CreateIssueAsync(long repositoryId, string title, string body, IEnumerable<string> labels)
+    {
+        var client = await GetAuthenticatedClient();
+        var newIssue = new NewIssue(title) { Body = body };
+        foreach (var label in labels)
+        {
+            newIssue.Labels.Add(label);
+        }
+        return await client.Issue.Create(repositoryId, newIssue);
+    }
+
+    public async Task<bool> FileExistsAsync(long repositoryId, string filePath)
+    {
+        var client = await GetAuthenticatedClient();
+        try
+        {
+            var contents = await client.Repository.Content.GetAllContents(repositoryId, filePath);
+            return contents.Any();
+        }
+        catch (Octokit.NotFoundException)
+        {
+            return false;
+        }
+    }
+
+    public async Task<IReadOnlyList<Repository>> GetOrganizationRepositoriesAsync()
+    {
+        var client = await GetAuthenticatedClient();
+        return await client.Repository.GetAllForOrg(_options.OrganizationName);
+    }
+
+    public async Task<Repository> GetRepositorySettingsAsync(long repositoryId)
+    {
+        var client = await GetAuthenticatedClient();
+        return await client.Repository.Get(repositoryId);
+    }
+
+    public async Task<bool> IsUserMemberOfTeamAsync(string userAccessToken, string org, string teamSlug)
+    {
+        var userClient = new GitHubClient(new ProductHeaderValue("10xGitHubPolicies"))
+        {
+            Credentials = new Credentials(userAccessToken)
+        };
+
+        try
+        {
+            var team = await userClient.Organization.Team.GetByName(org, teamSlug);
+            var user = await userClient.User.Current();
+            var membership = await userClient.Organization.Team.GetMembershipDetails(team.Id, user.Login);
+            return membership.State.ToString().Equals("active", StringComparison.OrdinalIgnoreCase);
+        }
+        catch (NotFoundException ex)
+        {
+            _logger.LogWarning(ex, "Could not verify team membership for {Org}/{TeamSlug}. The team may not exist or the user may not have permission to view it.", org, teamSlug);
+            return false;
+        }
+    }
+
+    public async Task<string> GetFileContentAsync(string repoName, string path)
+    {
+        var client = await GetAuthenticatedClient();
+        try
+        {
+            var contents = await client.Repository.Content.GetAllContents(_options.OrganizationName, repoName, path);
+            var file = contents.FirstOrDefault();
+            if (file == null)
+            {
+                // This case should ideally not be hit if the path is correct and it's a file.
+                // NotFoundException is the primary way to know it doesn't exist.
+                return null;
+            }
+            return file.EncodedContent; // This is Base64 encoded content. The caller will decode it.
+        }
+        catch (Octokit.NotFoundException)
+        {
+            return null;
+        }
+    }
+
+    private async Task<GitHubClient> GetAuthenticatedClient()
     {
         var token = await _cache.GetOrCreateAsync(InstallationTokenCacheKey, async entry =>
         {
             _logger.LogInformation("Installation token not found in cache. Generating a new one.");
-            
+
             var jwt = GetJwt();
             var appClient = new GitHubClient(new ProductHeaderValue("10xGitHubPolicies"), new InMemoryCredentialStore(new Credentials(jwt, AuthenticationType.Bearer)));
-            
+
             var tokenResponse = await appClient.GitHubApps.CreateInstallationToken(_options.InstallationId);
 
             entry.AbsoluteExpiration = tokenResponse.ExpiresAt.AddMinutes(-5); // Cache for 55 minutes
-            
+
             _logger.LogInformation("Successfully generated a new installation token, expiring at {Expiry}", tokenResponse.ExpiresAt);
-            
+
             return tokenResponse.Token;
         });
 
         return new GitHubClient(new ProductHeaderValue("10xGitHubPolicies"), new InMemoryCredentialStore(new Credentials(token)));
     }
-    
+
     private string GetJwt()
     {
         var rsa = RSA.Create();

@@ -1,13 +1,16 @@
 using _10xGitHubPolicies.App.Data;
+using _10xGitHubPolicies.App.Options;
+using _10xGitHubPolicies.App.Services;
+using _10xGitHubPolicies.App.Services.Mock;
+
+using Hangfire;
+
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.EntityFrameworkCore;
-using MudBlazor.Services;
-using _10xGitHubPolicies.App.Options;
 using Microsoft.Extensions.Options;
-using _10xGitHubPolicies.App.Services;
-using _10xGitHubPolicies.App.Services.Mock;
-using Hangfire;
+
+using MudBlazor.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
@@ -36,6 +39,7 @@ builder.Services.AddSwaggerGen();
 
 builder.Services.AddMemoryCache();
 builder.Services.AddSingleton<IGitHubService, GitHubService>();
+builder.Services.AddSingleton<IConfigurationService, ConfigurationService>();
 builder.Services.AddScoped<IScanningService, ScanningService>();
 
 builder.Services.Configure<GitHubAppOptions>(builder.Configuration.GetSection(GitHubAppOptions.GitHubApp));
