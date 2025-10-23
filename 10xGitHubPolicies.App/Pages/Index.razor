@@ -1,7 +1,10 @@
 ﻿@page "/"
 @using _10xGitHubPolicies.App.Services
 @using _10xGitHubPolicies.App.ViewModels
+@using Hangfire
 @inject IDashboardService DashboardService
+@inject IScanningService ScanningService
+@inject IBackgroundJobClient BackgroundJobClient
 
 <PageTitle>Compliance Dashboard</PageTitle>
 
@@ -37,7 +40,21 @@
         <ToolBarContent>
             <MudTextField @bind-Value="_nameFilter" Placeholder="Filter by name..." Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search" IconSize="Size.Medium" Class="mt-0"></MudTextField>
             <MudSpacer />
-            <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Refresh">Scan Now</MudButton>
+            <MudButton Variant="Variant.Filled" 
+                       Color="Color.Primary" 
+                       StartIcon="@Icons.Material.Filled.Refresh" 
+                       OnClick="StartScan"
+                       Disabled="_isScanning">
+                @if (_isScanning)
+                {
+                    <MudProgressCircular Class="ms-n1" Size="Size.Small" Indeterminate="true" />
+                    <MudText Class="ms-2">Scanning...</MudText>
+                }
+                else
+                {
+                    <MudText>Scan Now</MudText>
+                }
+            </MudButton>
         </ToolBarContent>
         <HeaderContent>
             <MudTh>Repository</MudTh>
@@ -63,10 +80,11 @@
 @code {
     private DashboardViewModel? _viewModel;
     private string _nameFilter = string.Empty;
+    private bool _isScanning = false;
 
     protected override async Task OnInitializedAsync()
     {
-        _viewModel = await DashboardService.GetDashboardViewModelAsync();
+        await LoadDashboardData();
     }
 
     private bool FilterFunc(NonCompliantRepositoryViewModel repo)
@@ -76,5 +94,26 @@
         if (repo.Name.Contains(_nameFilter, StringComparison.OrdinalIgnoreCase))
             return true;
         return false;
+    }
+
+    private async Task LoadDashboardData()
+    {
+        _viewModel = await DashboardService.GetDashboardViewModelAsync(_nameFilter);
+    }
+
+    private async Task StartScan()
+    {
+        _isScanning = true;
+        StateHasChanged();
+
+        BackgroundJobClient.Enqueue<IScanningService>(s => s.PerformScanAsync());
+        
+        // A simple delay to allow the background job to start and finish.
+        // In a real-world scenario, you'd use SignalR or a polling mechanism to get completion status.
+        await Task.Delay(5000); 
+
+        await LoadDashboardData();
+        _isScanning = false;
+        StateHasChanged();
     }
 }

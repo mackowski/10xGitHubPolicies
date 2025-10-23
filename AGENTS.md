@@ -114,6 +114,12 @@ You are a senior Blazor and .NET developer and an expert in `C#`, `ASP.NET Core`
 - Use asynchronous methods to avoid blocking threads.
 - Refer to `/docs/github-integration.md` for detailed usage examples and best practices.
 
+### Policy Evaluation Engine
+- Use `IPolicyEvaluationService` to evaluate repositories against configured policies.
+- Individual policy checks are implemented as `IPolicyEvaluator` strategies.
+- To add a new policy, create a new `IPolicyEvaluator` implementation and register it in `Program.cs`.
+- Refer to `/docs/policy-evaluation.md` for a detailed guide on creating new evaluators.
+
 ### Configuration Service
 - Use `IConfigurationService` to retrieve the centralized policy configuration from `.github/config.yaml`.
 - The service handles YAML parsing, validation, and caching automatically.
@@ -127,6 +133,7 @@ You are a senior Blazor and .NET developer and an expert in `C#`, `ASP.NET Core`
 - Keep background jobs small, idempotent, and focused on a single task.
 - Use the Hangfire Dashboard (`/hangfire`) for monitoring jobs.
 - Configure queues and workers appropriately for production environments.
+- Refer to `/docs/hangfire-integration.md` for more details.
 
 Follow the official Microsoft documentation and `ASP.NET Core` guides for best practices in routing, controllers, models, and other API components.
 
@@ -142,7 +149,6 @@ Follow the official Microsoft documentation and `ASP.NET Core` guides for best p
 
 #### API Documentation
 - Use `Swagger`/`OpenAPI` for API documentation. The `Swashbuckle.AspNetCore` package should be used for this.
-  - **Note**: This package is not yet installed. Please add it to the `10xGitHubPolicies.App.csproj` project.
 - Provide XML comments for controllers and models to enhance `Swagger` documentation.
 
 ---

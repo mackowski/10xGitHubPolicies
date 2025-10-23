@@ -1,7 +1,8 @@
 using _10xGitHubPolicies.App.Data;
 using _10xGitHubPolicies.App.Options;
 using _10xGitHubPolicies.App.Services;
-using _10xGitHubPolicies.App.Services.Mock;
+using _10xGitHubPolicies.App.Services.Implementations;
+using _10xGitHubPolicies.App.Services.Implementations.PolicyEvaluators;
 
 using Hangfire;
 
@@ -32,7 +33,7 @@ builder.Services.AddHangfireServer();
 builder.Services.AddRazorPages();
 builder.Services.AddServerSideBlazor();
 builder.Services.AddMudServices();
-builder.Services.AddScoped<IDashboardService, MockDashboardService>();
+builder.Services.AddScoped<IDashboardService, DashboardService>();
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
@@ -41,6 +42,13 @@ builder.Services.AddMemoryCache();
 builder.Services.AddSingleton<IGitHubService, GitHubService>();
 builder.Services.AddSingleton<IConfigurationService, ConfigurationService>();
 builder.Services.AddScoped<IScanningService, ScanningService>();
+
+builder.Services.AddScoped<IPolicyEvaluationService, PolicyEvaluationService>();
+builder.Services.AddScoped<IPolicyEvaluator, HasAgentsMdEvaluator>();
+builder.Services.AddScoped<IPolicyEvaluator, HasCatalogInfoYamlEvaluator>();
+builder.Services.AddScoped<IPolicyEvaluator, CorrectWorkflowPermissionsEvaluator>();
+builder.Services.AddScoped<IActionService, LoggingActionService>();
+
 
 builder.Services.Configure<GitHubAppOptions>(builder.Configuration.GetSection(GitHubAppOptions.GitHubApp));
 

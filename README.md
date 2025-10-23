@@ -10,6 +10,7 @@ A GitHub App to automate the enforcement of organizational policies and security
 ## Table of Contents
 
 - [About The Project](#about-the-project)
+- [Features](#features)
 - [Tech Stack](#tech-stack)
 - [Getting Started](#getting-started)
   - [Prerequisites](#prerequisites)
@@ -26,11 +27,19 @@ A GitHub App to automate the enforcement of organizational policies and security
 
 The 10x GitHub Policy Enforcer is a GitHub App with an accompanying web UI designed to automate the enforcement of organizational policies and security best practices across all repositories within a GitHub organization.
 
-Key features include:
-*   **Automated Scans:** Performs daily and on-demand scans of all active repositories.
-*   **Policy Enforcement:** Verifies compliance against a central configuration file (`config.yaml`).
+It uses a flexible policy evaluation engine to scan repositories for compliance with a centrally managed configuration file. When violations are found, it can automatically perform actions like creating issues in the repository or archiving it. The web dashboard provides a clear overview of your organization's compliance posture.
+
+---
+
+## Features
+
+*   **Automated Scans:** Performs daily (via scheduled jobs) and on-demand scans of all active repositories.
+*   **Centralized Configuration:** All policies are defined in a single `.github/config.yaml` file for easy management.
+*   **Extensible Policy Engine:** The application uses a strategy pattern to make it easy to add new policy evaluators.
 *   **Automated Actions:** Creates issues or archives repositories that violate policies.
-*   **Compliance Dashboard:** Provides a web UI to view non-compliant repositories, violation details, and overall compliance metrics.
+*   **Compliance Dashboard:** A Blazor-based web UI to view non-compliant repositories, violation details, and overall compliance metrics.
+*   **Background Job Processing:** Uses Hangfire for reliable background processing of scans and actions, ensuring the UI remains responsive.
+*   **API Documentation:** Provides Swagger/OpenAPI documentation for any exposed API endpoints.
 
 ---
 
@@ -40,8 +49,9 @@ Key features include:
 | ----------------- | ---------------------------------------- |
 | **Backend**       | ASP.NET Core (.NET 8)                    |
 | **Frontend**      | Blazor Server with MudBlazor             |
-| **Database**      | Azure SQL Database (Serverless Tier)     |
+| **Database**      | Azure SQL Database (or local SQL Server) |
 | **Background Jobs** | Hangfire                                 |
+| **API Docs**      | Swagger / OpenAPI                        |
 | **Hosting**       | Azure App Service                        |
 | **GitHub API**    | Octokit.net                              |
 | **CI/CD**         | GitHub Actions                           |
@@ -73,7 +83,7 @@ To get a local copy up and running, follow these simple steps.
     ```
 4.  Navigate to the application directory:
     ```sh
-    cd 10xGitHubPolicies/10xGitHubPolicies.App
+    cd 10xGitHubPolicies.App
     ```
 5.  Install dependencies:
     ```sh
@@ -91,6 +101,8 @@ Alternatively, you can run the project from the root directory:
 ```sh
 dotnet run --project 10xGitHubPolicies.App/10xGitHubPolicies.App.csproj
 ```
+
+The application will be available at `https://localhost:5001`. The Hangfire dashboard is at `https://localhost:5001/hangfire`.
 
 ---
 
@@ -168,24 +180,26 @@ Detailed documentation for specific features and integrations:
 - **[GitHub Integration](./docs/github-integration.md)**: How to use the GitHub API service for repository management
 - **[Configuration Service](./docs/configuration-service.md)**: Managing centralized policy configuration from `.github/config.yaml`
 - **[Hangfire Integration](./docs/hangfire-integration.md)**: Background job processing and scheduling
+- **[Policy Evaluation](./docs/policy-evaluation.md)**: How the policy evaluation engine works and how to add new policies.
 
 ---
 
 ## Project Scope
 
 ### In Scope (MVP)
+*   ✅ `[done]` Configuration managed via a single `config.yaml` file in the `.github` repository.
+*   ✅ `[done]` Daily and on-demand scanning of all active repositories.
+*   ⏳ `[todo]` Core policies:
+    *   ✅ `[done]` Verify presence of `AGENTS.md`.
+    *   ✅ `[done]` Verify presence of `catalog-info.yaml`.
+    *   ⏳ `[todo]` Verify repository Workflow Permissions are set to 'Read repository contents and packages permissions'.
+*   ⏳ `[todo]` Automated actions:
+    *   ⏳ `[todo]` Create a GitHub Issue in the non-compliant repository.
+    *   ⏳ `[todo]` Archive the non-compliant repository.
+*   ✅ `[done]` A simple dashboard showing non-compliant repositories, violation details, overall compliance percentage, and a repository name filter.
 *   ⏳ `[todo]` Authentication via "Login with GitHub" OAuth flow.
 *   ⏳ `[todo]` Access restricted to a specified GitHub Team.
-*   ⏳ `[todo]` Configuration managed via a single `config.yaml` file in the `.github` repository.
-*   ⏳ `[todo]` Daily and on-demand scanning of all active repositories.
-*   ⏳ `[todo]` Core policies:
-    *   Verify presence of `AGENTS.md`.
-    *   Verify presence of `catalog-info.yaml`.
-    *   Verify repository Workflow Permissions are set to 'Read repository contents and packages permissions'.
-*   ⏳ `[todo]` Automated actions:
-    *   Create a GitHub Issue in the non-compliant repository.
-    *   Archive the non-compliant repository.
-*   ⏳ `[todo]` A simple dashboard showing non-compliant repositories, violation details, overall compliance percentage, and a repository name filter.
+
 
 ### Out of Scope (MVP)
 *   Automatically fixing policy violations (e.g., creating the missing file).
