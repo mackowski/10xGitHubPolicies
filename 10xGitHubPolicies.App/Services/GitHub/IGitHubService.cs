@@ -3,7 +3,7 @@ using System.Threading.Tasks;
 
 using Octokit;
 
-namespace _10xGitHubPolicies.App.Services;
+namespace _10xGitHubPolicies.App.Services.GitHub;
 
 public interface IGitHubService
 {

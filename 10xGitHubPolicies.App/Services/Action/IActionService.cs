@@ -1,4 +1,4 @@
-namespace _10xGitHubPolicies.App.Services;
+namespace _10xGitHubPolicies.App.Services.Action;
 
 /// <summary>
 /// Executes the automated actions based on violations found during a scan.

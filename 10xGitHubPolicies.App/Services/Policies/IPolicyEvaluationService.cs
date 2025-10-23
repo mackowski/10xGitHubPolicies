@@ -1,6 +1,7 @@
-using _10xGitHubPolicies.App.Models.Configuration;
+using _10xGitHubPolicies.App.Services.Configuration.Models;
+using _10xGitHubPolicies.App.Data.Entities;
 
-namespace _10xGitHubPolicies.App.Services;
+namespace _10xGitHubPolicies.App.Services.Policies;
 
 /// <summary>
 /// Evaluates a single repository against all configured policies using the Strategy pattern.
@@ -13,5 +14,5 @@ public interface IPolicyEvaluationService
     /// <param name="repository">The repository to evaluate.</param>
     /// <param name="policies">The list of policies to check against.</param>
     /// <returns>A list of policy violations found for the repository.</returns>
-    Task<IEnumerable<Data.Models.PolicyViolation>> EvaluateRepositoryAsync(Octokit.Repository repository, IEnumerable<PolicyConfig> policies);
+    Task<IEnumerable<PolicyViolation>> EvaluateRepositoryAsync(Octokit.Repository repository, IEnumerable<PolicyConfig> policies);
 }

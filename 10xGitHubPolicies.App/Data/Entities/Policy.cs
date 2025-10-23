@@ -1,4 +1,4 @@
-namespace _10xGitHubPolicies.App.Data.Models;
+namespace _10xGitHubPolicies.App.Data.Entities;
 
 public class Policy
 {

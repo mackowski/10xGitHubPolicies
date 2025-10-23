@@ -1,6 +1,6 @@
 using YamlDotNet.Serialization;
 
-namespace _10xGitHubPolicies.App.Models.Configuration;
+namespace _10xGitHubPolicies.App.Services.Configuration.Models;
 
 public class AppConfig
 {

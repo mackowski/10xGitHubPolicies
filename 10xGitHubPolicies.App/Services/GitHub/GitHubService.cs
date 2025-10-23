@@ -15,7 +15,7 @@ using Microsoft.IdentityModel.Tokens;
 using Octokit;
 using Octokit.Internal;
 
-namespace _10xGitHubPolicies.App.Services;
+namespace _10xGitHubPolicies.App.Services.GitHub;
 
 public class GitHubService : IGitHubService
 {

@@ -1,10 +1,14 @@
 using _10xGitHubPolicies.App.Data;
-using _10xGitHubPolicies.App.Data.Models;
-using _10xGitHubPolicies.App.Models.Configuration;
+using _10xGitHubPolicies.App.Data.Entities;
+using _10xGitHubPolicies.App.Services.Configuration;
+using _10xGitHubPolicies.App.Services.Configuration.Models;
+using _10xGitHubPolicies.App.Services.GitHub;
+using _10xGitHubPolicies.App.Services.Policies;
+using _10xGitHubPolicies.App.Services.Action;
 using Hangfire;
 using Microsoft.EntityFrameworkCore;
 
-namespace _10xGitHubPolicies.App.Services;
+namespace _10xGitHubPolicies.App.Services.Scanning;
 
 public class ScanningService : IScanningService
 {

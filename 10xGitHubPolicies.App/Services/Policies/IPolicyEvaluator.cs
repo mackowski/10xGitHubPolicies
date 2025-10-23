@@ -1,4 +1,6 @@
-namespace _10xGitHubPolicies.App.Services;
+using _10xGitHubPolicies.App.Data.Entities;
+
+namespace _10xGitHubPolicies.App.Services.Policies;
 
 /// <summary>
 /// Represents a single, concrete policy check.
@@ -15,5 +17,5 @@ public interface IPolicyEvaluator
     /// </summary>
     /// <param name="repository">The repository to check.</param>
     /// <returns>A PolicyViolation object if the policy is violated, otherwise null.</returns>
-    Task<Data.Models.PolicyViolation?> EvaluateAsync(Octokit.Repository repository);
+    Task<PolicyViolation?> EvaluateAsync(Octokit.Repository repository);
 }

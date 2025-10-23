@@ -1,7 +1,7 @@
 using _10xGitHubPolicies.App.Data;
 using Microsoft.EntityFrameworkCore;
 
-namespace _10xGitHubPolicies.App.Services.Implementations;
+namespace _10xGitHubPolicies.App.Services.Action;
 
 public class LoggingActionService : IActionService
 {

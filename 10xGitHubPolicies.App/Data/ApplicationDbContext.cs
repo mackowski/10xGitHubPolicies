@@ -1,4 +1,4 @@
-using _10xGitHubPolicies.App.Data.Models;
+using _10xGitHubPolicies.App.Data.Entities;
 
 using Microsoft.EntityFrameworkCore;
 

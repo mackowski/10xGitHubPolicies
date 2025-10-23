@@ -1,6 +1,6 @@
 using _10xGitHubPolicies.App.ViewModels;
 
-namespace _10xGitHubPolicies.App.Services;
+namespace _10xGitHubPolicies.App.Services.Dashboard;
 
 public interface IDashboardService
 {

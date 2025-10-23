@@ -1,7 +1,8 @@
 using System.Text;
 
 using _10xGitHubPolicies.App.Exceptions;
-using _10xGitHubPolicies.App.Models.Configuration;
+using _10xGitHubPolicies.App.Services.Configuration.Models;
+using _10xGitHubPolicies.App.Services.GitHub;
 using _10xGitHubPolicies.App.Options;
 
 using Microsoft.Extensions.Caching.Memory;
@@ -11,7 +12,7 @@ using YamlDotNet.Core;
 using YamlDotNet.Serialization;
 using YamlDotNet.Serialization.NamingConventions;
 
-namespace _10xGitHubPolicies.App.Services;
+namespace _10xGitHubPolicies.App.Services.Configuration;
 
 public class ConfigurationService : IConfigurationService
 {

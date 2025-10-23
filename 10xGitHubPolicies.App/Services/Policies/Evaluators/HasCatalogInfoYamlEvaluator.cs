@@ -1,4 +1,7 @@
-namespace _10xGitHubPolicies.App.Services.Implementations.PolicyEvaluators;
+using _10xGitHubPolicies.App.Data.Entities;
+using _10xGitHubPolicies.App.Services.GitHub;
+
+namespace _10xGitHubPolicies.App.Services.Policies.Evaluators;
 
 public class HasCatalogInfoYamlEvaluator : IPolicyEvaluator
 {
@@ -11,12 +14,12 @@ public class HasCatalogInfoYamlEvaluator : IPolicyEvaluator
 
     public string PolicyType => "has_catalog_info_yaml";
 
-    public async Task<Data.Models.PolicyViolation?> EvaluateAsync(Octokit.Repository repository)
+    public async Task<PolicyViolation?> EvaluateAsync(Octokit.Repository repository)
     {
         var fileExists = await _githubService.FileExistsAsync(repository.Id, "catalog-info.yaml");
         if (!fileExists)
         {
-            return new Data.Models.PolicyViolation
+            return new PolicyViolation
             {
                 PolicyType = PolicyType
             };

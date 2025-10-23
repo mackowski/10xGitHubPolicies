@@ -1,16 +1,17 @@
 using _10xGitHubPolicies.App.Data;
 using _10xGitHubPolicies.App.Options;
-using _10xGitHubPolicies.App.Services;
-using _10xGitHubPolicies.App.Services.Implementations;
-using _10xGitHubPolicies.App.Services.Implementations.PolicyEvaluators;
-
+using _10xGitHubPolicies.App.Services.Action;
+using _10xGitHubPolicies.App.Services.Configuration;
+using _10xGitHubPolicies.App.Services.Dashboard;
+using _10xGitHubPolicies.App.Services.GitHub;
+using _10xGitHubPolicies.App.Services.Policies;
+using _10xGitHubPolicies.App.Services.Policies.Evaluators;
+using _10xGitHubPolicies.App.Services.Scanning;
 using Hangfire;
-
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
-
 using MudBlazor.Services;
 
 var builder = WebApplication.CreateBuilder(args);

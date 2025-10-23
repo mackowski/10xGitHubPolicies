@@ -22,7 +22,7 @@ namespace _10xGitHubPolicies.App.Migrations
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
 
-            modelBuilder.Entity("_10xGitHubPolicies.App.Data.Models.ActionLog", b =>
+            modelBuilder.Entity("_10xGitHubPolicies.App.Data.Entities.ActionLog", b =>
                 {
                     b.Property<int>("ActionLogId")
                         .ValueGeneratedOnAdd()
@@ -59,7 +59,7 @@ namespace _10xGitHubPolicies.App.Migrations
                     b.ToTable("ActionsLogs");
                 });
 
-            modelBuilder.Entity("_10xGitHubPolicies.App.Data.Models.Policy", b =>
+            modelBuilder.Entity("_10xGitHubPolicies.App.Data.Entities.Policy", b =>
                 {
                     b.Property<int>("PolicyId")
                         .ValueGeneratedOnAdd()
@@ -87,7 +87,7 @@ namespace _10xGitHubPolicies.App.Migrations
                     b.ToTable("Policies");
                 });
 
-            modelBuilder.Entity("_10xGitHubPolicies.App.Data.Models.PolicyViolation", b =>
+            modelBuilder.Entity("_10xGitHubPolicies.App.Data.Entities.PolicyViolation", b =>
                 {
                     b.Property<int>("ViolationId")
                         .ValueGeneratedOnAdd()
@@ -116,7 +116,7 @@ namespace _10xGitHubPolicies.App.Migrations
                     b.ToTable("PolicyViolations");
                 });
 
-            modelBuilder.Entity("_10xGitHubPolicies.App.Data.Models.Repository", b =>
+            modelBuilder.Entity("_10xGitHubPolicies.App.Data.Entities.Repository", b =>
                 {
                     b.Property<int>("RepositoryId")
                         .ValueGeneratedOnAdd()
@@ -148,7 +148,7 @@ namespace _10xGitHubPolicies.App.Migrations
                     b.ToTable("Repositories");
                 });
 
-            modelBuilder.Entity("_10xGitHubPolicies.App.Data.Models.Scan", b =>
+            modelBuilder.Entity("_10xGitHubPolicies.App.Data.Entities.Scan", b =>
                 {
                     b.Property<int>("ScanId")
                         .ValueGeneratedOnAdd()
@@ -171,15 +171,15 @@ namespace _10xGitHubPolicies.App.Migrations
                     b.ToTable("Scans");
                 });
 
-            modelBuilder.Entity("_10xGitHubPolicies.App.Data.Models.ActionLog", b =>
+            modelBuilder.Entity("_10xGitHubPolicies.App.Data.Entities.ActionLog", b =>
                 {
-                    b.HasOne("_10xGitHubPolicies.App.Data.Models.Policy", "Policy")
+                    b.HasOne("_10xGitHubPolicies.App.Data.Entities.Policy", "Policy")
                         .WithMany()
                         .HasForeignKey("PolicyId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("_10xGitHubPolicies.App.Data.Models.Repository", "Repository")
+                    b.HasOne("_10xGitHubPolicies.App.Data.Entities.Repository", "Repository")
                         .WithMany()
                         .HasForeignKey("RepositoryId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -190,21 +190,21 @@ namespace _10xGitHubPolicies.App.Migrations
                     b.Navigation("Repository");
                 });
 
-            modelBuilder.Entity("_10xGitHubPolicies.App.Data.Models.PolicyViolation", b =>
+            modelBuilder.Entity("_10xGitHubPolicies.App.Data.Entities.PolicyViolation", b =>
                 {
-                    b.HasOne("_10xGitHubPolicies.App.Data.Models.Policy", "Policy")
+                    b.HasOne("_10xGitHubPolicies.App.Data.Entities.Policy", "Policy")
                         .WithMany()
                         .HasForeignKey("PolicyId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("_10xGitHubPolicies.App.Data.Models.Repository", "Repository")
+                    b.HasOne("_10xGitHubPolicies.App.Data.Entities.Repository", "Repository")
                         .WithMany()
                         .HasForeignKey("RepositoryId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("_10xGitHubPolicies.App.Data.Models.Scan", "Scan")
+                    b.HasOne("_10xGitHubPolicies.App.Data.Entities.Scan", "Scan")
                         .WithMany()
                         .HasForeignKey("ScanId")
                         .OnDelete(DeleteBehavior.Cascade)

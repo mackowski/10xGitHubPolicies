@@ -1,6 +1,7 @@
-using _10xGitHubPolicies.App.Models.Configuration;
+using _10xGitHubPolicies.App.Services.Configuration.Models;
+using _10xGitHubPolicies.App.Data.Entities;
 
-namespace _10xGitHubPolicies.App.Services.Implementations;
+namespace _10xGitHubPolicies.App.Services.Policies;
 
 public class PolicyEvaluationService : IPolicyEvaluationService
 {
@@ -11,9 +12,9 @@ public class PolicyEvaluationService : IPolicyEvaluationService
         _evaluators = evaluators;
     }
 
-    public async Task<IEnumerable<Data.Models.PolicyViolation>> EvaluateRepositoryAsync(Octokit.Repository repository, IEnumerable<PolicyConfig> policies)
+    public async Task<IEnumerable<PolicyViolation>> EvaluateRepositoryAsync(Octokit.Repository repository, IEnumerable<PolicyConfig> policies)
     {
-        var violations = new List<Data.Models.PolicyViolation>();
+        var violations = new List<PolicyViolation>();
 
         foreach (var policy in policies)
         {
