@@ -48,7 +48,7 @@ It uses a flexible policy evaluation engine to scan repositories for compliance 
 | Category          | Technology                               |
 | ----------------- | ---------------------------------------- |
 | **Backend**       | ASP.NET Core (.NET 8)                    |
-| **Frontend**      | Blazor Server with MudBlazor             |
+| **Frontend**      | Blazor Server with Microsoft Fluent UI   |
 | **Database**      | Azure SQL Database (or local SQL Server) |
 | **Background Jobs** | Hangfire                                 |
 | **API Docs**      | Swagger / OpenAPI                        |
@@ -207,6 +207,15 @@ Detailed documentation for specific features and integrations:
 *   Advanced policy types (e.g., checking file content, branch protection rules).
 *   User-level permissions within the application.
 *   Repository-level exceptions or overrides in the UI.
+
+### Ideas
+*   Advanced policy types (e.g., checking file content)
+*   Action - PR Blocking
+*   Action - Log only
+*   Action - Slack notification
+*   Exception policies
+*   Getting team ownership and 
+
 
 ---
 

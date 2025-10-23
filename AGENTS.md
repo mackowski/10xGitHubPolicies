@@ -51,9 +51,9 @@ You are a senior Blazor and .NET developer and an expert in `C#`, `ASP.NET Core`
 - Use `C#`'s expressive syntax (e.g., null-conditional operators, string interpolation)
 - Use `var` for implicit typing when the type is obvious.
 
-### Frontend Development (Blazor & MudBlazor)
-- Use `MudBlazor` components to build the UI for a consistent look and feel.
-- Adhere to a consistent styling and theming strategy using `MudBlazor`'s theme provider.
+### Frontend Development (Blazor & Fluent UI)
+- Use `Microsoft.FluentUI.AspNetCore.Components` to build the UI for a consistent look and feel.
+- Adhere to a consistent styling and theming strategy using Fluent UI's theme provider.
 - Manage application state carefully. For complex state, consider using a cascading parameter-based state container.
 
 ### Error Handling and Validation

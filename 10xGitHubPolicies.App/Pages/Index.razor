@@ -3,103 +3,168 @@
 @using _10xGitHubPolicies.App.Services.Scanning
 @using _10xGitHubPolicies.App.ViewModels
 @using Hangfire
+@using Microsoft.FluentUI.AspNetCore.Components
+@using Microsoft.FluentUI.AspNetCore.Components.Icons
+@using System.Linq
 @inject IDashboardService DashboardService
 @inject IScanningService ScanningService
 @inject IBackgroundJobClient BackgroundJobClient
 
 <PageTitle>Compliance Dashboard</PageTitle>
 
-<MudGrid Justify="Justify.FlexStart" Spacing="3">
-    <MudItem xs="12" sm="6" md="3">
-        <MudPaper Elevation="2" Class="pa-4" Style="height: 100%;">
-            <MudText Typo="Typo.h6">Overall Compliance</MudText>
-            <MudText Typo="Typo.h3">@($"{_viewModel?.CompliancePercentage:F2}%")</MudText>
-        </MudPaper>
-    </MudItem>
-    <MudItem xs="12" sm="6" md="3">
-        <MudPaper Elevation="2" Class="pa-4" Style="height: 100%;">
-            <MudText Typo="Typo.h6">Total Repositories</MudText>
-            <MudText Typo="Typo.h3">@_viewModel?.TotalRepositories</MudText>
-        </MudPaper>
-    </MudItem>
-    <MudItem xs="12" sm="6" md="3">
-        <MudPaper Elevation="2" Class="pa-4" Style="height: 100%; background-color: var(--mud-palette-success); color: var(--mud-palette-success-text);">
-            <MudText Typo="Typo.h6">Compliant</MudText>
-            <MudText Typo="Typo.h3">@_viewModel?.CompliantRepositories</MudText>
-        </MudPaper>
-    </MudItem>
-    <MudItem xs="12" sm="6" md="3">
-        <MudPaper Elevation="2" Class="pa-4" Style="height: 100%; background-color: var(--mud-palette-error); color: var(--mud-palette-error-text);">
-            <MudText Typo="Typo.h6">Non-Compliant</MudText>
-            <MudText Typo="Typo.h3">@_viewModel?.NonCompliantRepositoriesCount</MudText>
-        </MudPaper>
-    </MudItem>
-</MudGrid>
+@if (_viewModel == null)
+{
+    <FluentProgress Ring="true" />
+}
+else
+{
+    <div class="kpi-grid">
+        <FluentCard class="kpi-card">
+            <div class="kpi-title">
+                <FluentIcon Icon="@(Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size24.ChartMultiple)" />
+                <span>Overall Compliance</span>
+            </div>
+            <div class="kpi-value">@($"{_viewModel.CompliancePercentage:F2}%")</div>
+        </FluentCard>
 
-<MudPaper Elevation="2" Class="mt-4">
-    <MudTable Items="@_viewModel?.NonCompliantRepositories" Dense="true" Hover="true" Filter="new Func<NonCompliantRepositoryViewModel, bool>(FilterFunc)">
-        <ToolBarContent>
-            <MudTextField @bind-Value="_nameFilter" Placeholder="Filter by name..." Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search" IconSize="Size.Medium" Class="mt-0"></MudTextField>
-            <MudSpacer />
-            <MudButton Variant="Variant.Filled" 
-                       Color="Color.Primary" 
-                       StartIcon="@Icons.Material.Filled.Refresh" 
-                       OnClick="StartScan"
-                       Disabled="_isScanning">
-                @if (_isScanning)
-                {
-                    <MudProgressCircular Class="ms-n1" Size="Size.Small" Indeterminate="true" />
-                    <MudText Class="ms-2">Scanning...</MudText>
-                }
-                else
-                {
-                    <MudText>Scan Now</MudText>
-                }
-            </MudButton>
-        </ToolBarContent>
-        <HeaderContent>
-            <MudTh>Repository</MudTh>
-            <MudTh>Violations</MudTh>
-        </HeaderContent>
-        <RowTemplate>
-            <MudTd DataLabel="Repository">
-                <MudLink Href="@context.Url" Target="_blank">@context.Name</MudLink>
-            </MudTd>
-            <MudTd DataLabel="Violations">
-                @foreach (var policy in context.ViolatedPolicies)
-                {
-                    <MudChip T="string" Text="@policy" Color="Color.Error" Size="Size.Small" />
-                }
-            </MudTd>
-        </RowTemplate>
-        <PagerContent>
-            <MudTablePager />
-        </PagerContent>
-    </MudTable>
-</MudPaper>
+        <FluentCard class="kpi-card">
+            <div class="kpi-title">
+                <FluentIcon Icon="@(Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size24.Apps)" />
+                <span>Total Repositories</span>
+            </div>
+            <div class="kpi-value">@_viewModel.TotalRepositories</div>
+        </FluentCard>
+
+        <FluentCard class="kpi-card compliant">
+            <div class="kpi-title">
+                <FluentIcon Icon="@(Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size24.ShieldCheckmark)" />
+                <span>Compliant</span>
+            </div>
+            <div class="kpi-value">@_viewModel.CompliantRepositories</div>
+        </FluentCard>
+
+        <FluentCard class="kpi-card non-compliant">
+            <div class="kpi-title">
+                <FluentIcon Icon="@(Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size24.ShieldError)" />
+                <span>Non-Compliant</span>
+            </div>
+            <div class="kpi-value">@_viewModel.NonCompliantRepositoriesCount</div>
+        </FluentCard>
+    </div>
+
+    <FluentCard Class="mt-4" Style="padding: 16px; margin-top: 2rem;">
+        <FluentStack Orientation="Orientation.Horizontal" VerticalAlignment="VerticalAlignment.Center" Style="width: 100%;">
+            <FluentStack Orientation="Orientation.Horizontal" VerticalAlignment="VerticalAlignment.Center">
+                <FluentIcon Icon="@(Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size24.ShieldError)" />
+                <h3 style="margin-left: 8px; margin-bottom: 0;">Non-Compliant Repositories</h3>
+            </FluentStack>
+
+            <FluentSpacer />
+            
+            <FluentStack Orientation="Orientation.Horizontal" VerticalAlignment="VerticalAlignment.Center">
+                <FluentTextField @bind-Value="_repositoryFilter" Placeholder="Filter by name..." Immediate="true" Style="width: 250px;"/>
+                <FluentButton Id="scan-button" Appearance="Appearance.Accent" OnClick="StartScan" Disabled="@_isScanning" Style="margin-left: 16px;">
+                    @if (_isScanning)
+                    {
+                        <FluentProgress Ring="true" />
+                        <span>Scanning...</span>
+                    }
+                    else
+                    {
+                        <span>Scan Now</span>
+                    }
+                </FluentButton>
+            </FluentStack>
+        </FluentStack>
+
+        @if (GetFilteredRepositories().Any())
+        {
+            <FluentDataGrid Items="@GetFilteredRepositories().AsQueryable()" TGridItem="NonCompliantRepositoryViewModel" Striped="true" Style="margin-top: 16px;">
+                <TemplateColumn Title="Repository">
+                    <FluentAnchor Href="@context.Url" Target="_blank" Appearance="Appearance.Hypertext">@context.Name</FluentAnchor>
+                </TemplateColumn>
+                <TemplateColumn Title="Violations">
+                    <FluentStack Wrap="true">
+                        @foreach (var policy in context.ViolatedPolicies)
+                        {
+                            <FluentBadge Appearance="Appearance.Accent" Style="margin: 2px;">@policy</FluentBadge>
+                        }
+                    </FluentStack>
+                </TemplateColumn>
+            </FluentDataGrid>
+        }
+        else
+        {
+            <div style="padding: 24px; text-align: center;">
+                <p>All repositories are compliant or match the current filter.</p>
+            </div>
+        }
+    </FluentCard>
+}
+
+<style>
+    .kpi-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 1rem;
+        margin-top: 1rem;
+    }
+
+    .kpi-card {
+        padding: 16px;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+    }
+
+    .kpi-title {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 1rem;
+        color: var(--neutral-foreground-rest);
+    }
+    
+    .kpi-value {
+        font-size: 2.5rem;
+        font-weight: 600;
+        margin-top: 16px;
+        text-align: right;
+    }
+    
+    .compliant {
+        border-left: 4px solid var(--success-fill-rest);
+    }
+    
+    .non-compliant {
+        border-left: 4px solid var(--error-fill-rest);
+    }
+</style>
 
 @code {
     private DashboardViewModel? _viewModel;
-    private string _nameFilter = string.Empty;
     private bool _isScanning = false;
+    private string _repositoryFilter = string.Empty;
+
+    private IEnumerable<NonCompliantRepositoryViewModel> GetFilteredRepositories()
+    {
+        if (_viewModel?.NonCompliantRepositories == null)
+        {
+            return Enumerable.Empty<NonCompliantRepositoryViewModel>();
+        }
+
+        return _viewModel.NonCompliantRepositories
+            .Where(r => string.IsNullOrWhiteSpace(_repositoryFilter) || r.Name.Contains(_repositoryFilter, StringComparison.OrdinalIgnoreCase));
+    }
 
     protected override async Task OnInitializedAsync()
     {
         await LoadDashboardData();
     }
 
-    private bool FilterFunc(NonCompliantRepositoryViewModel repo)
-    {
-        if (string.IsNullOrWhiteSpace(_nameFilter))
-            return true;
-        if (repo.Name.Contains(_nameFilter, StringComparison.OrdinalIgnoreCase))
-            return true;
-        return false;
-    }
-
     private async Task LoadDashboardData()
     {
-        _viewModel = await DashboardService.GetDashboardViewModelAsync(_nameFilter);
+        _viewModel = await DashboardService.GetDashboardViewModelAsync(string.Empty);
     }
 
     private async Task StartScan()

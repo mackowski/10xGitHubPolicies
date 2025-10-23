@@ -6,9 +6,9 @@
 *   **Centralized Logic:** Enables the creation of a centralized service to read the `config.yaml`, run scans, and enforce the core policies (e.g., file presence, workflow permissions) described in section 3.4.
 *   **API Integration:** Serves as the backbone for all interactions with the GitHub API, handling the logic for scanning repositories and executing automated actions.
 
-### Frontend: Blazor Server + MudBlazor
+### Frontend: Blazor Server + Microsoft Fluent UI
 
-*   **Rapid UI Development:** The MudBlazor component library allows for the quick assembly of the compliance dashboard (US-006), including the repository list, filter, and summary metrics, accelerating MVP delivery.
+*   **Rapid UI Development:** The Microsoft Fluent UI component library allows for the quick assembly of the compliance dashboard (US-006), including the repository list, filter, and summary metrics, accelerating MVP delivery.
 *   **Simplified Real-time Updates:** Blazor Server's architecture provides real-time UI feedback for on-demand scans (US-008) out-of-the-box, removing the need for a separate, more complex real-time messaging service.
 *   **Interactive Experience:** Facilitates the creation of a responsive user experience, including the real-time repository filter (US-007) and the guided setup for first-time users (US-003).
 
