@@ -122,6 +122,15 @@ policies:
       title: 'Compliance: Your new policy violation'
       body: 'Details about why this is a violation.'
       labels: ['policy-violation', 'your-label']
+
+  # Example: Workflow Permissions Policy
+  - name: 'Verify Workflow Permissions'
+    type: 'correct_workflow_permissions'
+    action: 'create-issue'
+    issue_details:
+      title: 'Security: Workflow permissions should be read-only'
+      body: 'This repository has GitHub Actions workflow permissions set to write. For security, please change the default workflow permissions to "Read repository contents and packages permissions" in Settings > Actions > General.'
+      labels: ['policy-violation', 'security']
 ```
 
 Once these steps are completed, the `ScanningService` will automatically pick up and execute your new policy evaluator during the next scan.

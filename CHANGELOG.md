@@ -5,6 +5,32 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 0.3
+
+### Added
+- **Workflow Permissions Policy Evaluator**: Implemented `CorrectWorkflowPermissionsEvaluator` to enforce security best practices for GitHub Actions workflow permissions.
+  - Added `GetWorkflowPermissionsAsync()` method to `IGitHubService` and `GitHubService` to retrieve repository workflow permissions via GitHub API
+  - Added `WorkflowPermissionsResponse` class for API response deserialization
+  - Policy checks that repositories have read-only workflow permissions (security compliance)
+  - Handles cases where GitHub Actions are disabled (treated as compliant)
+- **Enhanced GitHub Integration**: Extended GitHub service with workflow permissions API integration
+  - Uses GitHub API endpoint `GET /repos/{owner}/{repo}/actions/permissions/workflow`
+  - Proper error handling for repositories with disabled Actions
+  - Returns "read", "write", or null for disabled Actions
+- **Documentation Updates**: 
+  - Updated `docs/github-integration.md` with new `GetWorkflowPermissionsAsync` method documentation and usage examples
+  - Updated `docs/policy-evaluation.md` with complete workflow permissions policy configuration example
+  - Added policy violation issue template for workflow permissions violations
+
+### Changed
+- **Policy Evaluation**: `CorrectWorkflowPermissionsEvaluator` now implements actual policy logic instead of placeholder TODO
+- **Security Enhancement**: Enforces that repositories must have read-only workflow permissions to prevent unnecessary write access in GitHub Actions
+
+### Dependencies
+- No new dependencies added (uses existing Octokit.net library)
+
+---
+
 ## 0.2
 
 ### Changed

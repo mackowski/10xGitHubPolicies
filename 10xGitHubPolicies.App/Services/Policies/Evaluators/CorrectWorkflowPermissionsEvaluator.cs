@@ -16,10 +16,23 @@ public class CorrectWorkflowPermissionsEvaluator : IPolicyEvaluator
 
     public async Task<PolicyViolation?> EvaluateAsync(Octokit.Repository repository)
     {
-        // TODO: Implement the logic to check workflow permissions.
-        // This will likely require a new method in IGitHubService to get repository actions settings.
-        // For now, we'll assume it's always compliant.
-        await Task.CompletedTask;
+        var permissions = await _githubService.GetWorkflowPermissionsAsync(repository.Id);
+        
+        // If permissions is null, Actions might be disabled - consider this compliant
+        if (permissions == null)
+        {
+            return null;
+        }
+        
+        // Check if permissions are set to "read" (the secure, restrictive setting)
+        if (permissions != "read")
+        {
+            return new PolicyViolation
+            {
+                PolicyType = PolicyType
+            };
+        }
+        
         return null;
     }
 }

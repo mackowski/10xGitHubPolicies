@@ -14,4 +14,5 @@ public interface IGitHubService
     Task ArchiveRepositoryAsync(long repositoryId);
     Task<bool> IsUserMemberOfTeamAsync(string userAccessToken, string org, string teamSlug);
     Task<string> GetFileContentAsync(string repoName, string path);
+    Task<string> GetWorkflowPermissionsAsync(long repositoryId);
 }

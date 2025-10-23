@@ -116,6 +116,24 @@ public class GitHubService : IGitHubService
         }
     }
 
+    public async Task<string> GetWorkflowPermissionsAsync(long repositoryId)
+    {
+        var client = await GetAuthenticatedClient();
+        try
+        {
+            // Use the GitHub API endpoint: GET /repos/{owner}/{repo}/actions/permissions/workflow
+            var connection = client.Connection;
+            var endpoint = new Uri($"repositories/{repositoryId}/actions/permissions/workflow", UriKind.Relative);
+            var response = await connection.Get<WorkflowPermissionsResponse>(endpoint, null);
+            return response.Body.DefaultWorkflowPermissions;
+        }
+        catch (NotFoundException)
+        {
+            _logger.LogWarning("Workflow permissions not found for repository {RepositoryId}. Actions may be disabled.", repositoryId);
+            return null;
+        }
+    }
+
     private async Task<GitHubClient> GetAuthenticatedClient()
     {
         var token = await _cache.GetOrCreateAsync(InstallationTokenCacheKey, async entry =>
@@ -154,4 +172,11 @@ public class GitHubService : IGitHubService
         var token = tokenHandler.CreateToken(tokenDescriptor);
         return tokenHandler.WriteToken(token);
     }
+}
+
+// Add a private class for deserialization
+public class WorkflowPermissionsResponse
+{
+    public string DefaultWorkflowPermissions { get; set; }
+    public bool CanApprovePullRequestReviews { get; set; }
 }

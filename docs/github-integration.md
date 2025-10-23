@@ -14,6 +14,7 @@ This document outlines the approach to integrating with the GitHub API using the
     - `Task ArchiveRepositoryAsync(long repositoryId)`: Archives a repository.
     - `Task<bool> IsUserMemberOfTeamAsync(string userAccessToken, string org, string teamSlug)`: Verifies if a user is a member of a specific GitHub team (used for access control).
     - `Task<string> GetFileContentAsync(string repoName, string path)`: Retrieves file content from a repository. Returns Base64-encoded content or `null` if the file doesn't exist.
+    - `Task<string> GetWorkflowPermissionsAsync(long repositoryId)`: Gets the default workflow permissions for a repository. Returns "read" or "write", or null if Actions are disabled.
 
 ### `GitHubService`
 - **Purpose**: Implements `IGitHubService` and handles the authentication and caching of the GitHub App installation token.
@@ -137,6 +138,20 @@ public class AccessControlService
             "my-org", 
             teamSlug
         );
+    }
+}
+```
+
+### Example: Checking Workflow Permissions
+
+```csharp
+public async Task CheckRepositorySecurityAsync(long repositoryId)
+{
+    var permissions = await _gitHubService.GetWorkflowPermissionsAsync(repositoryId);
+    
+    if (permissions == "write")
+    {
+        _logger.LogWarning("Repository {RepoId} has write permissions for workflows", repositoryId);
     }
 }
 ```
