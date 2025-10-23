@@ -7,7 +7,9 @@ using _10xGitHubPolicies.App.Services.GitHub;
 using _10xGitHubPolicies.App.Services.Policies;
 using _10xGitHubPolicies.App.Services.Policies.Evaluators;
 using _10xGitHubPolicies.App.Services.Scanning;
+
 using Hangfire;
+
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.EntityFrameworkCore;
@@ -48,7 +50,7 @@ builder.Services.AddScoped<IPolicyEvaluationService, PolicyEvaluationService>();
 builder.Services.AddScoped<IPolicyEvaluator, HasAgentsMdEvaluator>();
 builder.Services.AddScoped<IPolicyEvaluator, HasCatalogInfoYamlEvaluator>();
 builder.Services.AddScoped<IPolicyEvaluator, CorrectWorkflowPermissionsEvaluator>();
-builder.Services.AddScoped<IActionService, LoggingActionService>();
+builder.Services.AddScoped<IActionService, ActionService>();
 
 
 builder.Services.Configure<GitHubAppOptions>(builder.Configuration.GetSection(GitHubAppOptions.GitHubApp));
@@ -73,28 +75,6 @@ app.UseSwaggerUI();
 app.UseRouting();
 
 app.UseHangfireDashboard();
-
-// Verification endpoint
-app.MapGet("/verify-scan", async (IScanningService scanningService, ILogger<Program> logger) =>
-{
-    try
-    {
-        await scanningService.PerformScanAsync();
-        return Results.Ok("Scan completed successfully. Check logs for details.");
-    }
-    catch (Exception ex)
-    {
-        logger.LogError(ex, "Failed to perform scan.");
-        return Results.Problem("Failed to perform scan.");
-    }
-});
-
-// Endpoint to enqueue a test job
-app.MapGet("/log-job", (IBackgroundJobClient backgroundJobClient) =>
-{
-    var jobId = backgroundJobClient.Enqueue(() => Console.WriteLine("Hello from a Hangfire job!"));
-    return Results.Ok($"Job '{jobId}' enqueued.");
-});
 
 app.MapBlazorHub();
 app.MapFallbackToPage("/_Host");

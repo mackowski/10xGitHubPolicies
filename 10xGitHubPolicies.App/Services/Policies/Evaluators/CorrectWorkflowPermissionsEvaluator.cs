@@ -17,13 +17,13 @@ public class CorrectWorkflowPermissionsEvaluator : IPolicyEvaluator
     public async Task<PolicyViolation?> EvaluateAsync(Octokit.Repository repository)
     {
         var permissions = await _githubService.GetWorkflowPermissionsAsync(repository.Id);
-        
+
         // If permissions is null, Actions might be disabled - consider this compliant
         if (permissions == null)
         {
             return null;
         }
-        
+
         // Check if permissions are set to "read" (the secure, restrictive setting)
         if (permissions != "read")
         {
@@ -32,7 +32,7 @@ public class CorrectWorkflowPermissionsEvaluator : IPolicyEvaluator
                 PolicyType = PolicyType
             };
         }
-        
+
         return null;
     }
 }

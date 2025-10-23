@@ -1,0 +1,26 @@
+# Access control: Specify the GitHub team authorized to access the dashboard.
+# Format: 'organization-slug/team-slug'
+access_control:
+  authorized_team: 'my-org/security-team'
+
+# Policies: Define the rules to enforce across your organization's repositories.
+policies:
+  - name: 'Check for AGENTS.md'
+    type: 'has_agents_md'
+    action: 'create_issue'
+    issue_details:
+      title: 'Compliance: AGENTS.md file is missing'
+      body: 'This repository is missing the AGENTS.md file in its root directory. Please add this file to comply with organization standards.'
+      labels: ['policy-violation', 'documentation']
+
+  - name: 'Check for catalog-info.yaml'
+    type: 'has_catalog_info_yaml'
+    action: 'create_issue'
+    issue_details:
+      title: 'Compliance: catalog-info.yaml is missing'
+      body: 'This repository is missing the catalog-info.yaml file. This file is required for backstage.io service discovery.'
+      labels: ['policy-violation', 'backstage']
+      
+  - name: 'Verify Workflow Permissions'
+    type: 'correct_workflow_permissions'
+    action: 'log_only'

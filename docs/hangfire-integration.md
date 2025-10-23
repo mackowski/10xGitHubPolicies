@@ -46,7 +46,7 @@ The dashboard is accessible at the `/hangfire` endpoint of the application (e.g.
 Hangfire is primarily used in two places:
 
 1.  **On-Demand Repository Scanning**: When a user clicks the "Scan Now" button on the dashboard.
-2.  **Processing Actions for Violations**: After a scan is completed, a job is enqueued to process the configured actions for any violations found.
+2.  **Processing Actions for Violations**: After a scan is completed, a job is enqueued to process the configured actions for any violations found using the `ActionService`.
 
 ### Enqueuing a Scan
 
@@ -88,6 +88,13 @@ public async Task PerformScanAsync()
     _logger.LogInformation("Repository scan finished. Enqueued action processing job.");
 }
 ```
+
+The `ActionService` processes violations by:
+- Creating GitHub issues for violations with `create-issue` action
+- Archiving repositories for violations with `archive-repo` action  
+- Logging violations for `log-only` actions
+- Preventing duplicate issue creation
+- Logging all actions to the `ActionLog` table
 
 This decouples the scanning process from the action-taking process. This is a robust design because even if the action-taking process fails, it can be retried independently from the scan itself, and the scan results are already safely stored in the database.
 

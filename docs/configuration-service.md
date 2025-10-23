@@ -65,18 +65,41 @@ Defines a single policy rule.
 ```csharp
 public class PolicyConfig
 {
-    public string Name { get; set; }
-    public string Type { get; set; }
-    public string Action { get; set; }
-    public IssueDetails IssueDetails { get; set; }
+    public string Name { get; set; } = string.Empty;
+    public string Type { get; set; } = string.Empty;
+    public string Action { get; set; } = string.Empty;
+    public IssueDetails? IssueDetails { get; set; }
 }
 ```
 
 **Fields**:
 - `Name`: Human-readable name for the policy
 - `Type`: Policy type identifier (e.g., `has_agents_md`, `has_catalog_info_yaml`, `correct_workflow_permissions`)
-- `Action`: Action to take when policy is violated (`create-issue` or `archive-repo`)
-- `IssueDetails`: Details for the issue to create (if `Action` is `create-issue`)
+- `Action`: Action to take when policy is violated (`create-issue`, `archive-repo`, or `log-only`)
+- `IssueDetails`: Optional details for the issue to create (if `Action` is `create-issue`)
+
+### `IssueDetails`
+
+Defines the details for issue creation when using the `create-issue` action.
+
+```csharp
+public class IssueDetails
+{
+    [YamlMember(Alias = "title")]
+    public string Title { get; set; } = string.Empty;
+
+    [YamlMember(Alias = "body")]
+    public string Body { get; set; } = string.Empty;
+
+    [YamlMember(Alias = "labels")]
+    public List<string> Labels { get; set; } = new();
+}
+```
+
+**Fields**:
+- `Title`: The title of the issue to create
+- `Body`: The body/description of the issue
+- `Labels`: List of labels to apply to the issue
 
 ## Configuration File Format
 

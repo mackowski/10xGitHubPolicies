@@ -13,8 +13,9 @@ This document outlines the approach to integrating with the GitHub API using the
     - `Task<Issue> CreateIssueAsync(long repositoryId, string title, string body, IEnumerable<string> labels)`: Creates an issue in a repository with the specified title, body, and labels.
     - `Task ArchiveRepositoryAsync(long repositoryId)`: Archives a repository.
     - `Task<bool> IsUserMemberOfTeamAsync(string userAccessToken, string org, string teamSlug)`: Verifies if a user is a member of a specific GitHub team (used for access control).
-    - `Task<string> GetFileContentAsync(string repoName, string path)`: Retrieves file content from a repository. Returns Base64-encoded content or `null` if the file doesn't exist.
-    - `Task<string> GetWorkflowPermissionsAsync(long repositoryId)`: Gets the default workflow permissions for a repository. Returns "read" or "write", or null if Actions are disabled.
+    - `Task<string?> GetFileContentAsync(string repoName, string path)`: Retrieves file content from a repository. Returns Base64-encoded content or `null` if the file doesn't exist.
+    - `Task<string?> GetWorkflowPermissionsAsync(long repositoryId)`: Gets the default workflow permissions for a repository. Returns "read" or "write", or null if Actions are disabled.
+    - `Task<IReadOnlyList<Issue>> GetOpenIssuesAsync(long repositoryId, string label)`: Retrieves all open issues for a repository filtered by a specific label. Returns an empty list if the repository is not found. Used for duplicate issue prevention.
 
 ### `GitHubService`
 - **Purpose**: Implements `IGitHubService` and handles the authentication and caching of the GitHub App installation token.
@@ -153,6 +154,36 @@ public async Task CheckRepositorySecurityAsync(long repositoryId)
     {
         _logger.LogWarning("Repository {RepoId} has write permissions for workflows", repositoryId);
     }
+}
+```
+
+### Example: Checking for Duplicate Issues
+
+```csharp
+public async Task CreateIssueWithDuplicateCheckAsync(long repositoryId, string title, string body, string label)
+{
+    // Check for existing open issues with the same label
+    var existingIssues = await _gitHubService.GetOpenIssuesAsync(repositoryId, label);
+    
+    // Check if an issue with the same title already exists
+    var duplicateIssue = existingIssues.FirstOrDefault(issue => 
+        issue.Title.Equals(title, StringComparison.OrdinalIgnoreCase));
+    
+    if (duplicateIssue != null)
+    {
+        _logger.LogInformation("Issue already exists: {IssueUrl}", duplicateIssue.HtmlUrl);
+        return;
+    }
+    
+    // Create the issue if no duplicate found
+    var newIssue = await _gitHubService.CreateIssueAsync(
+        repositoryId,
+        title,
+        body,
+        new[] { label }
+    );
+    
+    _logger.LogInformation("Created issue: {IssueUrl}", newIssue.HtmlUrl);
 }
 ```
 

@@ -135,6 +135,14 @@ You are a senior Blazor and .NET developer and an expert in `C#`, `ASP.NET Core`
 - Configure queues and workers appropriately for production environments.
 - Refer to `/docs/hangfire-integration.md` for more details.
 
+### Action Service
+- Use `IActionService` to process automated actions for policy violations.
+- The service supports three action types: `create-issue`, `archive-repo`, and `log-only`.
+- All actions are logged to the `ActionLog` table with status tracking.
+- Duplicate issue prevention is built-in for `create-issue` actions.
+- Individual action failures don't block processing of other violations.
+- Refer to `/docs/action-service.md` for detailed usage examples and configuration.
+
 Follow the official Microsoft documentation and `ASP.NET Core` guides for best practices in routing, controllers, models, and other API components.
 
 ---

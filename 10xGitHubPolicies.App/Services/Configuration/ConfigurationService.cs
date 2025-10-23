@@ -1,9 +1,9 @@
 using System.Text;
 
 using _10xGitHubPolicies.App.Exceptions;
+using _10xGitHubPolicies.App.Options;
 using _10xGitHubPolicies.App.Services.Configuration.Models;
 using _10xGitHubPolicies.App.Services.GitHub;
-using _10xGitHubPolicies.App.Options;
 
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Options;

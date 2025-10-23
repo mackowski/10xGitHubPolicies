@@ -5,6 +5,43 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 0.4
+
+### Added
+- **Automated Actions Service**: Implemented full `ActionService` to execute configured actions for policy violations
+  - Added `IssueDetails` model class for YAML configuration of issue creation details (title, body, labels)
+  - Updated `PolicyConfig` model with `Name` and `IssueDetails` properties to support complete policy configuration
+  - Implemented `CreateIssueForViolationAsync()` method with duplicate prevention logic (US-010)
+  - Implemented `ArchiveRepositoryForViolationAsync()` method for automatic repository archiving
+  - Added comprehensive error handling with action logging to `ActionLog` table
+  - Each action is logged with status (Success, Failed, or Skipped) and detailed information
+- **GitHub Service Enhancement**: Added `GetOpenIssuesAsync()` method to check for existing open issues
+  - Supports filtering by label to prevent duplicate issue creation
+  - Returns empty list on repository not found errors
+  - Used for duplicate detection before creating new policy violation issues
+- **Action Logging**: All actions are recorded in the `ActionLog` database table with:
+  - ActionType: "create-issue" or "archive-repo"
+  - Status: "Success", "Failed", or "Skipped"
+  - Details: JSON or text with action details/error messages
+  - Timestamp: UTC timestamp of action execution
+
+### Changed
+- **Service Registration**: Replaced `LoggingActionService` with full `ActionService` implementation in `Program.cs`
+- **Policy Configuration**: Enhanced `PolicyConfig` to include policy name and issue details for better configuration management
+- **Duplicate Prevention**: Issues are only created if no open issue with the same title and label exists (implements US-010 requirement)
+- **Error Handling**: Individual action failures no longer block processing of other violations
+
+### Removed
+- **LoggingActionService**: Deleted placeholder logging-only implementation
+- **Test Endpoints**: Removed `/verify-scan` and `/log-job` endpoints (functionality exists in UI via "Scan Now" button)
+
+### Fixed
+- **Nullable Annotations**: Fixed nullable reference warnings in `GitHubService` for `GetFileContentAsync()` and `GetWorkflowPermissionsAsync()` methods
+- **WorkflowPermissionsResponse**: Added default value for `DefaultWorkflowPermissions` property to resolve nullable warning
+
+### Dependencies
+- No new dependencies added (uses existing Octokit.net, Entity Framework Core, and Hangfire)
+
 ## 0.3
 
 ### Added

@@ -36,9 +36,10 @@ It uses a flexible policy evaluation engine to scan repositories for compliance 
 *   **Automated Scans:** Performs daily (via scheduled jobs) and on-demand scans of all active repositories.
 *   **Centralized Configuration:** All policies are defined in a single `.github/config.yaml` file for easy management.
 *   **Extensible Policy Engine:** The application uses a strategy pattern to make it easy to add new policy evaluators.
-*   **Automated Actions:** Creates issues or archives repositories that violate policies.
+*   **Automated Actions:** Creates issues or archives repositories that violate policies with duplicate prevention and comprehensive action logging.
 *   **Compliance Dashboard:** A Blazor-based web UI to view non-compliant repositories, violation details, and overall compliance metrics.
 *   **Background Job Processing:** Uses Hangfire for reliable background processing of scans and actions, ensuring the UI remains responsive.
+*   **Action Logging:** All automated actions are logged to the database with status tracking and detailed information.
 *   **API Documentation:** Provides Swagger/OpenAPI documentation for any exposed API endpoints.
 
 ---
@@ -152,7 +153,7 @@ authorized_team: 'my-org/security-team'
 policies:
   - name: 'Check for AGENTS.md'
     type: 'has_agents_md'
-    action: 'create-issue' # 'create-issue' or 'archive-repo'
+    action: 'create_issue' # 'create_issue', 'archive_repo', or 'log_only'
     issue_details:
       title: 'Compliance: AGENTS.md file is missing'
       body: 'This repository is missing the AGENTS.md file in its root directory. Please add this file to comply with organization standards.'
@@ -160,7 +161,7 @@ policies:
 
   - name: 'Check for catalog-info.yaml'
     type: 'has_catalog_info_yaml'
-    action: 'create-issue'
+    action: 'create_issue'
     issue_details:
       title: 'Compliance: catalog-info.yaml is missing'
       body: 'This repository is missing the catalog-info.yaml file. This file is required for backstage.io service discovery.'
@@ -168,7 +169,7 @@ policies:
       
   - name: 'Verify Workflow Permissions'
     type: 'correct_workflow_permissions'
-    action: 'archive-repo'
+    action: 'log_only'
 ```
 
 ---
@@ -179,6 +180,7 @@ Detailed documentation for specific features and integrations:
 
 - **[GitHub Integration](./docs/github-integration.md)**: How to use the GitHub API service for repository management
 - **[Configuration Service](./docs/configuration-service.md)**: Managing centralized policy configuration from `.github/config.yaml`
+- **[Action Service](./docs/action-service.md)**: Automated action processing for policy violations
 - **[Hangfire Integration](./docs/hangfire-integration.md)**: Background job processing and scheduling
 - **[Policy Evaluation](./docs/policy-evaluation.md)**: How the policy evaluation engine works and how to add new policies.
 
@@ -188,14 +190,16 @@ Detailed documentation for specific features and integrations:
 
 ### In Scope (MVP)
 *   ✅ `[done]` Configuration managed via a single `config.yaml` file in the `.github` repository.
-*   ✅ `[done]` Daily and on-demand scanning of all active repositories.
-*   ⏳ `[todo]` Core policies:
+*   ⏳ `[todo]` Daily and on-demand scanning of all active repositories.
+*   ✅ `[done]` Core policies:
     *   ✅ `[done]` Verify presence of `AGENTS.md`.
     *   ✅ `[done]` Verify presence of `catalog-info.yaml`.
-    *   ⏳ `[todo]` Verify repository Workflow Permissions are set to 'Read repository contents and packages permissions'.
-*   ⏳ `[todo]` Automated actions:
-    *   ⏳ `[todo]` Create a GitHub Issue in the non-compliant repository.
-    *   ⏳ `[todo]` Archive the non-compliant repository.
+    *   ✅ `[done]` Verify repository Workflow Permissions are set to 'Read repository contents and packages permissions'.
+*   ✅ `[done]` Automated actions:
+    *   ✅ `[done]` Create a GitHub Issue in the non-compliant repository with duplicate prevention.
+    *   ✅ `[done]` Archive the non-compliant repository.
+    *   ✅ `[done]` Log-only actions for monitoring without taking automated steps.
+    *   ✅ `[done]` Comprehensive action logging with status tracking.
 *   ✅ `[done]` A simple dashboard showing non-compliant repositories, violation details, overall compliance percentage, and a repository name filter.
 *   ⏳ `[todo]` Authentication via "Login with GitHub" OAuth flow.
 *   ⏳ `[todo]` Access restricted to a specified GitHub Team.
@@ -209,6 +213,8 @@ Detailed documentation for specific features and integrations:
 *   Repository-level exceptions or overrides in the UI.
 
 ### Ideas
+*   Secure /hangfire
+*   Logs - production
 *   Advanced policy types (e.g., checking file content)
 *   Action - PR Blocking
 *   Action - Log only

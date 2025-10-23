@@ -95,7 +95,7 @@ public class GitHubService : IGitHubService
         }
     }
 
-    public async Task<string> GetFileContentAsync(string repoName, string path)
+    public async Task<string?> GetFileContentAsync(string repoName, string path)
     {
         var client = await GetAuthenticatedClient();
         try
@@ -116,7 +116,7 @@ public class GitHubService : IGitHubService
         }
     }
 
-    public async Task<string> GetWorkflowPermissionsAsync(long repositoryId)
+    public async Task<string?> GetWorkflowPermissionsAsync(long repositoryId)
     {
         var client = await GetAuthenticatedClient();
         try
@@ -131,6 +131,27 @@ public class GitHubService : IGitHubService
         {
             _logger.LogWarning("Workflow permissions not found for repository {RepositoryId}. Actions may be disabled.", repositoryId);
             return null;
+        }
+    }
+
+    public async Task<IReadOnlyList<Issue>> GetOpenIssuesAsync(long repositoryId, string label)
+    {
+        var client = await GetAuthenticatedClient();
+        try
+        {
+            var issueRequest = new RepositoryIssueRequest
+            {
+                State = ItemStateFilter.Open,
+                Filter = IssueFilter.All
+            };
+            issueRequest.Labels.Add(label);
+
+            return await client.Issue.GetAllForRepository(repositoryId, issueRequest);
+        }
+        catch (NotFoundException)
+        {
+            _logger.LogWarning("Could not retrieve issues for repository {RepositoryId}.", repositoryId);
+            return new List<Issue>();
         }
     }
 
@@ -177,6 +198,6 @@ public class GitHubService : IGitHubService
 // Add a private class for deserialization
 public class WorkflowPermissionsResponse
 {
-    public string DefaultWorkflowPermissions { get; set; }
+    public string DefaultWorkflowPermissions { get; set; } = string.Empty;
     public bool CanApprovePullRequestReviews { get; set; }
 }

@@ -1,5 +1,5 @@
-using _10xGitHubPolicies.App.Services.Configuration.Models;
 using _10xGitHubPolicies.App.Data.Entities;
+using _10xGitHubPolicies.App.Services.Configuration.Models;
 
 namespace _10xGitHubPolicies.App.Services.Policies;
 
