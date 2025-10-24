@@ -1,0 +1,101 @@
+@page "/access-denied"
+@using Microsoft.FluentUI.AspNetCore.Components
+@using Microsoft.FluentUI.AspNetCore.Components.Icons
+@using _10xGitHubPolicies.App.Services.Authorization
+@using Microsoft.AspNetCore.Authentication
+@using Microsoft.AspNetCore.Authentication.Cookies
+@inject _10xGitHubPolicies.App.Services.Authorization.IAuthorizationService AuthorizationService
+
+<PageTitle>Access Denied - 10x GitHub Policy Enforcer</PageTitle>
+
+<div class="access-denied-container">
+    <FluentCard Style="max-width: 500px; margin: 0 auto; padding: 2rem;">
+        <div style="text-align: center; margin-bottom: 2rem;">
+            <FluentIcon Icon="@(Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size48.ShieldError)" 
+                       Style="color: var(--error-fill-rest); margin-bottom: 1rem;" />
+            <h1 style="margin: 0; color: var(--neutral-foreground-rest);">Access Denied</h1>
+            <p style="margin: 0.5rem 0 0 0; color: var(--neutral-foreground-hint);">
+                You don't have permission to access this application
+            </p>
+        </div>
+
+        @if (!string.IsNullOrEmpty(_authorizedTeam))
+        {
+            <FluentCard Style="background-color: var(--warning-fill-rest); color: var(--warning-foreground-rest); margin-bottom: 1.5rem; padding: 1rem;">
+                <FluentStack Orientation="Orientation.Horizontal" VerticalAlignment="VerticalAlignment.Center">
+                    <FluentIcon Icon="@(Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size16.Info)" 
+                               Style="margin-right: 8px;" />
+                    <span>You must be a member of the <strong>@_authorizedTeam</strong> team to access this application.</span>
+                </FluentStack>
+            </FluentCard>
+        }
+
+        <div style="background-color: var(--neutral-fill-rest); padding: 1rem; border-radius: 4px; margin-bottom: 1.5rem;">
+            <h3 style="margin: 0 0 0.5rem 0; color: var(--neutral-foreground-rest);">How to request access:</h3>
+            <ol style="margin: 0; padding-left: 1.5rem; color: var(--neutral-foreground-hint);">
+                <li>Contact your organization administrator</li>
+                <li>Request to be added to the authorized team</li>
+                <li>Once added, you can log in again</li>
+            </ol>
+        </div>
+
+        <FluentStack Orientation="Orientation.Horizontal" HorizontalAlignment="HorizontalAlignment.Center">
+            <FluentButton Appearance="Appearance.Accent" OnClick="TryLoginAgain">
+                        <FluentIcon Icon="@(Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size20.PersonArrowLeft)" 
+                                   Style="margin-right: 8px;" />
+                Try Login Again
+            </FluentButton>
+            <FluentButton Appearance="Appearance.Neutral" OnClick="Logout">
+                <FluentIcon Icon="@(Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size20.SignOut)" 
+                           Style="margin-right: 8px;" />
+                Logout
+            </FluentButton>
+        </FluentStack>
+    </FluentCard>
+</div>
+
+<style>
+    .access-denied-container {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 100vh;
+        background: linear-gradient(135deg, var(--neutral-fill-rest) 0%, var(--neutral-fill-hover) 100%);
+        padding: 1rem;
+    }
+</style>
+
+@code {
+    [Inject] private NavigationManager Navigation { get; set; } = default!;
+    [Inject] private IHttpContextAccessor HttpContextAccessor { get; set; } = default!;
+
+    private string _authorizedTeam = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _authorizedTeam = await AuthorizationService.GetAuthorizedTeamAsync() ?? string.Empty;
+        }
+        catch (Exception)
+        {
+            // If we can't get the authorized team, just show a generic message
+            _authorizedTeam = string.Empty;
+        }
+    }
+
+    private void TryLoginAgain()
+    {
+        Navigation.NavigateTo("/login");
+    }
+
+    private async Task Logout()
+    {
+        var httpContext = HttpContextAccessor.HttpContext;
+        if (httpContext != null)
+        {
+            await httpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+        }
+        Navigation.NavigateTo("/login");
+    }
+}

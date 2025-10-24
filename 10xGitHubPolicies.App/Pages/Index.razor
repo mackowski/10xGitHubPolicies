@@ -1,14 +1,22 @@
 ﻿@page "/"
+@attribute [Authorize]
 @using _10xGitHubPolicies.App.Services.Dashboard
 @using _10xGitHubPolicies.App.Services.Scanning
+@using _10xGitHubPolicies.App.Services.Authorization
+@using _10xGitHubPolicies.App.Services.Configuration
 @using _10xGitHubPolicies.App.ViewModels
+@using _10xGitHubPolicies.App.Exceptions
 @using Hangfire
 @using Microsoft.FluentUI.AspNetCore.Components
 @using Microsoft.FluentUI.AspNetCore.Components.Icons
 @using System.Linq
 @inject IDashboardService DashboardService
 @inject IScanningService ScanningService
+@inject _10xGitHubPolicies.App.Services.Authorization.IAuthorizationService AuthorizationService
+@inject IConfigurationService ConfigurationService
 @inject IBackgroundJobClient BackgroundJobClient
+@inject NavigationManager Navigation
+@inject AuthenticationStateProvider AuthenticationStateProvider
 
 <PageTitle>Compliance Dashboard</PageTitle>
 
@@ -145,6 +153,7 @@ else
     private DashboardViewModel? _viewModel;
     private bool _isScanning = false;
     private string _repositoryFilter = string.Empty;
+    private AuthenticationState AuthenticationState => AuthenticationStateProvider.GetAuthenticationStateAsync().Result;
 
     private IEnumerable<NonCompliantRepositoryViewModel> GetFilteredRepositories()
     {
@@ -159,7 +168,39 @@ else
 
     protected override async Task OnInitializedAsync()
     {
-        await LoadDashboardData();
+        try
+        {
+            // Check if configuration exists
+            var config = await ConfigurationService.GetConfigAsync();
+            
+            // Check if user is authorized (team membership)
+            var isAuthorized = await AuthorizationService.IsUserAuthorizedAsync(AuthenticationState.User);
+            
+            if (!isAuthorized)
+            {
+                Navigation.NavigateTo("/access-denied");
+                return;
+            }
+            
+            // Load dashboard data if authorized
+            await LoadDashboardData();
+        }
+        catch (ConfigurationNotFoundException)
+        {
+            // Configuration not found, redirect to onboarding
+            Navigation.NavigateTo("/onboarding");
+        }
+        catch (InvalidConfigurationException)
+        {
+            // Invalid configuration, redirect to onboarding
+            Navigation.NavigateTo("/onboarding");
+        }
+        catch (Exception ex)
+        {
+            // Log error and redirect to access denied
+            Console.WriteLine($"Error in OnInitializedAsync: {ex.Message}");
+            Navigation.NavigateTo("/access-denied");
+        }
     }
 
     private async Task LoadDashboardData()

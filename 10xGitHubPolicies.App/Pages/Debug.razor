@@ -1,0 +1,205 @@
+@page "/debug"
+@attribute [Authorize]
+@using Microsoft.AspNetCore.Authentication
+@using System.Security.Claims
+@using Microsoft.FluentUI.AspNetCore.Components
+@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.AspNetCore.Authorization
+@inject IHttpContextAccessor HttpContextAccessor
+@inject _10xGitHubPolicies.App.Services.Authorization.IAuthorizationService AuthorizationService
+@inject _10xGitHubPolicies.App.Services.Configuration.IConfigurationService ConfigurationService
+@inject _10xGitHubPolicies.App.Services.GitHub.IGitHubService GitHubService
+@inject AuthenticationStateProvider AuthenticationStateProvider
+
+<PageTitle>Debug - 10x GitHub Policy Enforcer</PageTitle>
+
+<div class="debug-container">
+    <FluentCard Style="max-width: 800px; margin: 0 auto; padding: 2rem;">
+        <h1>Debug Information</h1>
+        
+        <FluentCard Style="margin-bottom: 1rem; padding: 1rem; background-color: var(--neutral-fill-rest);">
+            <h3>User Claims</h3>
+            @if (_authState?.User?.Identity?.IsAuthenticated == true)
+            {
+                <ul>
+                    @foreach (var claim in _authState.User.Claims)
+                    {
+                        <li><strong>@claim.Type:</strong> @claim.Value</li>
+                    }
+                </ul>
+            }
+            else
+            {
+                <p>User is not authenticated</p>
+            }
+        </FluentCard>
+
+        <FluentCard Style="margin-bottom: 1rem; padding: 1rem; background-color: var(--neutral-fill-rest);">
+            <h3>Authentication Properties</h3>
+            @if (_authProperties != null)
+            {
+                <ul>
+                    @foreach (var item in _authProperties)
+                    {
+                        <li><strong>@item.Key:</strong> @item.Value</li>
+                    }
+                </ul>
+            }
+            else
+            {
+                <p>No authentication properties found</p>
+            }
+        </FluentCard>
+
+        <FluentCard Style="margin-bottom: 1rem; padding: 1rem; background-color: var(--neutral-fill-rest);">
+            <h3>Configuration</h3>
+            @if (!string.IsNullOrEmpty(_authorizedTeam))
+            {
+                <p><strong>Authorized Team:</strong> @_authorizedTeam</p>
+            }
+            else
+            {
+                <p>No authorized team configured</p>
+            }
+        </FluentCard>
+
+        <FluentCard Style="margin-bottom: 1rem; padding: 1rem; background-color: var(--neutral-fill-rest);">
+            <h3>Authorization Check</h3>
+            @if (_authorizationResult.HasValue)
+            {
+                <p><strong>Is Authorized:</strong> @(_authorizationResult.Value ? "Yes" : "No")</p>
+            }
+            else
+            {
+                <p>Authorization check not performed</p>
+            }
+        </FluentCard>
+
+        <FluentCard Style="margin-bottom: 1rem; padding: 1rem; background-color: var(--neutral-fill-rest);">
+            <h3>User Organizations</h3>
+            @if (_userOrganizations != null && _userOrganizations.Any())
+            {
+                <ul>
+                    @foreach (var org in _userOrganizations)
+                    {
+                        <li><strong>@org.Login</strong> (ID: @org.Id)</li>
+                    }
+                </ul>
+            }
+            else
+            {
+                <p>No organizations found or error occurred</p>
+            }
+        </FluentCard>
+
+        @if (!string.IsNullOrEmpty(_authorizedTeam) && _authorizedTeam.Contains('/'))
+        {
+            <FluentCard Style="margin-bottom: 1rem; padding: 1rem; background-color: var(--neutral-fill-rest);">
+                <h3>Teams in Authorized Organization</h3>
+                @if (_organizationTeams != null && _organizationTeams.Any())
+                {
+                    <ul>
+                        @foreach (var team in _organizationTeams)
+                        {
+                            <li><strong>@team.Name</strong> (Slug: @team.Slug, ID: @team.Id)</li>
+                        }
+                    </ul>
+                }
+                else
+                {
+                    <p>No teams found or error occurred</p>
+                }
+            </FluentCard>
+        }
+
+        <FluentButton Appearance="Appearance.Accent" OnClick="RefreshDebugInfo">
+            Refresh Debug Info
+        </FluentButton>
+    </FluentCard>
+</div>
+
+<style>
+    .debug-container {
+        padding: 1rem;
+    }
+</style>
+
+@code {
+    private IDictionary<string, string?>? _authProperties;
+    private string? _authorizedTeam;
+    private bool? _authorizationResult;
+    private AuthenticationState? _authState;
+    private IReadOnlyList<Octokit.Organization>? _userOrganizations;
+    private IReadOnlyList<Octokit.Team>? _organizationTeams;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await RefreshDebugInfo();
+    }
+
+    private async Task RefreshDebugInfo()
+    {
+        try
+        {
+            // Get authentication state
+            _authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+            
+            // Get authentication properties
+            var httpContext = HttpContextAccessor.HttpContext;
+            if (httpContext != null)
+            {
+                var authResult = await httpContext.AuthenticateAsync();
+                _authProperties = authResult.Properties?.Items;
+            }
+
+            // Get authorized team
+            try
+            {
+                var config = await ConfigurationService.GetConfigAsync();
+                _authorizedTeam = config.AccessControl.AuthorizedTeam;
+            }
+            catch (Exception ex)
+            {
+                _authorizedTeam = $"Error: {ex.Message}";
+            }
+
+            // Get user organizations and teams
+            if (_authState?.User?.Identity?.IsAuthenticated == true)
+            {
+                try
+                {
+                    var accessToken = _authProperties?.TryGetValue(".Token.access_token", out var token) == true ? token : null;
+                    if (!string.IsNullOrEmpty(accessToken))
+                    {
+                        _userOrganizations = await GitHubService.GetUserOrganizationsAsync(accessToken);
+                        
+                        // Get teams for the authorized organization if configured
+                        if (!string.IsNullOrEmpty(_authorizedTeam) && _authorizedTeam.Contains('/'))
+                        {
+                            var orgName = _authorizedTeam.Split('/')[0];
+                            _organizationTeams = await GitHubService.GetOrganizationTeamsAsync(accessToken, orgName);
+                        }
+                    }
+                }
+                catch (Exception)
+                {
+                    // Handle errors silently for debug info
+                }
+
+                // Check authorization
+                try
+                {
+                    _authorizationResult = await AuthorizationService.IsUserAuthorizedAsync(_authState.User);
+                }
+                catch (Exception)
+                {
+                    _authorizationResult = null;
+                }
+            }
+        }
+        catch (Exception)
+        {
+            // Handle any errors
+        }
+    }
+}

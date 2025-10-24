@@ -1,6 +1,7 @@
 using _10xGitHubPolicies.App.Data;
 using _10xGitHubPolicies.App.Options;
 using _10xGitHubPolicies.App.Services.Action;
+using _10xGitHubPolicies.App.Services.Authorization;
 using _10xGitHubPolicies.App.Services.Configuration;
 using _10xGitHubPolicies.App.Services.Dashboard;
 using _10xGitHubPolicies.App.Services.GitHub;
@@ -15,6 +16,11 @@ using Microsoft.AspNetCore.Components.Web;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using Microsoft.FluentUI.AspNetCore.Components;
+using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Authentication;
+using System.Security.Claims;
+using Microsoft.AspNetCore.HttpsPolicy;
+using _10xGitHubPolicies.App.Authorization;
 
 var builder = WebApplication.CreateBuilder(args);
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
@@ -33,13 +39,52 @@ builder.Services.AddHangfire(configuration => configuration
 // Add the processing server as IHostedService
 builder.Services.AddHangfireServer();
 
+// Configure data protection for OAuth state handling
+builder.Services.AddDataProtection();
+
+// Add authentication services
+builder.Services.AddAuthentication(options =>
+{
+    options.DefaultAuthenticateScheme = CookieAuthenticationDefaults.AuthenticationScheme;
+    options.DefaultSignInScheme = CookieAuthenticationDefaults.AuthenticationScheme;
+    options.DefaultChallengeScheme = "GitHub";
+})
+.AddCookie(options =>
+{
+    options.LoginPath = "/login";
+    options.LogoutPath = "/logout";
+    options.AccessDeniedPath = "/access-denied";
+    options.ExpireTimeSpan = TimeSpan.FromHours(24);
+    options.SlidingExpiration = false;
+})
+.AddGitHub(options =>
+{
+    options.ClientId = builder.Configuration["GitHub:ClientId"];
+    options.ClientSecret = builder.Configuration["GitHub:ClientSecret"];
+    options.CallbackPath = "/signin-github";
+    options.Scope.Add("read:org");
+    options.SaveTokens = true; // Save access token for team verification
+    
+    // Configure OAuth events to handle failures gracefully
+    options.Events.OnRemoteFailure = context =>
+    {
+        // Log OAuth failures for debugging
+        var error = context.Failure?.Message ?? "Unknown error";
+        context.Response.Redirect($"/login?error={Uri.EscapeDataString(error)}");
+        context.HandleResponse();
+        return Task.CompletedTask;
+    };
+});
+
+builder.Services.AddAuthorization();
+builder.Services.AddHttpContextAccessor();
+
 builder.Services.AddRazorPages();
+builder.Services.AddControllers();
 builder.Services.AddServerSideBlazor();
 builder.Services.AddFluentUIComponents();
 builder.Services.AddScoped<IDashboardService, DashboardService>();
 
-builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
 
 builder.Services.AddMemoryCache();
 builder.Services.AddSingleton<IGitHubService, GitHubService>();
@@ -51,9 +96,19 @@ builder.Services.AddScoped<IPolicyEvaluator, HasAgentsMdEvaluator>();
 builder.Services.AddScoped<IPolicyEvaluator, HasCatalogInfoYamlEvaluator>();
 builder.Services.AddScoped<IPolicyEvaluator, CorrectWorkflowPermissionsEvaluator>();
 builder.Services.AddScoped<IActionService, ActionService>();
+builder.Services.AddScoped<_10xGitHubPolicies.App.Services.Authorization.IAuthorizationService, _10xGitHubPolicies.App.Services.Authorization.AuthorizationService>();
 
 
 builder.Services.Configure<GitHubAppOptions>(builder.Configuration.GetSection(GitHubAppOptions.GitHubApp));
+
+// Configure HTTPS redirection for development
+if (builder.Environment.IsDevelopment())
+{
+    builder.Services.Configure<HttpsRedirectionOptions>(options =>
+    {
+        options.HttpsPort = 7040;
+    });
+}
 
 var app = builder.Build();
 
@@ -69,13 +124,26 @@ app.UseHttpsRedirection();
 
 app.UseStaticFiles();
 
-app.UseSwagger();
-app.UseSwaggerUI();
-
 app.UseRouting();
 
-app.UseHangfireDashboard();
+app.UseAuthentication();
+app.UseAuthorization();
 
+app.UseHangfireDashboard("/hangfire", new DashboardOptions
+{
+    Authorization = new[] { new HangfireAuthorizationFilter() }
+});
+
+// Add OAuth challenge endpoint
+app.MapGet("/challenge", async (HttpContext context) =>
+{
+    await context.ChallengeAsync("GitHub", new AuthenticationProperties
+    {
+        RedirectUri = "/"
+    });
+});
+
+app.MapControllers();
 app.MapBlazorHub();
 app.MapFallbackToPage("/_Host");
 

@@ -1,0 +1,78 @@
+@page "/login"
+@using Microsoft.AspNetCore.WebUtilities
+
+<PageTitle>Login - 10x GitHub Policy Enforcer</PageTitle>
+
+<div class="login-container">
+    <FluentCard Style="max-width: 400px; margin: 0 auto; padding: 2rem;">
+        <div style="text-align: center; margin-bottom: 2rem;">
+            <FluentIcon Icon="@(Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size48.ShieldCheckmark)" 
+                       Style="color: var(--accent-fill-rest); margin-bottom: 1rem;" />
+            <h1 style="margin: 0; color: var(--neutral-foreground-rest);">10x GitHub Policy Enforcer</h1>
+            <p style="margin: 0.5rem 0 0 0; color: var(--neutral-foreground-hint);">
+                Secure access to your organization's compliance dashboard
+            </p>
+        </div>
+
+        <FluentButton Appearance="Appearance.Accent" 
+                     Style="width: 100%; height: 48px; font-size: 16px;"
+                     OnClick="LoginWithGitHub">
+            <FluentIcon Icon="@(Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size20.Code)" 
+                       Style="margin-right: 8px;" />
+            Login with GitHub
+        </FluentButton>
+
+        @if (!string.IsNullOrEmpty(errorMessage))
+        {
+            <div style="margin-top: 1.5rem; padding: 1rem; background-color: var(--error-fill-rest); border-radius: 4px;">
+                <FluentIcon Icon="@(Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size16.Warning)" 
+                           Style="color: var(--error-foreground-rest); margin-right: 8px;" />
+                <span style="font-size: 14px; color: var(--error-foreground-rest);">
+                    Authentication error: @errorMessage
+                </span>
+            </div>
+        }
+
+        <div style="margin-top: 1.5rem; padding: 1rem; background-color: var(--neutral-fill-rest); border-radius: 4px;">
+            <FluentIcon Icon="@(Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size16.Info)" 
+                       Style="color: var(--accent-fill-rest); margin-right: 8px;" />
+            <span style="font-size: 14px; color: var(--neutral-foreground-hint);">
+                You must be a member of the authorized team to access this application.
+            </span>
+        </div>
+    </FluentCard>
+</div>
+
+<style>
+    .login-container {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 100vh;
+        background: linear-gradient(135deg, var(--neutral-fill-rest) 0%, var(--neutral-fill-hover) 100%);
+        padding: 1rem;
+    }
+</style>
+
+@code {
+    [Inject] private NavigationManager Navigation { get; set; } = default!;
+    [Inject] private ILogger<Login> Logger { get; set; } = default!;
+
+    private string? errorMessage;
+
+    protected override void OnInitialized()
+    {
+        var uri = Navigation.ToAbsoluteUri(Navigation.Uri);
+        if (QueryHelpers.ParseQuery(uri.Query).TryGetValue("error", out var error))
+        {
+            errorMessage = error.ToString();
+            Logger.LogWarning("OAuth error: {Error}", errorMessage);
+        }
+    }
+
+    private void LoginWithGitHub()
+    {
+        // Navigate to the OAuth challenge endpoint
+        Navigation.NavigateTo("/challenge", forceLoad: true);
+    }
+}

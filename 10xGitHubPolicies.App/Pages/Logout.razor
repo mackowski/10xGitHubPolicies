@@ -1,0 +1,33 @@
+@page "/logout"
+
+<PageTitle>Logout - 10x GitHub Policy Enforcer</PageTitle>
+
+<div class="logout-container">
+    <FluentCard Style="max-width: 400px; margin: 0 auto; padding: 2rem; text-align: center;">
+        <FluentIcon Icon="@(Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size48.Person)" 
+                   Style="color: var(--neutral-foreground-hint); margin-bottom: 1rem;" />
+        <h2 style="margin: 0 0 1rem 0; color: var(--neutral-foreground-rest);">Logging out...</h2>
+        <FluentProgress Ring="true" />
+    </FluentCard>
+</div>
+
+<style>
+    .logout-container {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 100vh;
+        background: linear-gradient(135deg, var(--neutral-fill-rest) 0%, var(--neutral-fill-hover) 100%);
+        padding: 1rem;
+    }
+</style>
+
+@code {
+    [Inject] private NavigationManager Navigation { get; set; } = default!;
+
+    protected override void OnInitialized()
+    {
+        // Redirect to the logout endpoint which will handle the actual logout
+        Navigation.NavigateTo("/Account/Logout", forceLoad: true);
+    }
+}

@@ -10,9 +10,29 @@ To run this project locally:
 3. `cd 10xGitHubPolicies.App`
 4. `dotnet restore`
 5. `dotnet ef database update`
-6. `dotnet run`
+6. `dotnet dev-certs https --trust`
+7. `dotnet run --launch-profile https`
 
-Alternatively, you can run from the root directory using `dotnet run --project 10xGitHubPolicies.App/10xGitHubPolicies.App.csproj`.
+Alternatively, you can run from the root directory using `dotnet run --project 10xGitHubPolicies.App/10xGitHubPolicies.App.csproj --launch-profile https`.
+
+**Important**: Always use the HTTPS profile to ensure OAuth authentication works correctly.
+
+### OAuth Authentication Troubleshooting
+
+If you encounter OAuth authentication issues:
+
+1. **"oauth state was missing or invalid" error**:
+   - Ensure you're running with `--launch-profile https`
+   - Restart the application completely
+   - Check that your GitHub OAuth App callback URL is set to `https://localhost:7040/signin-github`
+
+2. **HTTPS certificate issues**:
+   - Run `dotnet dev-certs https --trust` to trust the development certificate
+   - Verify with `dotnet dev-certs https --check`
+
+3. **Application not accessible**:
+   - Check that both ports 5222 (HTTP) and 7040 (HTTPS) are available
+   - Ensure the application is running with the HTTPS profile
 
 ---
 

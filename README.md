@@ -94,16 +94,36 @@ To get a local copy up and running, follow these simple steps.
     ```sh
     dotnet ef database update
     ```
-7.  Run the application:
+7.  Trust the HTTPS development certificate:
     ```sh
-    dotnet run
+    dotnet dev-certs https --trust
+    ```
+8.  Run the application with HTTPS profile:
+    ```sh
+    dotnet run --launch-profile https
     ```
 Alternatively, you can run the project from the root directory:
 ```sh
-dotnet run --project 10xGitHubPolicies.App/10xGitHubPolicies.App.csproj
+dotnet run --project 10xGitHubPolicies.App/10xGitHubPolicies.App.csproj --launch-profile https
 ```
 
-The application will be available at `https://localhost:5001`. The Hangfire dashboard is at `https://localhost:5001/hangfire`.
+The application will be available at:
+- **HTTPS**: `https://localhost:7040` (primary)
+- **HTTP**: `http://localhost:5222` (redirects to HTTPS)
+
+## Application URLs
+
+| URL | Description | Authentication Required |
+|-----|-------------|------------------------|
+| `/` | Main dashboard - compliance overview and repository scanning | ✅ Yes |
+| `/login` | GitHub OAuth login page | ❌ No (public) |
+| `/logout` | User logout and session cleanup | ❌ No (public) |
+| `/access-denied` | Access denied page for unauthorized users | ❌ No (public) |
+| `/onboarding` | First-time setup wizard for configuration | ❌ No (public) |
+| `/debug` | Debug information and authentication details | ✅ Yes |
+| `/hangfire` | Background job dashboard and monitoring | ✅ Yes |
+| `/challenge` | OAuth challenge endpoint for authentication flow | ❌ No (public) |
+| `/signin-github` | GitHub OAuth callback endpoint | ❌ No (public) |
 
 ---
 
@@ -136,6 +156,22 @@ You need to configure the GitHub App settings. During development, it's required
     }
     ```
     Replace `your-organization-name` with your GitHub organization's slug.
+
+### GitHub OAuth App Settings
+For user authentication, you need to create a GitHub OAuth App:
+
+1. Go to [GitHub Developer Settings](https://github.com/settings/developers)
+2. Click "New OAuth App"
+3. Configure the following:
+   - **Application Name**: 10x GitHub Policy Enforcer
+   - **Homepage URL**: `https://localhost:7040/` (for local development)
+   - **Authorization Callback URL**: `https://localhost:7040/signin-github`
+4. Note the Client ID and Client Secret
+5. Set the OAuth App secrets:
+    ```sh
+    dotnet user-secrets set "GitHub:ClientId" "YOUR_OAUTH_APP_CLIENT_ID"
+    dotnet user-secrets set "GitHub:ClientSecret" "YOUR_OAUTH_APP_CLIENT_SECRET"
+    ```
 
 ### Policy Configuration
 The policy configuration is managed via a `config.yaml` file located in the root of your organization's `.github` repository.
@@ -178,6 +214,7 @@ policies:
 
 Detailed documentation for specific features and integrations:
 
+- **[Authentication](./docs/authentication.md)**: User authentication and authorization system
 - **[GitHub Integration](./docs/github-integration.md)**: How to use the GitHub API service for repository management
 - **[Configuration Service](./docs/configuration-service.md)**: Managing centralized policy configuration from `.github/config.yaml`
 - **[Action Service](./docs/action-service.md)**: Automated action processing for policy violations
@@ -201,8 +238,8 @@ Detailed documentation for specific features and integrations:
     *   ✅ `[done]` Log-only actions for monitoring without taking automated steps.
     *   ✅ `[done]` Comprehensive action logging with status tracking.
 *   ✅ `[done]` A simple dashboard showing non-compliant repositories, violation details, overall compliance percentage, and a repository name filter.
-*   ⏳ `[todo]` Authentication via "Login with GitHub" OAuth flow.
-*   ⏳ `[todo]` Access restricted to a specified GitHub Team.
+*   ✅ `[done]` Authentication via "Login with GitHub" OAuth flow.
+*   ✅ `[done]` Access restricted to a specified GitHub Team.
 
 
 ### Out of Scope (MVP)

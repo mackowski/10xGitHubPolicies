@@ -2,8 +2,50 @@
 
 All notable changes to this project will be documented in this file.
 
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+## 1.0
+
+### Added
+- **User Authentication System**: Implemented complete GitHub OAuth-based authentication for the web dashboard
+  - Added `AspNet.Security.OAuth.GitHub` package for OAuth integration
+  - Created `IAuthorizationService` and `AuthorizationService` for team-based authorization
+  - Implemented secure session management with 24-hour fixed expiration
+  - Added authentication middleware configuration in `Program.cs`
+- **Authentication Pages**: Created comprehensive authentication UI components
+  - `Login.razor`: GitHub OAuth login page with branded UI
+  - `Logout.razor`: Secure logout handling with session cleanup
+  - `AccessDenied.razor`: Clear messaging for unauthorized users with team information
+  - `Onboarding.razor`: Step-by-step wizard for first-time configuration setup
+- **Authorization Logic**: Integrated team-based access control throughout the application
+  - Dashboard (`Index.razor`) now requires authentication and team membership verification
+  - Configuration validation redirects to onboarding when `config.yaml` is missing
+  - Team membership verification using GitHub API with proper error handling
+- **UI Enhancements**: Updated application layout and navigation
+  - `MainLayout.razor` now shows user information and logout button for authenticated users
+  - `App.razor` updated with `CascadingAuthenticationState` and `AuthorizeRouteView`
+  - Added `RedirectToLogin.razor` component for unauthenticated users
+- **Security Features**: Implemented comprehensive security measures
+  - OAuth access tokens stored securely in encrypted authentication cookies
+  - Minimal scope request (`read:org` only) following least privilege principle
+  - CSRF protection via Blazor Server's built-in anti-forgery protection
+  - Secure cookie configuration for production environments
+- **Documentation**: Added comprehensive authentication documentation
+  - Created `docs/authentication.md` with detailed OAuth flow explanation
+  - Updated `README.md` with GitHub OAuth App setup instructions
+  - Added troubleshooting guide for common authentication issues
+- **Security Enhancements**: Implemented comprehensive endpoint security
+  - Added `[Authorize]` attribute to Debug page (`/debug`) to prevent unauthorized access
+  - Secured Hangfire dashboard (`/hangfire`) with custom `HangfireAuthorizationFilter`
+  - Removed Swagger/OpenAPI dependencies and endpoints to reduce attack surface
+  - Added URL documentation with authentication status in README.md and authentication.md
+  - All administrative and debugging endpoints now require authentication
+
+### Changed
+- **Configuration**: Updated `appsettings.json` to include OAuth configuration placeholders
+- **Service Registration**: Added `IAuthorizationService` and `HttpContextAccessor` to DI container
+- **Project Scope**: Marked authentication features as completed in README.md
+
+### Dependencies
+- Added `AspNet.Security.OAuth.GitHub` 8.0.0 for GitHub OAuth integration
 
 ## 0.4
 
@@ -149,8 +191,3 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added `Swashbuckle.AspNetCore`
 
 ---
-
-## Previous Releases
-
-_No previous releases documented yet. This is the initial development phase of the project._
-

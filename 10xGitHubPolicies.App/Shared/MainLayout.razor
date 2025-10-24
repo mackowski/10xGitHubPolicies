@@ -8,6 +8,25 @@
                 <span style="margin-left: 12px; font-size: var(--type-ramp-plus-2-font-size);">10x GitHub Policy Enforcer</span>
             </div>
             <FluentSpacer />
+            
+            <AuthorizeView>
+                <Authorized>
+                    <FluentStack Orientation="Orientation.Horizontal" VerticalAlignment="VerticalAlignment.Center">
+                        <FluentIcon Icon="@(Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size20.Person)" />
+                        <span style="margin: 0 8px;">@context.User.Identity?.Name</span>
+                        <FluentButton Appearance="Appearance.Neutral" OnClick="Logout" Style="margin-left: 8px;">
+                            <FluentIcon Icon="@(Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size20.Person)" />
+                        </FluentButton>
+                    </FluentStack>
+                </Authorized>
+                <NotAuthorized>
+                    <FluentButton Appearance="Appearance.Accent" OnClick="Login">
+                        <FluentIcon Icon="@(Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size20.Person)" />
+                        Login
+                    </FluentButton>
+                </NotAuthorized>
+            </AuthorizeView>
+            
             <FluentThemeSwitcher />
         </FluentHeader>
         <FluentStack Orientation="Orientation.Vertical" Style="width: 100%;">
@@ -19,3 +38,17 @@
         </FluentStack>
     </FluentLayout>
 </FluentThemeProvider>
+
+@code {
+    [Inject] private NavigationManager Navigation { get; set; } = default!;
+
+    private void Login()
+    {
+        Navigation.NavigateTo("/login");
+    }
+
+    private void Logout()
+    {
+        Navigation.NavigateTo("/logout");
+    }
+}

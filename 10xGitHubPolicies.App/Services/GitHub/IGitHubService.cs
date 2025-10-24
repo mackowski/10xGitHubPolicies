@@ -16,4 +16,6 @@ public interface IGitHubService
     Task<string?> GetFileContentAsync(string repoName, string path);
     Task<string?> GetWorkflowPermissionsAsync(long repositoryId);
     Task<IReadOnlyList<Issue>> GetOpenIssuesAsync(long repositoryId, string label);
+    Task<IReadOnlyList<Organization>> GetUserOrganizationsAsync(string userAccessToken);
+    Task<IReadOnlyList<Team>> GetOrganizationTeamsAsync(string userAccessToken, string org);
 }

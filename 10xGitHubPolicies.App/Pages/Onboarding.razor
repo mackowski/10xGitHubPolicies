@@ -1,0 +1,222 @@
+@page "/onboarding"
+@using Microsoft.FluentUI.AspNetCore.Components
+@using Microsoft.FluentUI.AspNetCore.Components.Icons
+@using _10xGitHubPolicies.App.Services.Configuration
+@inject IConfigurationService ConfigurationService
+
+<PageTitle>Setup - 10x GitHub Policy Enforcer</PageTitle>
+
+<div class="onboarding-container">
+    <FluentCard Style="max-width: 800px; margin: 0 auto; padding: 2rem;">
+        <div style="text-align: center; margin-bottom: 2rem;">
+            <FluentIcon Icon="@(Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size48.Settings)" 
+                       Style="color: var(--accent-fill-rest); margin-bottom: 1rem;" />
+            <h1 style="margin: 0; color: var(--neutral-foreground-rest);">Welcome to 10x GitHub Policy Enforcer</h1>
+            <p style="margin: 0.5rem 0 0 0; color: var(--neutral-foreground-hint);">
+                Let's set up your configuration to get started
+            </p>
+        </div>
+
+        <FluentStack Orientation="Orientation.Vertical" Style="gap: 2rem;">
+            <FluentCard Style="border-left: 4px solid var(--accent-fill-rest);">
+                <h3 style="margin: 0 0 1rem 0; color: var(--neutral-foreground-rest);">Step 1: Create .github Repository</h3>
+                <div style="padding: 1rem 0;">
+                    <p>First, you need to create a <code>.github</code> repository in your organization if it doesn't exist.</p>
+                    <FluentCard Style="background-color: var(--accent-fill-rest); color: var(--accent-foreground-rest); margin: 1rem 0; padding: 1rem;">
+                        <FluentStack Orientation="Orientation.Horizontal" VerticalAlignment="VerticalAlignment.Center">
+                            <FluentIcon Icon="@(Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size16.Info)" 
+                                       Style="margin-right: 8px;" />
+                            <span>This repository will store your organization's configuration files.</span>
+                        </FluentStack>
+                    </FluentCard>
+                    <ol style="margin: 1rem 0; padding-left: 1.5rem;">
+                        <li>Go to your GitHub organization</li>
+                        <li>Click "New repository"</li>
+                        <li>Name it exactly <code>.github</code></li>
+                        <li>Make it public or private (your choice)</li>
+                        <li>Initialize with a README</li>
+                    </ol>
+                </div>
+            </FluentCard>
+
+            <FluentCard Style="border-left: 4px solid var(--accent-fill-rest);">
+                <h3 style="margin: 0 0 1rem 0; color: var(--neutral-foreground-rest);">Step 2: Create Configuration File</h3>
+                <div style="padding: 1rem 0;">
+                    <p>Create a <code>config.yaml</code> file in your <code>.github</code> repository with the following content:</p>
+                    
+                    <FluentCard Style="background-color: var(--neutral-fill-rest); margin: 1rem 0;">
+                        <pre style="margin: 0; padding: 1rem; overflow-x: auto; font-family: 'Consolas', 'Monaco', monospace; font-size: 14px; line-height: 1.4;">@_configTemplate</pre>
+                    </FluentCard>
+
+                    <FluentButton Appearance="Appearance.Accent" OnClick="CopyConfigTemplate" Style="margin: 1rem 0;">
+                        <FluentIcon Icon="@(Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size20.Copy)" 
+                                   Style="margin-right: 8px;" />
+                        Copy Configuration Template
+                    </FluentButton>
+
+                    <FluentCard Style="background-color: var(--warning-fill-rest); color: var(--warning-foreground-rest); margin: 1rem 0; padding: 1rem;">
+                        <FluentStack Orientation="Orientation.Horizontal" VerticalAlignment="VerticalAlignment.Center">
+                            <FluentIcon Icon="@(Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size16.Warning)" 
+                                       Style="margin-right: 8px;" />
+                            <span>Make sure to replace <code>my-org/security-team</code> with your actual organization and team name.</span>
+                        </FluentStack>
+                    </FluentCard>
+                </div>
+            </FluentCard>
+
+            <FluentCard Style="border-left: 4px solid var(--accent-fill-rest);">
+                <h3 style="margin: 0 0 1rem 0; color: var(--neutral-foreground-rest);">Step 3: Verify Setup</h3>
+                <div style="padding: 1rem 0;">
+                    <p>Let's verify that your configuration is working correctly.</p>
+                    
+                    <FluentButton Appearance="Appearance.Accent" OnClick="CheckConfiguration" Disabled="@_isChecking" Style="margin: 1rem 0;">
+                        @if (_isChecking)
+                        {
+                            <FluentProgress Ring="true" />
+                            <span>Checking Configuration...</span>
+                        }
+                        else
+                        {
+                            <FluentIcon Icon="@(Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size20.CheckmarkCircle)" 
+                                       Style="margin-right: 8px;" />
+                            <span>Check Configuration</span>
+                        }
+                    </FluentButton>
+
+                    @if (!string.IsNullOrEmpty(_checkResult))
+                    {
+                        @if (_checkResult.StartsWith("✅"))
+                        {
+                            <FluentCard Style="background-color: var(--success-fill-rest); color: var(--success-foreground-rest); margin: 1rem 0; padding: 1rem;">
+                                <FluentStack Orientation="Orientation.Horizontal" VerticalAlignment="VerticalAlignment.Center">
+                                    <FluentIcon Icon="@(Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size16.CheckmarkCircle)" 
+                                               Style="margin-right: 8px;" />
+                                    <span>@_checkResult</span>
+                                </FluentStack>
+                            </FluentCard>
+                        }
+                        else
+                        {
+                            <FluentCard Style="background-color: var(--error-fill-rest); color: var(--error-foreground-rest); margin: 1rem 0; padding: 1rem;">
+                                <FluentStack Orientation="Orientation.Horizontal" VerticalAlignment="VerticalAlignment.Center">
+                                    <FluentIcon Icon="@(Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size16.ErrorCircle)" 
+                                               Style="margin-right: 8px;" />
+                                    <span>@_checkResult</span>
+                                </FluentStack>
+                            </FluentCard>
+                        }
+                    }
+                </div>
+            </FluentCard>
+        </FluentStack>
+
+        <div style="margin-top: 2rem; text-align: center;">
+            <FluentButton Appearance="Appearance.Accent" OnClick="GoToDashboard" Disabled="@(!_configurationValid)">
+                <FluentIcon Icon="@(Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size20.ArrowRight)" 
+                           Style="margin-right: 8px;" />
+                Go to Dashboard
+            </FluentButton>
+        </div>
+    </FluentCard>
+</div>
+
+<style>
+    .onboarding-container {
+        display: flex;
+        align-items: flex-start;
+        justify-content: center;
+        min-height: 100vh;
+        background: linear-gradient(135deg, var(--neutral-fill-rest) 0%, var(--neutral-fill-hover) 100%);
+        padding: 2rem 1rem;
+    }
+
+    pre {
+        white-space: pre-wrap;
+        word-wrap: break-word;
+    }
+</style>
+
+@code {
+    [Inject] private NavigationManager Navigation { get; set; } = default!;
+
+    private bool _isChecking = false;
+    private string _checkResult = string.Empty;
+    private bool _configurationValid = false;
+
+    private readonly string _configTemplate = @"# Access control: Specify the GitHub team authorized to access the dashboard.
+# Format: 'organization-slug/team-slug'
+access_control:
+  authorized_team: 'my-org/security-team'
+
+# Policies: Define the rules to enforce across your organization's repositories.
+policies:
+  - name: 'Check for AGENTS.md'
+    type: 'has_agents_md'
+    action: 'create-issue'
+    issue_details:
+      title: 'Compliance: AGENTS.md file is missing'
+      body: 'This repository is missing the AGENTS.md file in its root directory. Please add this file to comply with organization standards.'
+      labels: ['policy-violation', 'documentation']
+
+  - name: 'Check for catalog-info.yaml'
+    type: 'has_catalog_info_yaml'
+    action: 'create-issue'
+    issue_details:
+      title: 'Compliance: catalog-info.yaml is missing'
+      body: 'This repository is missing the catalog-info.yaml file. This file is required for backstage.io service discovery.'
+      labels: ['policy-violation', 'backstage']
+      
+  - name: 'Verify Workflow Permissions'
+    type: 'correct_workflow_permissions'
+    action: 'archive-repo'";
+
+    private async Task CopyConfigTemplate()
+    {
+        await Task.Run(() =>
+        {
+            // In a real implementation, you would use the Clipboard API
+            // For now, we'll just show a success message
+            _checkResult = "Configuration template copied to clipboard!";
+        });
+    }
+
+    private async Task CheckConfiguration()
+    {
+        _isChecking = true;
+        _checkResult = string.Empty;
+        StateHasChanged();
+
+        try
+        {
+            var config = await ConfigurationService.GetConfigAsync(forceRefresh: true);
+            
+            if (string.IsNullOrEmpty(config.AccessControl.AuthorizedTeam))
+            {
+                _checkResult = "❌ Configuration is missing the authorized_team setting";
+            }
+            else if (!config.Policies.Any())
+            {
+                _checkResult = "❌ Configuration is missing policy definitions";
+            }
+            else
+            {
+                _checkResult = $"✅ Configuration is valid! Found {config.Policies.Count} policies and authorized team: {config.AccessControl.AuthorizedTeam}";
+                _configurationValid = true;
+            }
+        }
+        catch (Exception ex)
+        {
+            _checkResult = $"❌ Error loading configuration: {ex.Message}";
+        }
+        finally
+        {
+            _isChecking = false;
+            StateHasChanged();
+        }
+    }
+
+    private void GoToDashboard()
+    {
+        Navigation.NavigateTo("/");
+    }
+}

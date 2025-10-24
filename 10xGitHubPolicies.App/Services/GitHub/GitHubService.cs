@@ -83,14 +83,27 @@ public class GitHubService : IGitHubService
 
         try
         {
+            _logger.LogInformation("Attempting to get team {Org}/{TeamSlug}", org, teamSlug);
             var team = await userClient.Organization.Team.GetByName(org, teamSlug);
+            _logger.LogInformation("Team found with ID: {TeamId}", team.Id);
+            
             var user = await userClient.User.Current();
+            _logger.LogInformation("Current user: {UserLogin}", user.Login);
+            
             var membership = await userClient.Organization.Team.GetMembershipDetails(team.Id, user.Login);
-            return membership.State.ToString().Equals("active", StringComparison.OrdinalIgnoreCase);
+            var isActive = membership.State.ToString().Equals("active", StringComparison.OrdinalIgnoreCase);
+            _logger.LogInformation("Team membership state: {State}, Active: {IsActive}", membership.State, isActive);
+            
+            return isActive;
         }
         catch (NotFoundException ex)
         {
             _logger.LogWarning(ex, "Could not verify team membership for {Org}/{TeamSlug}. The team may not exist or the user may not have permission to view it.", org, teamSlug);
+            return false;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Unexpected error while checking team membership for {Org}/{TeamSlug}", org, teamSlug);
             return false;
         }
     }
@@ -152,6 +165,42 @@ public class GitHubService : IGitHubService
         {
             _logger.LogWarning("Could not retrieve issues for repository {RepositoryId}.", repositoryId);
             return new List<Issue>();
+        }
+    }
+
+    public async Task<IReadOnlyList<Organization>> GetUserOrganizationsAsync(string userAccessToken)
+    {
+        var userClient = new GitHubClient(new ProductHeaderValue("10xGitHubPolicies"))
+        {
+            Credentials = new Credentials(userAccessToken)
+        };
+
+        try
+        {
+            return await userClient.Organization.GetAllForCurrent();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to get user organizations");
+            return new List<Organization>();
+        }
+    }
+
+    public async Task<IReadOnlyList<Team>> GetOrganizationTeamsAsync(string userAccessToken, string org)
+    {
+        var userClient = new GitHubClient(new ProductHeaderValue("10xGitHubPolicies"))
+        {
+            Credentials = new Credentials(userAccessToken)
+        };
+
+        try
+        {
+            return await userClient.Organization.Team.GetAll(org);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to get teams for organization {Org}", org);
+            return new List<Team>();
         }
     }
 
