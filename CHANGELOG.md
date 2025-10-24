@@ -2,6 +2,28 @@
 
 All notable changes to this project will be documented in this file.
 
+## 1.1
+
+### Added
+- **Daily Automated Scanning**: Implemented recurring job configuration for automatic daily repository scanning
+  - Added `RecurringJob.AddOrUpdate()` configuration in `Program.cs` for daily scans at midnight UTC
+  - Scans run automatically without manual intervention using Hangfire's recurring job system
+  - Uses `IScanningService.PerformScanAsync()` for consistent scanning logic
+- **Enhanced Error Handling**: Improved configuration validation and error handling
+  - Added null checks and proper exception handling for GitHub OAuth configuration
+  - Enhanced error messages for missing configuration values
+
+### Changed
+- **UI Simplification**: Removed `FluentThemeProvider` wrapper from `MainLayout.razor` for cleaner component structure
+- **Code Quality**: Fixed nullable reference warnings across multiple files
+  - `PolicyViolation.cs`: Added default value for `PolicyType` property
+  - `ConfigurationService.cs`: Enhanced null checking for cached configuration
+- **Documentation**: Updated Hangfire integration documentation to include recurring job configuration
+
+### Fixed
+- **Nullable Reference Warnings**: Resolved compiler warnings for nullable reference types
+- **Configuration Caching**: Improved thread safety and null handling in configuration service
+
 ## 1.0
 
 ### Added

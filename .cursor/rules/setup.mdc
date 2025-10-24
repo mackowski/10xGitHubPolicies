@@ -4,8 +4,14 @@ alwaysApply: true
 ---
 # Setup commands
 To run this project locally:
-1. `cd 10xGitHubPolicies.App`
-2. `dotnet restore`
-3. `dotnet run`
+1. `cd 10xGitHubPolicies`
+2. `docker-compose up -d`
+3. `cd 10xGitHubPolicies.App`
+4. `dotnet restore`
+5. `dotnet ef database update`
+6. `dotnet dev-certs https --trust`
+7. `dotnet run --launch-profile https`
 
-Alternatively, you can run from the root directory using `dotnet run --project 10xGitHubPolicies.App/10xGitHubPolicies.App.csproj`.
+Alternatively, you can run from the root directory using `dotnet run --project 10xGitHubPolicies.App/10xGitHubPolicies.App.csproj --launch-profile https`.
+
+**Important**: Always use the HTTPS profile to ensure OAuth authentication works correctly.

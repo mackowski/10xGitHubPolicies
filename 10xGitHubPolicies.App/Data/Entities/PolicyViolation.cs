@@ -18,5 +18,5 @@ public class PolicyViolation
     public Policy Policy { get; set; } = null!;
 
     [NotMapped]
-    public string PolicyType { get; set; }
+    public string PolicyType { get; set; } = string.Empty;
 }

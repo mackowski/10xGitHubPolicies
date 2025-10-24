@@ -59,8 +59,8 @@ builder.Services.AddAuthentication(options =>
 })
 .AddGitHub(options =>
 {
-    options.ClientId = builder.Configuration["GitHub:ClientId"];
-    options.ClientSecret = builder.Configuration["GitHub:ClientSecret"];
+    options.ClientId = builder.Configuration["GitHub:ClientId"] ?? throw new InvalidOperationException("GitHub:ClientId is not configured");
+    options.ClientSecret = builder.Configuration["GitHub:ClientSecret"] ?? throw new InvalidOperationException("GitHub:ClientSecret is not configured");
     options.CallbackPath = "/signin-github";
     options.Scope.Add("read:org");
     options.SaveTokens = true; // Save access token for team verification
@@ -133,6 +133,16 @@ app.UseHangfireDashboard("/hangfire", new DashboardOptions
 {
     Authorization = new[] { new HangfireAuthorizationFilter() }
 });
+
+// Configure recurring jobs
+RecurringJob.AddOrUpdate<IScanningService>(
+    "daily-scan",
+    service => service.PerformScanAsync(),
+    "0 0 * * *", // Daily at midnight UTC
+    new RecurringJobOptions
+    {
+        TimeZone = TimeZoneInfo.Utc
+    });
 
 // Add OAuth challenge endpoint
 app.MapGet("/challenge", async (HttpContext context) =>

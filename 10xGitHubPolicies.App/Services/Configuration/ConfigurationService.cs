@@ -37,7 +37,7 @@ public class ConfigurationService : IConfigurationService
 
     public async Task<AppConfig> GetConfigAsync(bool forceRefresh = false)
     {
-        if (!forceRefresh && _cache.TryGetValue(AppConfigCacheKey, out AppConfig cachedConfig))
+        if (!forceRefresh && _cache.TryGetValue(AppConfigCacheKey, out AppConfig? cachedConfig) && cachedConfig != null)
         {
             _logger.LogInformation("Configuration found in cache.");
             return cachedConfig;
@@ -47,7 +47,7 @@ public class ConfigurationService : IConfigurationService
         try
         {
             // Double-check locking
-            if (!forceRefresh && _cache.TryGetValue(AppConfigCacheKey, out AppConfig configAfterLock))
+            if (!forceRefresh && _cache.TryGetValue(AppConfigCacheKey, out AppConfig? configAfterLock) && configAfterLock != null)
             {
                 _logger.LogInformation("Configuration found in cache after acquiring lock.");
                 return configAfterLock;

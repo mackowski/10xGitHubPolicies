@@ -43,10 +43,11 @@ The dashboard is accessible at the `/hangfire` endpoint of the application (e.g.
 
 ## Usage in the Application
 
-Hangfire is primarily used in two places:
+Hangfire is used in three main scenarios:
 
 1.  **On-Demand Repository Scanning**: When a user clicks the "Scan Now" button on the dashboard.
-2.  **Processing Actions for Violations**: After a scan is completed, a job is enqueued to process the configured actions for any violations found using the `ActionService`.
+2.  **Daily Automated Scanning**: A recurring job that automatically scans all repositories daily at midnight UTC.
+3.  **Processing Actions for Violations**: After a scan is completed, a job is enqueued to process the configured actions for any violations found using the `ActionService`.
 
 ### Enqueuing a Scan
 
@@ -67,6 +68,32 @@ private async Task StartScan()
 ```
 
 By using `_backgroundJobClient.Enqueue()`, the `PerformScanAsync` method is executed on a background thread by a Hangfire worker. This immediately returns control to the UI, which can then display a "Scanning..." status to the user.
+
+### Daily Automated Scanning
+
+The application is configured with a recurring job that automatically scans all repositories daily:
+
+```csharp
+// Program.cs
+
+// Configure recurring jobs
+RecurringJob.AddOrUpdate<IScanningService>(
+    "daily-scan",
+    service => service.PerformScanAsync(),
+    "0 0 * * *", // Daily at midnight UTC
+    new RecurringJobOptions
+    {
+        TimeZone = TimeZoneInfo.Utc
+    });
+```
+
+This configuration:
+- **Job Name**: `"daily-scan"` - unique identifier for the recurring job
+- **Cron Expression**: `"0 0 * * *"` - runs daily at midnight UTC
+- **Timezone**: UTC to ensure consistent execution times
+- **Service**: Uses `IScanningService.PerformScanAsync()` for the actual scanning logic
+
+The recurring job ensures that all repositories are automatically scanned for policy compliance without manual intervention, providing continuous monitoring of organizational compliance.
 
 ### Enqueuing Actions Post-Scan
 

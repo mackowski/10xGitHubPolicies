@@ -29,6 +29,10 @@ The 10x GitHub Policy Enforcer is a GitHub App with an accompanying web UI desig
 
 It uses a flexible policy evaluation engine to scan repositories for compliance with a centrally managed configuration file. When violations are found, it can automatically perform actions like creating issues in the repository or archiving it. The web dashboard provides a clear overview of your organization's compliance posture.
 
+The application uses a dual-authentication strategy:
+- **GitHub App**: For backend services to perform automated scans and actions
+- **GitHub OAuth App**: For user authentication to the web dashboard
+
 ---
 
 ## Features
@@ -132,7 +136,10 @@ The application will be available at:
 The application is configured via `appsettings.json` and user secrets for sensitive data.
 
 ### GitHub App Settings
-You need to configure the GitHub App settings. During development, it's required to use the .NET Secret Manager to keep secrets out of source control.
+The application uses a dual-authentication strategy requiring both a GitHub App (for backend services) and a GitHub OAuth App (for user authentication).
+
+#### GitHub App (Backend Services)
+The GitHub App is used by backend services to perform automated scans and actions against the GitHub API.
 
 1.  Initialize user secrets for the project (if you haven't already):
     ```sh
@@ -157,7 +164,27 @@ You need to configure the GitHub App settings. During development, it's required
     ```
     Replace `your-organization-name` with your GitHub organization's slug.
 
-### GitHub OAuth App Settings
+#### GitHub App Setup
+To create a GitHub App for backend services:
+
+1. Go to [GitHub Developer Settings](https://github.com/settings/apps)
+2. Click "New GitHub App"
+3. Configure the following:
+   - **GitHub App name**: 10x GitHub Policy Enforcer
+   - **Homepage URL**: `https://localhost:7040/` (for local development)
+   - **Webhook URL**: Leave empty for local development
+   - **Repository permissions**:
+     - **Administration**: Read & write (to archive repositories)
+     - **Contents**: Read-only (to check for file presence)
+     - **Issues**: Read & write (to create and check for duplicate issues)
+     - **Metadata**: Read-only (to list repositories)
+   - **Organization permissions**: None required
+4. After creating the app:
+   - Note the **App ID** (found on the app's general page)
+   - Generate a **Private Key** (download the `.pem` file)
+   - Install the app on your organization and note the **Installation ID**
+
+#### GitHub OAuth App (User Authentication)
 For user authentication, you need to create a GitHub OAuth App:
 
 1. Go to [GitHub Developer Settings](https://github.com/settings/developers)
@@ -227,7 +254,7 @@ Detailed documentation for specific features and integrations:
 
 ### In Scope (MVP)
 *   ✅ `[done]` Configuration managed via a single `config.yaml` file in the `.github` repository.
-*   ⏳ `[todo]` Daily and on-demand scanning of all active repositories.
+*   ✅ `[done]` Daily and on-demand scanning of all active repositories.
 *   ✅ `[done]` Core policies:
     *   ✅ `[done]` Verify presence of `AGENTS.md`.
     *   ✅ `[done]` Verify presence of `catalog-info.yaml`.
@@ -250,21 +277,13 @@ Detailed documentation for specific features and integrations:
 *   Repository-level exceptions or overrides in the UI.
 
 ### Ideas
-*   Secure /hangfire
 *   Logs - production
 *   Advanced policy types (e.g., checking file content)
 *   Action - PR Blocking
 *   Action - Log only
 *   Action - Slack notification
 *   Exception policies
-*   Getting team ownership and 
-
-
----
-
-## Project Status
-
-This project is currently **in development**. The immediate focus is on delivering the Minimum Viable Product (MVP) features outlined in the project scope.
+*   Getting team ownership 
 
 ---
 

@@ -35,9 +35,9 @@ You are a senior Blazor and .NET developer and an expert in `C#`, `ASP.NET Core`
 - Use `C#`'s expressive syntax (e.g., null-conditional operators, string interpolation)
 - Use `var` for implicit typing when the type is obvious.
 
-### Frontend Development (Blazor & MudBlazor)
-- Use `MudBlazor` components to build the UI for a consistent look and feel.
-- Adhere to a consistent styling and theming strategy using `MudBlazor`'s theme provider.
+### Frontend Development (Blazor & Fluent UI)
+- Use `Microsoft.FluentUI.AspNetCore.Components` to build the UI for a consistent look and feel.
+- Adhere to a consistent styling and theming strategy using Fluent UI's theme provider.
 - Manage application state carefully. For complex state, consider using a cascading parameter-based state container.
 
 ### Error Handling and Validation
@@ -118,5 +118,13 @@ You are a senior Blazor and .NET developer and an expert in `C#`, `ASP.NET Core`
 - Use the Hangfire Dashboard (`/hangfire`) for monitoring jobs.
 - Configure queues and workers appropriately for production environments.
 - Refer to `/docs/hangfire-integration.md` for more details.
+
+### Action Service
+- Use `IActionService` to process automated actions for policy violations.
+- The service supports three action types: `create-issue`, `archive-repo`, and `log-only`.
+- All actions are logged to the `ActionLog` table with status tracking.
+- Duplicate issue prevention is built-in for `create-issue` actions.
+- Individual action failures don't block processing of other violations.
+- Refer to `/docs/action-service.md` for detailed usage examples and configuration.
 
 Follow the official Microsoft documentation and `ASP.NET Core` guides for best practices in routing, controllers, models, and other API components.
