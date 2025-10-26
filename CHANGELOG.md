@@ -2,6 +2,59 @@
 
 All notable changes to this project will be documented in this file.
 
+## 1.2
+
+### Added
+- **Comprehensive Testing Infrastructure**: Implemented a multi-level testing strategy to ensure code quality and reliability
+  - **Unit Testing**: xUnit + NSubstitute + FluentAssertions for fast, isolated business logic testing with 85-90% coverage target
+  - **Integration Testing**: Testcontainers + Respawn + WireMock.Net for database operations and GitHub API HTTP-level mocking
+  - **Contract Testing**: NJsonSchema + Verify.NET for detecting GitHub API breaking changes with schema validation and snapshot testing
+  - **Blazor Component Testing**: bUnit for testing UI component rendering and user interactions
+  - **End-to-End Testing**: Playwright for critical user workflow validation (used sparingly)
+- **Testing Documentation**: Created comprehensive testing strategy documentation at `/docs/testing-strategy.md`
+  - Detailed testing pyramid with coverage targets for each level
+  - Testing tool rationale and version requirements
+  - Project structure and naming conventions
+  - Development workflow and CI/CD pipeline guidance
+  - Quick decision tree for choosing the right test type
+  - Common commands cheat sheet
+- **Test Plan**: Added comprehensive test plan document at `.ai/test-plan.md` with 50+ detailed test scenarios
+  - Authentication and authorization test cases
+  - Configuration management test cases
+  - Policy evaluation test cases
+  - Dashboard functionality test cases
+  - Automated actions test cases
+  - Background job processing test cases
+  - GitHub API integration and contract testing test cases
+  - Performance and security testing strategies
+- **Testing Rules**: Added detailed testing guidelines in `.cursor/rules/` directory
+  - `testing-overview.mdc`: Quick reference guide for all testing approaches
+  - `unit-testing.mdc`: xUnit + NSubstitute + FluentAssertions best practices
+  - `integration-testing.mdc`: Testcontainers + Respawn + WireMock.Net patterns
+  - `contract-testing.mdc`: NJsonSchema + Verify.NET for API stability
+  - `blazor-component-testing.mdc`: bUnit patterns for Blazor components
+  - `e2e-testing.mdc`: Playwright patterns for critical workflows
+
+### Changed
+- **Tech Stack Documentation**: Updated `.ai/tech-stack.md` with comprehensive testing stack section
+  - Added rationale for each testing tool selection
+  - Explained how each tool supports the project's testing needs
+- **Coding Practices**: Updated `AGENTS.md` with multi-level testing strategy
+  - Replaced generic testing guidelines with specific technology recommendations
+  - Added clear guidance on when to use each testing level
+  - Included database testing with Respawn for test isolation
+- **README**: Enhanced tech stack table to include testing tools
+  - Added Testing row with xUnit, bUnit, WireMock.Net, Testcontainers
+  - Added link to comprehensive testing strategy documentation
+
+### Technical Details
+- **Testing Tools Added to Documentation**:
+  - Core: xUnit (v2.6+), FluentAssertions (v6.12+), NSubstitute (v5.1+)
+  - Specialized: bUnit (v1.28+), Playwright (latest), Bogus (v35.4+)
+  - Integration: Testcontainers.MsSql (v3.7+), Respawn (v6.2+), WireMock.Net (v1.5+)
+  - Contract: NJsonSchema (v11.0+), Verify.NET (v25.0+)
+  - Code Quality: Coverlet (v6.0+)
+
 ## 1.1
 
 ### Added

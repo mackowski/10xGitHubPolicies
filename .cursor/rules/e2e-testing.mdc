@@ -1,0 +1,1342 @@
+---
+alwaysApply: false
+---
+
+# E2E Testing Guidelines - Playwright
+
+## Overview
+End-to-end tests verify complete user workflows from browser to database. This rule applies when writing Playwright tests for critical user journeys. Use E2E tests sparingly—they're slow and expensive compared to unit/integration tests.
+
+## Technology Stack
+- **E2E Framework**: Playwright (latest)
+- **Test Runner**: Playwright Test (built-in)
+- **Language**: TypeScript or C# (.NET Playwright)
+- **Browsers**: Chromium, Firefox, WebKit
+
+## When to Use E2E Tests
+
+**Use E2E tests for:**
+- ✅ Critical user workflows (login → scan → view results)
+- ✅ Cross-browser compatibility verification
+- ✅ OAuth authentication flows
+- ✅ Pre-production smoke tests
+
+**Don't use E2E tests for:**
+- ❌ Testing business logic (use unit tests)
+- ❌ Testing edge cases (use integration tests)
+- ❌ Testing every feature (too slow)
+- ❌ API testing (use integration tests)
+
+**Rule of Thumb**: If you have 100 unit tests, you should have ~10 integration tests and ~5 E2E tests.
+
+## Setup
+
+### TypeScript Setup (Recommended)
+```bash
+# Initialize Playwright
+npm init playwright@latest
+
+# Install dependencies
+npm install --save-dev @playwright/test
+
+# Install browsers
+npx playwright install
+```
+
+### C# Setup (Alternative)
+```bash
+# Add Playwright package
+dotnet add package Microsoft.Playwright.NUnit
+
+# Install browsers
+pwsh bin/Debug/net8.0/playwright.ps1 install
+```
+
+## File Structure
+```
+tests/e2e/
+├── tests/
+│   ├── auth.spec.ts           # Authentication flows
+│   ├── dashboard.spec.ts      # Dashboard functionality
+│   ├── scanning.spec.ts       # Repository scanning
+│   └── onboarding.spec.ts     # First-time setup
+├── fixtures/
+│   ├── test-users.ts          # Test user credentials
+│   └── test-repos.ts          # Test repository data
+├── pages/                     # Page Object Model
+│   ├── LoginPage.ts
+│   ├── DashboardPage.ts
+│   └── OnboardingPage.ts
+└── playwright.config.ts       # Playwright configuration
+```
+
+## Playwright Configuration
+
+```typescript
+// playwright.config.ts
+import { defineConfig, devices } from '@playwright/test';
+
+export default defineConfig({
+  testDir: './tests',
+  fullyParallel: true,
+  forbidOnly: !!process.env.CI,
+  retries: process.env.CI ? 2 : 0,
+  workers: process.env.CI ? 1 : undefined,
+  
+  reporter: [
+    ['html'],
+    ['json', { outputFile: 'test-results.json' }],
+  ],
+  
+  use: {
+    baseURL: 'https://localhost:7040',
+    trace: 'on-first-retry',
+    screenshot: 'only-on-failure',
+    video: 'retain-on-failure',
+  },
+  
+  projects: [
+    {
+      name: 'chromium',
+      use: { ...devices['Desktop Chrome'] },
+    },
+    {
+      name: 'firefox',
+      use: { ...devices['Desktop Firefox'] },
+    },
+    {
+      name: 'webkit',
+      use: { ...devices['Desktop Safari'] },
+    },
+  ],
+  
+  webServer: {
+    command: 'dotnet run --project ../10xGitHubPolicies.App --launch-profile https',
+    url: 'https://localhost:7040',
+    reuseExistingServer: !process.env.CI,
+    ignoreHTTPSErrors: true,
+  },
+});
+```
+
+## Page Object Model Pattern
+
+### Page Class Structure
+```typescript
+// pages/DashboardPage.ts
+import { Page, Locator } from '@playwright/test';
+
+export class DashboardPage {
+  readonly page: Page;
+  readonly scanNowButton: Locator;
+  readonly filterInput: Locator;
+  readonly repositoryList: Locator;
+  readonly compliancePercentage: Locator;
+  readonly scanningIndicator: Locator;
+  
+  constructor(page: Page) {
+    this.page = page;
+    this.scanNowButton = page.locator('#scan-now-button');
+    this.filterInput = page.locator('#filter-input');
+    this.repositoryList = page.locator('.repository-list');
+    this.compliancePercentage = page.locator('.compliance-percentage');
+    this.scanningIndicator = page.locator('#scanning-indicator');
+  }
+  
+  async goto() {
+    await this.page.goto('/');
+  }
+  
+  async triggerScan() {
+    await this.scanNowButton.click();
+    // Wait for scan to start
+    await this.scanningIndicator.waitFor({ state: 'visible' });
+  }
+  
+  async waitForScanComplete(timeout = 60000) {
+    await this.scanningIndicator.waitFor({ 
+      state: 'hidden', 
+      timeout 
+    });
+  }
+  
+  async filterRepositories(filter: string) {
+    await this.filterInput.fill(filter);
+  }
+  
+  async getRepositoryCount(): Promise<number> {
+    return await this.repositoryList
+      .locator('.repository-item')
+      .count();
+  }
+  
+  async getCompliancePercentage(): Promise<string> {
+    return await this.compliancePercentage.textContent() || '';
+  }
+}
+```
+
+### Login Page
+```typescript
+// pages/LoginPage.ts
+import { Page, Locator } from '@playwright/test';
+
+export class LoginPage {
+  readonly page: Page;
+  readonly loginButton: Locator;
+  
+  constructor(page: Page) {
+    this.page = page;
+    this.loginButton = page.locator('#login-button');
+  }
+  
+  async goto() {
+    await this.page.goto('/login');
+  }
+  
+  async loginWithGitHub() {
+    await this.loginButton.click();
+    
+    // Handle GitHub OAuth page
+    await this.page.waitForURL('**/github.com/login**');
+    
+    // Fill GitHub credentials
+    await this.page.fill('input[name="login"]', process.env.GITHUB_TEST_USER!);
+    await this.page.fill('input[name="password"]', process.env.GITHUB_TEST_PASSWORD!);
+    await this.page.click('input[type="submit"]');
+    
+    // Wait for redirect back to app
+    await this.page.waitForURL('**/localhost:7040/**');
+  }
+}
+```
+
+## Test Structure
+
+### Basic Test
+```typescript
+import { test, expect } from '@playwright/test';
+import { DashboardPage } from '../pages/DashboardPage';
+
+test.describe('Dashboard', () => {
+  let dashboardPage: DashboardPage;
+  
+  test.beforeEach(async ({ page }) => {
+    dashboardPage = new DashboardPage(page);
+    await dashboardPage.goto();
+  });
+  
+  test('displays compliance dashboard', async ({ page }) => {
+    // Assert
+    await expect(page.locator('h1')).toContainText('Compliance Dashboard');
+    await expect(dashboardPage.compliancePercentage).toBeVisible();
+  });
+});
+```
+
+### Test with Authentication
+```typescript
+test.describe('Authenticated Dashboard', () => {
+  test.use({ storageState: 'auth.json' });  // Reuse auth state
+  
+  test('shows scan button for authorized users', async ({ page }) => {
+    const dashboardPage = new DashboardPage(page);
+    await dashboardPage.goto();
+    
+    await expect(dashboardPage.scanNowButton).toBeVisible();
+  });
+});
+```
+
+### Save Authentication State
+```typescript
+// auth.setup.ts - Run once, save auth for all tests
+import { test as setup } from '@playwright/test';
+import { LoginPage } from './pages/LoginPage';
+
+setup('authenticate', async ({ page }) => {
+  const loginPage = new LoginPage(page);
+  await loginPage.goto();
+  await loginPage.loginWithGitHub();
+  
+  // Save authenticated state
+  await page.context().storageState({ path: 'auth.json' });
+});
+```
+
+## Testing Patterns
+
+### Testing User Workflows
+```typescript
+test('complete scan workflow', async ({ page }) => {
+  const dashboardPage = new DashboardPage(page);
+  
+  // Step 1: Navigate to dashboard
+  await dashboardPage.goto();
+  await expect(page.locator('h1')).toContainText('Compliance Dashboard');
+  
+  // Step 2: Trigger scan
+  await dashboardPage.triggerScan();
+  await expect(dashboardPage.scanningIndicator).toBeVisible();
+  
+  // Step 3: Wait for scan to complete
+  await dashboardPage.waitForScanComplete(120000);  // 2 minute timeout
+  
+  // Step 4: Verify results updated
+  const repoCount = await dashboardPage.getRepositoryCount();
+  expect(repoCount).toBeGreaterThan(0);
+});
+```
+
+### Testing Forms
+```typescript
+test('filter repositories', async ({ page }) => {
+  const dashboardPage = new DashboardPage(page);
+  await dashboardPage.goto();
+  
+  // Get initial count
+  const initialCount = await dashboardPage.getRepositoryCount();
+  
+  // Apply filter
+  await dashboardPage.filterRepositories('test');
+  
+  // Verify filtered results
+  const filteredCount = await dashboardPage.getRepositoryCount();
+  expect(filteredCount).toBeLessThanOrEqual(initialCount);
+  
+  // Verify filtered items contain search term
+  const items = page.locator('.repository-item');
+  const count = await items.count();
+  for (let i = 0; i < count; i++) {
+    const text = await items.nth(i).textContent();
+    expect(text?.toLowerCase()).toContain('test');
+  }
+});
+```
+
+### Testing Navigation
+```typescript
+test('navigates through application', async ({ page }) => {
+  await page.goto('/login');
+  await expect(page).toHaveURL(/.*login/);
+  
+  await page.click('#login-button');
+  await page.waitForURL('**/github.com/**');
+  
+  // Complete OAuth flow
+  // ...
+  
+  await expect(page).toHaveURL('/');
+  await expect(page.locator('h1')).toContainText('Dashboard');
+});
+```
+
+### Testing Error States
+```typescript
+test('displays error when API fails', async ({ page }) => {
+  // Intercept API and return error
+  await page.route('**/api/dashboard', route => {
+    route.fulfill({
+      status: 500,
+      body: JSON.stringify({ error: 'Internal Server Error' })
+    });
+  });
+  
+  await page.goto('/');
+  
+  // Verify error message displayed
+  await expect(page.locator('.error-message')).toBeVisible();
+  await expect(page.locator('.error-message')).toContainText('Failed to load');
+});
+```
+
+## API Interception and Mocking
+
+### Mock API Responses
+```typescript
+test('mocks GitHub API responses', async ({ page }) => {
+  // Intercept GitHub API calls
+  await page.route('**/api.github.com/repos/**', route => {
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        id: 123,
+        name: 'test-repo',
+        owner: { login: 'test-owner' }
+      })
+    });
+  });
+  
+  await page.goto('/');
+  await page.click('#scan-now-button');
+  
+  // Verify mocked data is displayed
+  await expect(page.locator('.repository-item')).toContainText('test-repo');
+});
+```
+
+### Verify API Calls
+```typescript
+test('makes correct API calls during scan', async ({ page }) => {
+  const apiCalls: string[] = [];
+  
+  // Track API calls
+  page.on('request', request => {
+    if (request.url().includes('/api/')) {
+      apiCalls.push(request.url());
+    }
+  });
+  
+  const dashboardPage = new DashboardPage(page);
+  await dashboardPage.goto();
+  await dashboardPage.triggerScan();
+  
+  // Verify expected API calls were made
+  expect(apiCalls).toContain(expect.stringContaining('/api/scan'));
+});
+```
+
+## Waiting Strategies
+
+### Wait for Element
+```typescript
+// Wait for element to be visible
+await page.locator('.repository-list').waitFor({ state: 'visible' });
+
+// Wait for element to be hidden
+await page.locator('#loading').waitFor({ state: 'hidden' });
+
+// Wait with timeout
+await page.locator('.scan-results').waitFor({ 
+  state: 'visible', 
+  timeout: 30000 
+});
+```
+
+### Wait for Network
+```typescript
+// Wait for specific API call
+await page.waitForResponse(response => 
+  response.url().includes('/api/scan') && response.status() === 200
+);
+
+// Wait for navigation
+await Promise.all([
+  page.waitForNavigation(),
+  page.click('#login-button')
+]);
+```
+
+### Wait for Condition
+```typescript
+// Wait for custom condition
+await page.waitForFunction(() => {
+  const element = document.querySelector('.compliance-percentage');
+  return element?.textContent?.includes('%');
+});
+```
+
+## Assertions
+
+### Element Assertions
+```typescript
+// Visibility
+await expect(page.locator('h1')).toBeVisible();
+await expect(page.locator('#loading')).toBeHidden();
+
+// Text content
+await expect(page.locator('h1')).toHaveText('Dashboard');
+await expect(page.locator('.message')).toContainText('Success');
+
+// Count
+await expect(page.locator('.repository-item')).toHaveCount(5);
+
+// Attributes
+await expect(page.locator('#scan-button')).toBeEnabled();
+await expect(page.locator('input')).toHaveValue('test');
+```
+
+### Page Assertions
+```typescript
+// URL
+await expect(page).toHaveURL('https://localhost:7040/');
+await expect(page).toHaveURL(/.*dashboard/);
+
+// Title
+await expect(page).toHaveTitle(/Compliance Dashboard/);
+
+// Screenshot comparison
+await expect(page).toHaveScreenshot('dashboard.png');
+```
+
+## Handling OAuth Authentication
+
+### OAuth Flow Test
+```typescript
+test('completes OAuth authentication', async ({ page, context }) => {
+  await page.goto('/login');
+  
+  // Click login button
+  await page.click('#login-button');
+  
+  // Wait for GitHub OAuth page
+  await page.waitForURL('**/github.com/login/oauth/**');
+  
+  // Note: GitHub OAuth state parameter
+  // Fill credentials (use test account)
+  await page.fill('#login_field', process.env.GITHUB_TEST_USER!);
+  await page.fill('#password', process.env.GITHUB_TEST_PASSWORD!);
+  await page.click('input[type="submit"][value="Sign in"]');
+  
+  // Handle 2FA if enabled
+  if (await page.isVisible('input[name="otp"]')) {
+    // Would need 2FA code handling here
+  }
+  
+  // Wait for redirect back to app
+  await page.waitForURL('https://localhost:7040/**');
+  
+  // Verify successful login
+  await expect(page.locator('.user-info')).toBeVisible();
+  
+  // Save auth state for other tests
+  await context.storageState({ path: 'playwright/.auth/user.json' });
+});
+```
+
+## Test Data Management
+
+### Fixtures
+```typescript
+// fixtures/test-data.ts
+export const testRepositories = [
+  {
+    name: 'compliant-repo',
+    hasAgentsMd: true,
+    hasCatalogInfo: true,
+    workflowPermissions: 'read'
+  },
+  {
+    name: 'non-compliant-repo',
+    hasAgentsMd: false,
+    hasCatalogInfo: false,
+    workflowPermissions: 'write'
+  }
+];
+
+// Usage in tests
+import { testRepositories } from '../fixtures/test-data';
+
+test('displays test repositories', async ({ page }) => {
+  // Mock API with test data
+  await page.route('**/api/repositories', route => {
+    route.fulfill({ json: testRepositories });
+  });
+  
+  await page.goto('/');
+  await expect(page.locator('.repository-item')).toHaveCount(2);
+});
+```
+
+## Debugging Tests
+
+### Debug Mode
+```bash
+# Run with headed browser
+npx playwright test --headed
+
+# Debug specific test
+npx playwright test --debug tests/dashboard.spec.ts
+
+# Slow down execution
+npx playwright test --slow-mo=1000
+```
+
+### Inspector
+```typescript
+// Add breakpoint in test
+await page.pause();  // Opens Playwright Inspector
+```
+
+### Screenshots and Videos
+```typescript
+// Take screenshot
+await page.screenshot({ path: 'screenshot.png' });
+
+// Full page screenshot
+await page.screenshot({ path: 'full.png', fullPage: true });
+
+// Element screenshot
+await page.locator('.dashboard').screenshot({ path: 'dashboard.png' });
+```
+
+### Trace Viewer
+```bash
+# View trace
+npx playwright show-trace trace.zip
+```
+
+## CI/CD Integration
+
+### GitHub Actions
+```yaml
+name: E2E Tests
+
+on: [push, pull_request]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Install Playwright
+        run: npx playwright install --with-deps
+      
+      - name: Start application
+        run: |
+          dotnet run --project 10xGitHubPolicies.App &
+          npx wait-on https://localhost:7040
+      
+      - name: Run E2E tests
+        run: npx playwright test
+        env:
+          GITHUB_TEST_USER: ${{ secrets.GITHUB_TEST_USER }}
+          GITHUB_TEST_PASSWORD: ${{ secrets.GITHUB_TEST_PASSWORD }}
+      
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+```
+
+## Best Practices
+
+1. ✅ Use Page Object Model for maintainability
+2. ✅ Run E2E tests sparingly (critical paths only)
+3. ✅ Reuse authentication state across tests
+4. ✅ Use explicit waits, not fixed delays
+5. ✅ Test in multiple browsers (Chromium, Firefox, WebKit)
+6. ✅ Record videos/screenshots on failure
+7. ✅ Mock external APIs when possible
+8. ✅ Keep tests independent and idempotent
+9. ❌ Don't test every feature with E2E
+10. ❌ Don't use real user accounts in CI
+
+## Running E2E Tests
+
+```bash
+# Run all E2E tests
+npx playwright test
+
+# Run specific test file
+npx playwright test tests/dashboard.spec.ts
+
+# Run with specific browser
+npx playwright test --project=chromium
+
+# Run in headed mode
+npx playwright test --headed
+
+# Run with UI
+npx playwright test --ui
+
+# Generate code
+npx playwright codegen https://localhost:7040
+```
+
+## Test Coverage for This Project
+
+### Critical E2E Tests (5 tests maximum)
+1. ✅ **OAuth Authentication Flow** - Login with GitHub
+2. ✅ **Complete Scan Workflow** - Trigger scan → View results
+3. ✅ **Dashboard Filtering** - Filter repositories by name
+4. ✅ **Onboarding Flow** - First-time setup wizard
+5. ✅ **Access Denial** - Unauthorized user blocked
+
+Everything else should be unit or integration tests!
+# E2E Testing Guidelines - Playwright
+
+## Overview
+End-to-end tests verify complete user workflows from browser to database. This rule applies when writing Playwright tests for critical user journeys. Use E2E tests sparingly—they're slow and expensive compared to unit/integration tests.
+
+## Technology Stack
+- **E2E Framework**: Playwright (latest)
+- **Test Runner**: Playwright Test (built-in)
+- **Language**: TypeScript or C# (.NET Playwright)
+- **Browsers**: Chromium, Firefox, WebKit
+
+## When to Use E2E Tests
+
+**Use E2E tests for:**
+- ✅ Critical user workflows (login → scan → view results)
+- ✅ Cross-browser compatibility verification
+- ✅ OAuth authentication flows
+- ✅ Pre-production smoke tests
+
+**Don't use E2E tests for:**
+- ❌ Testing business logic (use unit tests)
+- ❌ Testing edge cases (use integration tests)
+- ❌ Testing every feature (too slow)
+- ❌ API testing (use integration tests)
+
+**Rule of Thumb**: If you have 100 unit tests, you should have ~10 integration tests and ~5 E2E tests.
+
+## Setup
+
+### TypeScript Setup (Recommended)
+```bash
+# Initialize Playwright
+npm init playwright@latest
+
+# Install dependencies
+npm install --save-dev @playwright/test
+
+# Install browsers
+npx playwright install
+```
+
+### C# Setup (Alternative)
+```bash
+# Add Playwright package
+dotnet add package Microsoft.Playwright.NUnit
+
+# Install browsers
+pwsh bin/Debug/net8.0/playwright.ps1 install
+```
+
+## File Structure
+```
+tests/e2e/
+├── tests/
+│   ├── auth.spec.ts           # Authentication flows
+│   ├── dashboard.spec.ts      # Dashboard functionality
+│   ├── scanning.spec.ts       # Repository scanning
+│   └── onboarding.spec.ts     # First-time setup
+├── fixtures/
+│   ├── test-users.ts          # Test user credentials
+│   └── test-repos.ts          # Test repository data
+├── pages/                     # Page Object Model
+│   ├── LoginPage.ts
+│   ├── DashboardPage.ts
+│   └── OnboardingPage.ts
+└── playwright.config.ts       # Playwright configuration
+```
+
+## Playwright Configuration
+
+```typescript
+// playwright.config.ts
+import { defineConfig, devices } from '@playwright/test';
+
+export default defineConfig({
+  testDir: './tests',
+  fullyParallel: true,
+  forbidOnly: !!process.env.CI,
+  retries: process.env.CI ? 2 : 0,
+  workers: process.env.CI ? 1 : undefined,
+  
+  reporter: [
+    ['html'],
+    ['json', { outputFile: 'test-results.json' }],
+  ],
+  
+  use: {
+    baseURL: 'https://localhost:7040',
+    trace: 'on-first-retry',
+    screenshot: 'only-on-failure',
+    video: 'retain-on-failure',
+  },
+  
+  projects: [
+    {
+      name: 'chromium',
+      use: { ...devices['Desktop Chrome'] },
+    },
+    {
+      name: 'firefox',
+      use: { ...devices['Desktop Firefox'] },
+    },
+    {
+      name: 'webkit',
+      use: { ...devices['Desktop Safari'] },
+    },
+  ],
+  
+  webServer: {
+    command: 'dotnet run --project ../10xGitHubPolicies.App --launch-profile https',
+    url: 'https://localhost:7040',
+    reuseExistingServer: !process.env.CI,
+    ignoreHTTPSErrors: true,
+  },
+});
+```
+
+## Page Object Model Pattern
+
+### Page Class Structure
+```typescript
+// pages/DashboardPage.ts
+import { Page, Locator } from '@playwright/test';
+
+export class DashboardPage {
+  readonly page: Page;
+  readonly scanNowButton: Locator;
+  readonly filterInput: Locator;
+  readonly repositoryList: Locator;
+  readonly compliancePercentage: Locator;
+  readonly scanningIndicator: Locator;
+  
+  constructor(page: Page) {
+    this.page = page;
+    this.scanNowButton = page.locator('#scan-now-button');
+    this.filterInput = page.locator('#filter-input');
+    this.repositoryList = page.locator('.repository-list');
+    this.compliancePercentage = page.locator('.compliance-percentage');
+    this.scanningIndicator = page.locator('#scanning-indicator');
+  }
+  
+  async goto() {
+    await this.page.goto('/');
+  }
+  
+  async triggerScan() {
+    await this.scanNowButton.click();
+    // Wait for scan to start
+    await this.scanningIndicator.waitFor({ state: 'visible' });
+  }
+  
+  async waitForScanComplete(timeout = 60000) {
+    await this.scanningIndicator.waitFor({ 
+      state: 'hidden', 
+      timeout 
+    });
+  }
+  
+  async filterRepositories(filter: string) {
+    await this.filterInput.fill(filter);
+  }
+  
+  async getRepositoryCount(): Promise<number> {
+    return await this.repositoryList
+      .locator('.repository-item')
+      .count();
+  }
+  
+  async getCompliancePercentage(): Promise<string> {
+    return await this.compliancePercentage.textContent() || '';
+  }
+}
+```
+
+### Login Page
+```typescript
+// pages/LoginPage.ts
+import { Page, Locator } from '@playwright/test';
+
+export class LoginPage {
+  readonly page: Page;
+  readonly loginButton: Locator;
+  
+  constructor(page: Page) {
+    this.page = page;
+    this.loginButton = page.locator('#login-button');
+  }
+  
+  async goto() {
+    await this.page.goto('/login');
+  }
+  
+  async loginWithGitHub() {
+    await this.loginButton.click();
+    
+    // Handle GitHub OAuth page
+    await this.page.waitForURL('**/github.com/login**');
+    
+    // Fill GitHub credentials
+    await this.page.fill('input[name="login"]', process.env.GITHUB_TEST_USER!);
+    await this.page.fill('input[name="password"]', process.env.GITHUB_TEST_PASSWORD!);
+    await this.page.click('input[type="submit"]');
+    
+    // Wait for redirect back to app
+    await this.page.waitForURL('**/localhost:7040/**');
+  }
+}
+```
+
+## Test Structure
+
+### Basic Test
+```typescript
+import { test, expect } from '@playwright/test';
+import { DashboardPage } from '../pages/DashboardPage';
+
+test.describe('Dashboard', () => {
+  let dashboardPage: DashboardPage;
+  
+  test.beforeEach(async ({ page }) => {
+    dashboardPage = new DashboardPage(page);
+    await dashboardPage.goto();
+  });
+  
+  test('displays compliance dashboard', async ({ page }) => {
+    // Assert
+    await expect(page.locator('h1')).toContainText('Compliance Dashboard');
+    await expect(dashboardPage.compliancePercentage).toBeVisible();
+  });
+});
+```
+
+### Test with Authentication
+```typescript
+test.describe('Authenticated Dashboard', () => {
+  test.use({ storageState: 'auth.json' });  // Reuse auth state
+  
+  test('shows scan button for authorized users', async ({ page }) => {
+    const dashboardPage = new DashboardPage(page);
+    await dashboardPage.goto();
+    
+    await expect(dashboardPage.scanNowButton).toBeVisible();
+  });
+});
+```
+
+### Save Authentication State
+```typescript
+// auth.setup.ts - Run once, save auth for all tests
+import { test as setup } from '@playwright/test';
+import { LoginPage } from './pages/LoginPage';
+
+setup('authenticate', async ({ page }) => {
+  const loginPage = new LoginPage(page);
+  await loginPage.goto();
+  await loginPage.loginWithGitHub();
+  
+  // Save authenticated state
+  await page.context().storageState({ path: 'auth.json' });
+});
+```
+
+## Testing Patterns
+
+### Testing User Workflows
+```typescript
+test('complete scan workflow', async ({ page }) => {
+  const dashboardPage = new DashboardPage(page);
+  
+  // Step 1: Navigate to dashboard
+  await dashboardPage.goto();
+  await expect(page.locator('h1')).toContainText('Compliance Dashboard');
+  
+  // Step 2: Trigger scan
+  await dashboardPage.triggerScan();
+  await expect(dashboardPage.scanningIndicator).toBeVisible();
+  
+  // Step 3: Wait for scan to complete
+  await dashboardPage.waitForScanComplete(120000);  // 2 minute timeout
+  
+  // Step 4: Verify results updated
+  const repoCount = await dashboardPage.getRepositoryCount();
+  expect(repoCount).toBeGreaterThan(0);
+});
+```
+
+### Testing Forms
+```typescript
+test('filter repositories', async ({ page }) => {
+  const dashboardPage = new DashboardPage(page);
+  await dashboardPage.goto();
+  
+  // Get initial count
+  const initialCount = await dashboardPage.getRepositoryCount();
+  
+  // Apply filter
+  await dashboardPage.filterRepositories('test');
+  
+  // Verify filtered results
+  const filteredCount = await dashboardPage.getRepositoryCount();
+  expect(filteredCount).toBeLessThanOrEqual(initialCount);
+  
+  // Verify filtered items contain search term
+  const items = page.locator('.repository-item');
+  const count = await items.count();
+  for (let i = 0; i < count; i++) {
+    const text = await items.nth(i).textContent();
+    expect(text?.toLowerCase()).toContain('test');
+  }
+});
+```
+
+### Testing Navigation
+```typescript
+test('navigates through application', async ({ page }) => {
+  await page.goto('/login');
+  await expect(page).toHaveURL(/.*login/);
+  
+  await page.click('#login-button');
+  await page.waitForURL('**/github.com/**');
+  
+  // Complete OAuth flow
+  // ...
+  
+  await expect(page).toHaveURL('/');
+  await expect(page.locator('h1')).toContainText('Dashboard');
+});
+```
+
+### Testing Error States
+```typescript
+test('displays error when API fails', async ({ page }) => {
+  // Intercept API and return error
+  await page.route('**/api/dashboard', route => {
+    route.fulfill({
+      status: 500,
+      body: JSON.stringify({ error: 'Internal Server Error' })
+    });
+  });
+  
+  await page.goto('/');
+  
+  // Verify error message displayed
+  await expect(page.locator('.error-message')).toBeVisible();
+  await expect(page.locator('.error-message')).toContainText('Failed to load');
+});
+```
+
+## API Interception and Mocking
+
+### Mock API Responses
+```typescript
+test('mocks GitHub API responses', async ({ page }) => {
+  // Intercept GitHub API calls
+  await page.route('**/api.github.com/repos/**', route => {
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        id: 123,
+        name: 'test-repo',
+        owner: { login: 'test-owner' }
+      })
+    });
+  });
+  
+  await page.goto('/');
+  await page.click('#scan-now-button');
+  
+  // Verify mocked data is displayed
+  await expect(page.locator('.repository-item')).toContainText('test-repo');
+});
+```
+
+### Verify API Calls
+```typescript
+test('makes correct API calls during scan', async ({ page }) => {
+  const apiCalls: string[] = [];
+  
+  // Track API calls
+  page.on('request', request => {
+    if (request.url().includes('/api/')) {
+      apiCalls.push(request.url());
+    }
+  });
+  
+  const dashboardPage = new DashboardPage(page);
+  await dashboardPage.goto();
+  await dashboardPage.triggerScan();
+  
+  // Verify expected API calls were made
+  expect(apiCalls).toContain(expect.stringContaining('/api/scan'));
+});
+```
+
+## Waiting Strategies
+
+### Wait for Element
+```typescript
+// Wait for element to be visible
+await page.locator('.repository-list').waitFor({ state: 'visible' });
+
+// Wait for element to be hidden
+await page.locator('#loading').waitFor({ state: 'hidden' });
+
+// Wait with timeout
+await page.locator('.scan-results').waitFor({ 
+  state: 'visible', 
+  timeout: 30000 
+});
+```
+
+### Wait for Network
+```typescript
+// Wait for specific API call
+await page.waitForResponse(response => 
+  response.url().includes('/api/scan') && response.status() === 200
+);
+
+// Wait for navigation
+await Promise.all([
+  page.waitForNavigation(),
+  page.click('#login-button')
+]);
+```
+
+### Wait for Condition
+```typescript
+// Wait for custom condition
+await page.waitForFunction(() => {
+  const element = document.querySelector('.compliance-percentage');
+  return element?.textContent?.includes('%');
+});
+```
+
+## Assertions
+
+### Element Assertions
+```typescript
+// Visibility
+await expect(page.locator('h1')).toBeVisible();
+await expect(page.locator('#loading')).toBeHidden();
+
+// Text content
+await expect(page.locator('h1')).toHaveText('Dashboard');
+await expect(page.locator('.message')).toContainText('Success');
+
+// Count
+await expect(page.locator('.repository-item')).toHaveCount(5);
+
+// Attributes
+await expect(page.locator('#scan-button')).toBeEnabled();
+await expect(page.locator('input')).toHaveValue('test');
+```
+
+### Page Assertions
+```typescript
+// URL
+await expect(page).toHaveURL('https://localhost:7040/');
+await expect(page).toHaveURL(/.*dashboard/);
+
+// Title
+await expect(page).toHaveTitle(/Compliance Dashboard/);
+
+// Screenshot comparison
+await expect(page).toHaveScreenshot('dashboard.png');
+```
+
+## Handling OAuth Authentication
+
+### OAuth Flow Test
+```typescript
+test('completes OAuth authentication', async ({ page, context }) => {
+  await page.goto('/login');
+  
+  // Click login button
+  await page.click('#login-button');
+  
+  // Wait for GitHub OAuth page
+  await page.waitForURL('**/github.com/login/oauth/**');
+  
+  // Note: GitHub OAuth state parameter
+  // Fill credentials (use test account)
+  await page.fill('#login_field', process.env.GITHUB_TEST_USER!);
+  await page.fill('#password', process.env.GITHUB_TEST_PASSWORD!);
+  await page.click('input[type="submit"][value="Sign in"]');
+  
+  // Handle 2FA if enabled
+  if (await page.isVisible('input[name="otp"]')) {
+    // Would need 2FA code handling here
+  }
+  
+  // Wait for redirect back to app
+  await page.waitForURL('https://localhost:7040/**');
+  
+  // Verify successful login
+  await expect(page.locator('.user-info')).toBeVisible();
+  
+  // Save auth state for other tests
+  await context.storageState({ path: 'playwright/.auth/user.json' });
+});
+```
+
+## Test Data Management
+
+### Fixtures
+```typescript
+// fixtures/test-data.ts
+export const testRepositories = [
+  {
+    name: 'compliant-repo',
+    hasAgentsMd: true,
+    hasCatalogInfo: true,
+    workflowPermissions: 'read'
+  },
+  {
+    name: 'non-compliant-repo',
+    hasAgentsMd: false,
+    hasCatalogInfo: false,
+    workflowPermissions: 'write'
+  }
+];
+
+// Usage in tests
+import { testRepositories } from '../fixtures/test-data';
+
+test('displays test repositories', async ({ page }) => {
+  // Mock API with test data
+  await page.route('**/api/repositories', route => {
+    route.fulfill({ json: testRepositories });
+  });
+  
+  await page.goto('/');
+  await expect(page.locator('.repository-item')).toHaveCount(2);
+});
+```
+
+## Debugging Tests
+
+### Debug Mode
+```bash
+# Run with headed browser
+npx playwright test --headed
+
+# Debug specific test
+npx playwright test --debug tests/dashboard.spec.ts
+
+# Slow down execution
+npx playwright test --slow-mo=1000
+```
+
+### Inspector
+```typescript
+// Add breakpoint in test
+await page.pause();  // Opens Playwright Inspector
+```
+
+### Screenshots and Videos
+```typescript
+// Take screenshot
+await page.screenshot({ path: 'screenshot.png' });
+
+// Full page screenshot
+await page.screenshot({ path: 'full.png', fullPage: true });
+
+// Element screenshot
+await page.locator('.dashboard').screenshot({ path: 'dashboard.png' });
+```
+
+### Trace Viewer
+```bash
+# View trace
+npx playwright show-trace trace.zip
+```
+
+## CI/CD Integration
+
+### GitHub Actions
+```yaml
+name: E2E Tests
+
+on: [push, pull_request]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Install Playwright
+        run: npx playwright install --with-deps
+      
+      - name: Start application
+        run: |
+          dotnet run --project 10xGitHubPolicies.App &
+          npx wait-on https://localhost:7040
+      
+      - name: Run E2E tests
+        run: npx playwright test
+        env:
+          GITHUB_TEST_USER: ${{ secrets.GITHUB_TEST_USER }}
+          GITHUB_TEST_PASSWORD: ${{ secrets.GITHUB_TEST_PASSWORD }}
+      
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+```
+
+## Best Practices
+
+1. ✅ Use Page Object Model for maintainability
+2. ✅ Run E2E tests sparingly (critical paths only)
+3. ✅ Reuse authentication state across tests
+4. ✅ Use explicit waits, not fixed delays
+5. ✅ Test in multiple browsers (Chromium, Firefox, WebKit)
+6. ✅ Record videos/screenshots on failure
+7. ✅ Mock external APIs when possible
+8. ✅ Keep tests independent and idempotent
+9. ❌ Don't test every feature with E2E
+10. ❌ Don't use real user accounts in CI
+
+## Running E2E Tests
+
+```bash
+# Run all E2E tests
+npx playwright test
+
+# Run specific test file
+npx playwright test tests/dashboard.spec.ts
+
+# Run with specific browser
+npx playwright test --project=chromium
+
+# Run in headed mode
+npx playwright test --headed
+
+# Run with UI
+npx playwright test --ui
+
+# Generate code
+npx playwright codegen https://localhost:7040
+```
+
+## Test Coverage for This Project
+
+### Critical E2E Tests (5 tests maximum)
+1. ✅ **OAuth Authentication Flow** - Login with GitHub
+2. ✅ **Complete Scan Workflow** - Trigger scan → View results
+3. ✅ **Dashboard Filtering** - Filter repositories by name
+4. ✅ **Onboarding Flow** - First-time setup wizard
+5. ✅ **Access Denial** - Unauthorized user blocked
+
+Everything else should be unit or integration tests!

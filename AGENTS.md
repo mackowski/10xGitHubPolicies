@@ -104,10 +104,13 @@ You are a senior Blazor and .NET developer and an expert in `C#`, `ASP.NET Core`
 - Implement background tasks using IHostedService or BackgroundService.
 
 ### Testing
-- Write unit tests using xUnit, NUnit, or MSTest.
-- Use Moq or NSubstitute for mocking dependencies.
-- Implement integration tests for API endpoints.
-- Write unit tests for Blazor components using `bUnit`.
+- **Multi-Level Strategy**: Employ a multi-level testing strategy (Unit, Integration, Contract, E2E) to ensure comprehensive coverage.
+  - **Level 1: Unit Tests (xUnit, NSubstitute)**: Test individual components and business logic in isolation. Mock dependencies to ensure tests are fast and reliable.
+  - **Level 2: Integration Tests (WireMock.Net, Testcontainers)**: Test the interaction between components. Use `WireMock.Net` to mock the GitHub API at the HTTP level and `Testcontainers` for ephemeral database instances.
+  - **Level 3: Contract Tests (NJsonSchema, Verify.NET)**: Use schema validation and snapshot testing to detect breaking changes in the GitHub API contract, preventing production failures.
+  - **Level 4: E2E Tests (Playwright)**: Reserve for critical user workflows. These tests should be used sparingly due to their slow and costly nature.
+- **Blazor Component Testing**: Use `bUnit` for writing unit tests for Blazor components to verify rendering and interactivity.
+- **Database Testing**: Use `Respawn` to efficiently reset the database state between integration tests, ensuring test isolation.
 
 ### Security
 - Use Authentication and Authorization middleware.

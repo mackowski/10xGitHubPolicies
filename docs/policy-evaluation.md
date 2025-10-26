@@ -134,3 +134,86 @@ policies:
 ```
 
 Once these steps are completed, the `ScanningService` will automatically pick up and execute your new policy evaluator during the next scan.
+
+---
+
+## Testing Policy Evaluators
+
+When creating new policy evaluators, follow the multi-level testing strategy:
+
+### Unit Testing
+Test the evaluator logic in isolation by mocking `IGitHubService`:
+
+```csharp
+public class YourNewPolicyEvaluatorTests
+{
+    private readonly IGitHubService _mockGitHubService;
+    private readonly YourNewPolicyEvaluator _sut;
+
+    public YourNewPolicyEvaluatorTests()
+    {
+        _mockGitHubService = Substitute.For<IGitHubService>();
+        _sut = new YourNewPolicyEvaluator(_mockGitHubService);
+    }
+
+    [Fact]
+    public async Task EvaluateAsync_WhenConditionNotMet_ReturnsViolation()
+    {
+        // Arrange
+        var repository = new Repository();
+        _mockGitHubService.CheckSomethingAsync(Arg.Any<string>(), Arg.Any<string>())
+            .Returns(false);
+
+        // Act
+        var result = await _sut.EvaluateAsync(repository);
+
+        // Assert
+        result.Should().NotBeNull();
+        result.PolicyType.Should().Be("your_policy_type");
+    }
+
+    [Fact]
+    public async Task EvaluateAsync_WhenConditionMet_ReturnsNull()
+    {
+        // Arrange
+        var repository = new Repository();
+        _mockGitHubService.CheckSomethingAsync(Arg.Any<string>(), Arg.Any<string>())
+            .Returns(true);
+
+        // Act
+        var result = await _sut.EvaluateAsync(repository);
+
+        // Assert
+        result.Should().BeNull();
+    }
+}
+```
+
+### Integration Testing
+Test the full policy evaluation workflow with a real database and mocked GitHub API:
+
+```csharp
+public class PolicyEvaluationIntegrationTests : IAsyncLifetime
+{
+    private readonly MsSqlContainer _sqlContainer;
+    private readonly WireMockServer _wireMockServer;
+
+    [Fact]
+    public async Task PerformScanAsync_WithViolations_SavesViolationsToDatabase()
+    {
+        // Arrange - Setup WireMock to return repository data
+        _wireMockServer
+            .Given(Request.Create().WithPath("/orgs/*/repos"))
+            .RespondWith(Response.Create()
+                .WithStatusCode(200)
+                .WithBodyFromFile("fixtures/repositories.json"));
+
+        // Act - Trigger scan
+        await _scanningService.PerformScanAsync();
+
+        // Assert - Verify violations in database
+        var violations = await _dbContext.PolicyViolations.ToListAsync();
+        violations.Should().NotBeEmpty();
+    }
+}
+```

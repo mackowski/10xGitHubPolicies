@@ -1,0 +1,1288 @@
+---
+alwaysApply: false
+---
+
+# Contract Testing Guidelines - NJsonSchema + Verify.NET
+
+## Overview
+Contract tests verify that external API responses match expected schemas and structures. This rule applies when testing GitHub API contracts using JSON Schema validation and snapshot testing.
+
+## Technology Stack
+- **Test Framework**: xUnit 2.6+
+- **Schema Validation**: NJsonSchema 11.0+
+- **Snapshot Testing**: Verify.NET 25.0+
+- **HTTP Mocking**: WireMock.Net 1.5+ (for recording responses)
+- **Assertions**: FluentAssertions 6.12+
+
+## File Naming Conventions
+```
+Pattern: {Api}ContractTests.cs
+Location: Tests.Contracts/
+
+Examples:
+- GitHubApiContractTests.cs
+- GitHubRepositoryContractTests.cs
+- GitHubIssuesContractTests.cs
+
+Schema Files:
+Location: Tests.Contracts/Schemas/
+- github-repository-response.json
+- github-file-content-response.json
+- github-issue-response.json
+
+Snapshots:
+Location: Tests.Contracts/Snapshots/
+- GitHubApiContractTests.GetRepository_ResponseStructure.verified.json
+```
+
+## When to Use Contract Testing
+
+**Use contract tests for:**
+- ✅ External API responses you don't control (GitHub API)
+- ✅ Critical API endpoints (repository data, file content)
+- ✅ Detecting breaking changes in third-party APIs
+- ✅ Documenting expected API structure
+
+**Don't use contract tests for:**
+- ❌ Internal APIs you control (use integration tests)
+- ❌ Simple CRUD operations (use unit tests)
+- ❌ UI components (use component tests)
+
+## JSON Schema Validation
+
+### Test Class Structure
+```csharp
+using NJsonSchema;
+using NJsonSchema.Validation;
+using FluentAssertions;
+using Xunit;
+using System.Text.Json;
+
+namespace _10xGitHubPolicies.Tests.Contracts;
+
+public class GitHubApiContractTests : IAsyncLifetime
+{
+    private JsonSchema _repositorySchema;
+    private JsonSchema _fileContentSchema;
+    private JsonSchema _issueSchema;
+    private readonly IGitHubService _githubService;
+    
+    public async Task InitializeAsync()
+    {
+        // Load schemas from files
+        _repositorySchema = await JsonSchema.FromFileAsync(
+            "Schemas/github-repository-response.json"
+        );
+        
+        _fileContentSchema = await JsonSchema.FromFileAsync(
+            "Schemas/github-file-content-response.json"
+        );
+        
+        _issueSchema = await JsonSchema.FromFileAsync(
+            "Schemas/github-issue-response.json"
+        );
+    }
+    
+    [Fact]
+    public async Task GetRepository_ResponseMatchesSchema()
+    {
+        // Arrange - Get actual API response
+        var repository = await _githubService.GetRepositoryAsync(12345);
+        var json = JsonSerializer.Serialize(repository);
+        
+        // Act - Validate against schema
+        var errors = _repositorySchema.Validate(json);
+        
+        // Assert
+        errors.Should().BeEmpty(
+            because: "GitHub API response must match expected schema"
+        );
+    }
+    
+    public Task DisposeAsync() => Task.CompletedTask;
+}
+```
+
+### Creating JSON Schemas
+
+#### Basic Schema Structure
+```json
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "GitHub Repository Response",
+  "type": "object",
+  "required": ["id", "name", "full_name", "owner"],
+  "properties": {
+    "id": {
+      "type": "integer",
+      "description": "Unique repository identifier"
+    },
+    "name": {
+      "type": "string",
+      "description": "Repository name"
+    },
+    "full_name": {
+      "type": "string",
+      "description": "Full repository name including owner"
+    },
+    "owner": {
+      "type": "object",
+      "required": ["login", "id", "type"],
+      "properties": {
+        "login": { "type": "string" },
+        "id": { "type": "integer" },
+        "type": { "type": "string", "enum": ["User", "Organization"] }
+      }
+    },
+    "private": {
+      "type": "boolean"
+    },
+    "archived": {
+      "type": "boolean"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "additionalProperties": true
+}
+```
+
+#### Complex Schema with Nested Objects
+```json
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "GitHub Issue Response",
+  "type": "object",
+  "required": ["id", "number", "title", "state"],
+  "properties": {
+    "id": { "type": "integer" },
+    "number": { "type": "integer" },
+    "title": { "type": "string" },
+    "state": {
+      "type": "string",
+      "enum": ["open", "closed"]
+    },
+    "labels": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "name", "color"],
+        "properties": {
+          "id": { "type": "integer" },
+          "name": { "type": "string" },
+          "color": { "type": "string", "pattern": "^[0-9a-fA-F]{6}$" }
+        }
+      }
+    },
+    "assignee": {
+      "oneOf": [
+        { "type": "null" },
+        {
+          "type": "object",
+          "required": ["login", "id"],
+          "properties": {
+            "login": { "type": "string" },
+            "id": { "type": "integer" }
+          }
+        }
+      ]
+    }
+  }
+}
+```
+
+### Schema Validation Patterns
+
+#### Validate with Detailed Error Messages
+```csharp
+[Fact]
+public async Task GetFileContent_ResponseMatchesSchema()
+{
+    // Arrange
+    var response = await _githubService.GetFileContentAsync("repo", "file.md");
+    var json = JsonSerializer.Serialize(response);
+    
+    // Act
+    var errors = _fileContentSchema.Validate(json);
+    
+    // Assert - Show all validation errors
+    errors.Should().BeEmpty(because: "file content schema must match");
+    
+    if (errors.Any())
+    {
+        var errorMessages = errors.Select(e => 
+            $"Path: {e.Path}, Error: {e.Kind}, Expected: {e.Schema.Type}"
+        );
+        throw new AssertionException(
+            $"Schema validation failed:\n{string.Join("\n", errorMessages)}"
+        );
+    }
+}
+```
+
+#### Validate Only Critical Fields
+```csharp
+[Fact]
+public async Task GetRepository_CriticalFieldsPresent()
+{
+    // Create minimal schema for critical fields only
+    var minimalSchema = new JsonSchema
+    {
+        Type = JsonObjectType.Object,
+        RequiredProperties = new HashSet<string> { "id", "name", "owner" }
+    };
+    
+    minimalSchema.Properties["id"] = new JsonSchemaProperty 
+    { 
+        Type = JsonObjectType.Integer 
+    };
+    minimalSchema.Properties["name"] = new JsonSchemaProperty 
+    { 
+        Type = JsonObjectType.String 
+    };
+    
+    var response = await _githubService.GetRepositoryAsync(12345);
+    var json = JsonSerializer.Serialize(response);
+    
+    var errors = minimalSchema.Validate(json);
+    errors.Should().BeEmpty();
+}
+```
+
+#### Generate Schema from Response
+```csharp
+[Fact]
+public async Task GenerateSchemaFromActualResponse()
+{
+    // This test helps you CREATE schemas initially
+    var repository = await _githubService.GetRepositoryAsync(12345);
+    var json = JsonSerializer.Serialize(repository, new JsonSerializerOptions 
+    { 
+        WriteIndented = true 
+    });
+    
+    // Generate schema
+    var schema = JsonSchema.FromSampleJson(json);
+    var schemaJson = schema.ToJson();
+    
+    // Save to file for manual review and editing
+    await File.WriteAllTextAsync(
+        "Schemas/github-repository-response-generated.json", 
+        schemaJson
+    );
+    
+    // Manually review and move to official schemas directory
+}
+```
+
+## Verify.NET Snapshot Testing
+
+### Basic Snapshot Test
+```csharp
+using Verify = VerifyXunit;
+
+[Fact]
+public async Task GetRepository_StructureRemainsStable()
+{
+    // Arrange
+    var repository = await _githubService.GetRepositoryAsync(12345);
+    
+    // Act & Assert - Create/compare snapshot
+    await Verify(repository)
+        .UseDirectory("Snapshots")
+        .UseMethodName("RepositoryStructure");
+    
+    // First run: Creates Snapshots/RepositoryStructure.verified.json
+    // Subsequent runs: Compares against verified file
+    // If different: Shows diff and creates .received.json file
+}
+```
+
+### Verify with Scrubbing Sensitive Data
+```csharp
+[Fact]
+public async Task GetRepository_StructureWithScrubbing()
+{
+    var repository = await _githubService.GetRepositoryAsync(12345);
+    
+    await Verify(repository)
+        .ScrubMembers("id", "created_at", "updated_at")  // Ignore dynamic fields
+        .UseDirectory("Snapshots")
+        .UseMethodName("RepositoryStructureScrubbed");
+}
+```
+
+### Verify Multiple Values
+```csharp
+[Fact]
+public async Task GetRepositories_AllHaveConsistentStructure()
+{
+    // Get multiple repositories
+    var repos = await _githubService.GetOrganizationRepositoriesAsync();
+    var sample = repos.Take(3).ToList();
+    
+    // Verify all have same structure
+    await Verify(sample)
+        .UseDirectory("Snapshots")
+        .UseMethodName("MultipleRepositories");
+}
+```
+
+### Verify with Custom Settings
+```csharp
+public class GitHubApiContractTests
+{
+    static GitHubApiContractTests()
+    {
+        // Configure Verify globally for this test class
+        VerifySettings.AddExtraSettings(settings =>
+        {
+            settings.DefaultValueHandling = DefaultValueHandling.Ignore;
+            settings.Formatting = Formatting.Indented;
+        });
+        
+        // Add custom scrubbers
+        VerifySettings.AddScrubber(s => 
+        {
+            s = Regex.Replace(s, @"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z", "DATETIME");
+            s = Regex.Replace(s, @"""id"": \d+", @"""id"": 0");
+            return s;
+        });
+    }
+    
+    [Fact]
+    public async Task GetFileContent_StructureStable()
+    {
+        var content = await _githubService.GetFileContentAsync("repo", "file.md");
+        
+        // Uses global settings
+        await Verify(content);
+    }
+}
+```
+
+### Verify API Request/Response Pair
+```csharp
+[Fact]
+public async Task CreateIssue_RequestResponseContract()
+{
+    // Arrange
+    var request = new IssueRequest
+    {
+        Title = "Test Issue",
+        Body = "Test body",
+        Labels = new[] { "bug", "enhancement" }
+    };
+    
+    // Act
+    var response = await _githubService.CreateIssueAsync(
+        repositoryId: 12345,
+        title: request.Title,
+        body: request.Body,
+        labels: request.Labels
+    );
+    
+    // Assert - Verify both request and response structure
+    await Verify(new { request, response })
+        .UseDirectory("Snapshots")
+        .UseMethodName("CreateIssueContract");
+}
+```
+
+## Recording Real API Responses with WireMock
+
+### Record Mode for Schema Generation
+```csharp
+[Fact]
+public async Task RecordGitHubApiResponses()
+{
+    // Arrange - Start WireMock in recording mode
+    var wireMockServer = WireMockServer.Start();
+    wireMockServer.StartRecording("https://api.github.com");
+    
+    // Act - Make real API calls through proxy
+    var githubService = new GitHubService(
+        baseUrl: wireMockServer.Url  // Proxy through WireMock
+    );
+    
+    await githubService.GetRepositoryAsync(123456);
+    await githubService.GetFileContentAsync("repo", "README.md");
+    await githubService.GetOpenIssuesAsync(123456, "bug");
+    
+    // Save recordings
+    wireMockServer.SaveMappings("Recordings");
+    
+    // Now you can:
+    // 1. Use recordings for integration tests (fast replay)
+    // 2. Generate schemas from recorded responses
+    // 3. Create snapshot tests from recorded data
+    
+    wireMockServer.Stop();
+}
+```
+
+### Use Recorded Responses in Tests
+```csharp
+[Fact]
+public async Task GetRepository_UsesRecordedResponse()
+{
+    // Arrange - Load previously recorded responses
+    var wireMockServer = WireMockServer.Start();
+    wireMockServer.ReadStaticMappings("Recordings");
+    
+    var githubService = new GitHubService(baseUrl: wireMockServer.Url);
+    
+    // Act - Uses recorded response (fast, no real API call)
+    var repository = await githubService.GetRepositoryAsync(123456);
+    
+    // Assert - Validate against schema
+    var json = JsonSerializer.Serialize(repository);
+    var errors = _repositorySchema.Validate(json);
+    
+    errors.Should().BeEmpty();
+    
+    wireMockServer.Stop();
+}
+```
+
+## Contract Test Examples for GitHub API
+
+### Repository Endpoint Contract
+```csharp
+[Fact]
+public async Task GetRepository_ContractStability()
+{
+    // Schema validation
+    var repository = await _githubService.GetRepositoryAsync(12345);
+    var json = JsonSerializer.Serialize(repository);
+    var errors = _repositorySchema.Validate(json);
+    
+    errors.Should().BeEmpty(
+        because: "repository endpoint contract must remain stable"
+    );
+    
+    // Snapshot for structure changes
+    await Verify(repository)
+        .ScrubMembers("id", "created_at", "updated_at", "pushed_at")
+        .UseDirectory("Snapshots");
+}
+```
+
+### File Content Endpoint Contract
+```csharp
+[Fact]
+public async Task GetFileContent_Base64EncodingContract()
+{
+    var content = await _githubService.GetFileContentAsync("repo", "README.md");
+    
+    // Verify it's base64 encoded
+    content.Should().NotBeNullOrEmpty();
+    Func<string> decode = () => Encoding.UTF8.GetString(
+        Convert.FromBase64String(content)
+    );
+    decode.Should().NotThrow(because: "content must be valid base64");
+    
+    // Schema validation for metadata
+    var metadata = await _githubService.GetFileMetadataAsync("repo", "README.md");
+    var json = JsonSerializer.Serialize(metadata);
+    var errors = _fileContentSchema.Validate(json);
+    
+    errors.Should().BeEmpty();
+}
+```
+
+### Workflow Permissions Endpoint Contract
+```csharp
+[Fact]
+public async Task GetWorkflowPermissions_ValidValues()
+{
+    var permissions = await _githubService.GetWorkflowPermissionsAsync(12345);
+    
+    // Validate enum values
+    if (permissions != null)
+    {
+        permissions.Should().BeOneOf("read", "write",
+            because: "GitHub only supports read or write permissions"
+        );
+    }
+    
+    // Snapshot test for full response structure
+    await Verify(new { permissions })
+        .UseDirectory("Snapshots");
+}
+```
+
+### Issue Creation Contract
+```csharp
+[Fact]
+public async Task CreateIssue_RequestResponseContract()
+{
+    var issue = await _githubService.CreateIssueAsync(
+        repositoryId: 12345,
+        title: "Contract Test Issue",
+        body: "Testing issue creation contract",
+        labels: new[] { "test", "automation" }
+    );
+    
+    // Validate response structure
+    var json = JsonSerializer.Serialize(issue);
+    var errors = _issueSchema.Validate(json);
+    
+    errors.Should().BeEmpty();
+    
+    // Verify critical fields
+    issue.Number.Should().BeGreaterThan(0);
+    issue.State.Should().Be("open");
+    issue.HtmlUrl.Should().NotBeNullOrEmpty();
+}
+```
+
+## Contract Change Detection
+
+### Automated Schema Comparison
+```csharp
+[Fact]
+public async Task DetectApiChanges()
+{
+    // Load baseline schema (committed to repo)
+    var baselineSchema = await JsonSchema.FromFileAsync(
+        "Schemas/github-repository-response-v1.json"
+    );
+    
+    // Get current API response
+    var repository = await _githubService.GetRepositoryAsync(12345);
+    var json = JsonSerializer.Serialize(repository);
+    
+    // Generate schema from current response
+    var currentSchema = JsonSchema.FromSampleJson(json);
+    
+    // Compare schemas
+    var baselineProps = baselineSchema.Properties.Keys.ToHashSet();
+    var currentProps = currentSchema.Properties.Keys.ToHashSet();
+    
+    var removedFields = baselineProps.Except(currentProps).ToList();
+    var addedFields = currentProps.Except(baselineProps).ToList();
+    
+    // Assert
+    removedFields.Should().BeEmpty(
+        because: "GitHub should not remove fields (breaking change)"
+    );
+    
+    // Log added fields (non-breaking but worth noting)
+    if (addedFields.Any())
+    {
+        _output.WriteLine($"New fields detected: {string.Join(", ", addedFields)}");
+        _output.WriteLine("Consider updating schema if these fields are useful.");
+    }
+}
+```
+
+## CI/CD Integration
+
+### Verify Configuration
+```csharp
+// In your test project, add a module initializer
+public static class VerifyInitializer
+{
+    [ModuleInitializer]
+    public static void Initialize()
+    {
+        // Configure Verify for CI/CD
+        if (Environment.GetEnvironmentVariable("CI") == "true")
+        {
+            // In CI: fail on any differences
+            Verifier.ThrowOnVerifyFailure = true;
+        }
+        else
+        {
+            // Locally: show diffs but don't fail
+            Verifier.ThrowOnVerifyFailure = false;
+        }
+        
+        // Global scrubbers
+        VerifierSettings.ScrubMembers("id", "created_at", "updated_at");
+    }
+}
+```
+
+### Updating Snapshots
+```bash
+# When API changes are expected and verified:
+dotnet test -- Verify.AcceptAll=true
+
+# Or accept specific test:
+dotnet verify accept --test-name "GetRepository_StructureRemainsStable"
+
+# Review diff before accepting:
+git diff Tests.Contracts/Snapshots/
+```
+
+## Best Practices Summary
+
+1. ✅ Use JSON Schema for structural validation
+2. ✅ Use Verify.NET for detecting unexpected changes
+3. ✅ Record real API responses with WireMock for baseline
+4. ✅ Scrub dynamic fields (IDs, timestamps) from snapshots
+5. ✅ Store schemas and snapshots in version control
+6. ✅ Run contract tests on schedule (daily/weekly) not on every PR
+7. ✅ Document breaking vs non-breaking changes
+8. ✅ Focus on critical endpoints (not every API call)
+9. ❌ Don't mock GitHub responses in contract tests (defeats the purpose)
+10. ❌ Don't over-specify schemas (allow additionalProperties for forward compatibility)
+
+## Running Contract Tests
+
+```bash
+# Run contract tests separately
+dotnet test --filter Category=Contract
+
+# Update all snapshots after API changes
+dotnet test --filter Category=Contract -- Verify.AcceptAll=true
+
+# Run on schedule (not every commit)
+# In CI/CD: Run daily or weekly to catch API changes early
+```
+# Contract Testing Guidelines - NJsonSchema + Verify.NET
+
+## Overview
+Contract tests verify that external API responses match expected schemas and structures. This rule applies when testing GitHub API contracts using JSON Schema validation and snapshot testing.
+
+## Technology Stack
+- **Test Framework**: xUnit 2.6+
+- **Schema Validation**: NJsonSchema 11.0+
+- **Snapshot Testing**: Verify.NET 25.0+
+- **HTTP Mocking**: WireMock.Net 1.5+ (for recording responses)
+- **Assertions**: FluentAssertions 6.12+
+
+## File Naming Conventions
+```
+Pattern: {Api}ContractTests.cs
+Location: Tests.Contracts/
+
+Examples:
+- GitHubApiContractTests.cs
+- GitHubRepositoryContractTests.cs
+- GitHubIssuesContractTests.cs
+
+Schema Files:
+Location: Tests.Contracts/Schemas/
+- github-repository-response.json
+- github-file-content-response.json
+- github-issue-response.json
+
+Snapshots:
+Location: Tests.Contracts/Snapshots/
+- GitHubApiContractTests.GetRepository_ResponseStructure.verified.json
+```
+
+## When to Use Contract Testing
+
+**Use contract tests for:**
+- ✅ External API responses you don't control (GitHub API)
+- ✅ Critical API endpoints (repository data, file content)
+- ✅ Detecting breaking changes in third-party APIs
+- ✅ Documenting expected API structure
+
+**Don't use contract tests for:**
+- ❌ Internal APIs you control (use integration tests)
+- ❌ Simple CRUD operations (use unit tests)
+- ❌ UI components (use component tests)
+
+## JSON Schema Validation
+
+### Test Class Structure
+```csharp
+using NJsonSchema;
+using NJsonSchema.Validation;
+using FluentAssertions;
+using Xunit;
+using System.Text.Json;
+
+namespace _10xGitHubPolicies.Tests.Contracts;
+
+public class GitHubApiContractTests : IAsyncLifetime
+{
+    private JsonSchema _repositorySchema;
+    private JsonSchema _fileContentSchema;
+    private JsonSchema _issueSchema;
+    private readonly IGitHubService _githubService;
+    
+    public async Task InitializeAsync()
+    {
+        // Load schemas from files
+        _repositorySchema = await JsonSchema.FromFileAsync(
+            "Schemas/github-repository-response.json"
+        );
+        
+        _fileContentSchema = await JsonSchema.FromFileAsync(
+            "Schemas/github-file-content-response.json"
+        );
+        
+        _issueSchema = await JsonSchema.FromFileAsync(
+            "Schemas/github-issue-response.json"
+        );
+    }
+    
+    [Fact]
+    public async Task GetRepository_ResponseMatchesSchema()
+    {
+        // Arrange - Get actual API response
+        var repository = await _githubService.GetRepositoryAsync(12345);
+        var json = JsonSerializer.Serialize(repository);
+        
+        // Act - Validate against schema
+        var errors = _repositorySchema.Validate(json);
+        
+        // Assert
+        errors.Should().BeEmpty(
+            because: "GitHub API response must match expected schema"
+        );
+    }
+    
+    public Task DisposeAsync() => Task.CompletedTask;
+}
+```
+
+### Creating JSON Schemas
+
+#### Basic Schema Structure
+```json
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "GitHub Repository Response",
+  "type": "object",
+  "required": ["id", "name", "full_name", "owner"],
+  "properties": {
+    "id": {
+      "type": "integer",
+      "description": "Unique repository identifier"
+    },
+    "name": {
+      "type": "string",
+      "description": "Repository name"
+    },
+    "full_name": {
+      "type": "string",
+      "description": "Full repository name including owner"
+    },
+    "owner": {
+      "type": "object",
+      "required": ["login", "id", "type"],
+      "properties": {
+        "login": { "type": "string" },
+        "id": { "type": "integer" },
+        "type": { "type": "string", "enum": ["User", "Organization"] }
+      }
+    },
+    "private": {
+      "type": "boolean"
+    },
+    "archived": {
+      "type": "boolean"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "additionalProperties": true
+}
+```
+
+#### Complex Schema with Nested Objects
+```json
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "GitHub Issue Response",
+  "type": "object",
+  "required": ["id", "number", "title", "state"],
+  "properties": {
+    "id": { "type": "integer" },
+    "number": { "type": "integer" },
+    "title": { "type": "string" },
+    "state": {
+      "type": "string",
+      "enum": ["open", "closed"]
+    },
+    "labels": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "name", "color"],
+        "properties": {
+          "id": { "type": "integer" },
+          "name": { "type": "string" },
+          "color": { "type": "string", "pattern": "^[0-9a-fA-F]{6}$" }
+        }
+      }
+    },
+    "assignee": {
+      "oneOf": [
+        { "type": "null" },
+        {
+          "type": "object",
+          "required": ["login", "id"],
+          "properties": {
+            "login": { "type": "string" },
+            "id": { "type": "integer" }
+          }
+        }
+      ]
+    }
+  }
+}
+```
+
+### Schema Validation Patterns
+
+#### Validate with Detailed Error Messages
+```csharp
+[Fact]
+public async Task GetFileContent_ResponseMatchesSchema()
+{
+    // Arrange
+    var response = await _githubService.GetFileContentAsync("repo", "file.md");
+    var json = JsonSerializer.Serialize(response);
+    
+    // Act
+    var errors = _fileContentSchema.Validate(json);
+    
+    // Assert - Show all validation errors
+    errors.Should().BeEmpty(because: "file content schema must match");
+    
+    if (errors.Any())
+    {
+        var errorMessages = errors.Select(e => 
+            $"Path: {e.Path}, Error: {e.Kind}, Expected: {e.Schema.Type}"
+        );
+        throw new AssertionException(
+            $"Schema validation failed:\n{string.Join("\n", errorMessages)}"
+        );
+    }
+}
+```
+
+#### Validate Only Critical Fields
+```csharp
+[Fact]
+public async Task GetRepository_CriticalFieldsPresent()
+{
+    // Create minimal schema for critical fields only
+    var minimalSchema = new JsonSchema
+    {
+        Type = JsonObjectType.Object,
+        RequiredProperties = new HashSet<string> { "id", "name", "owner" }
+    };
+    
+    minimalSchema.Properties["id"] = new JsonSchemaProperty 
+    { 
+        Type = JsonObjectType.Integer 
+    };
+    minimalSchema.Properties["name"] = new JsonSchemaProperty 
+    { 
+        Type = JsonObjectType.String 
+    };
+    
+    var response = await _githubService.GetRepositoryAsync(12345);
+    var json = JsonSerializer.Serialize(response);
+    
+    var errors = minimalSchema.Validate(json);
+    errors.Should().BeEmpty();
+}
+```
+
+#### Generate Schema from Response
+```csharp
+[Fact]
+public async Task GenerateSchemaFromActualResponse()
+{
+    // This test helps you CREATE schemas initially
+    var repository = await _githubService.GetRepositoryAsync(12345);
+    var json = JsonSerializer.Serialize(repository, new JsonSerializerOptions 
+    { 
+        WriteIndented = true 
+    });
+    
+    // Generate schema
+    var schema = JsonSchema.FromSampleJson(json);
+    var schemaJson = schema.ToJson();
+    
+    // Save to file for manual review and editing
+    await File.WriteAllTextAsync(
+        "Schemas/github-repository-response-generated.json", 
+        schemaJson
+    );
+    
+    // Manually review and move to official schemas directory
+}
+```
+
+## Verify.NET Snapshot Testing
+
+### Basic Snapshot Test
+```csharp
+using Verify = VerifyXunit;
+
+[Fact]
+public async Task GetRepository_StructureRemainsStable()
+{
+    // Arrange
+    var repository = await _githubService.GetRepositoryAsync(12345);
+    
+    // Act & Assert - Create/compare snapshot
+    await Verify(repository)
+        .UseDirectory("Snapshots")
+        .UseMethodName("RepositoryStructure");
+    
+    // First run: Creates Snapshots/RepositoryStructure.verified.json
+    // Subsequent runs: Compares against verified file
+    // If different: Shows diff and creates .received.json file
+}
+```
+
+### Verify with Scrubbing Sensitive Data
+```csharp
+[Fact]
+public async Task GetRepository_StructureWithScrubbing()
+{
+    var repository = await _githubService.GetRepositoryAsync(12345);
+    
+    await Verify(repository)
+        .ScrubMembers("id", "created_at", "updated_at")  // Ignore dynamic fields
+        .UseDirectory("Snapshots")
+        .UseMethodName("RepositoryStructureScrubbed");
+}
+```
+
+### Verify Multiple Values
+```csharp
+[Fact]
+public async Task GetRepositories_AllHaveConsistentStructure()
+{
+    // Get multiple repositories
+    var repos = await _githubService.GetOrganizationRepositoriesAsync();
+    var sample = repos.Take(3).ToList();
+    
+    // Verify all have same structure
+    await Verify(sample)
+        .UseDirectory("Snapshots")
+        .UseMethodName("MultipleRepositories");
+}
+```
+
+### Verify with Custom Settings
+```csharp
+public class GitHubApiContractTests
+{
+    static GitHubApiContractTests()
+    {
+        // Configure Verify globally for this test class
+        VerifySettings.AddExtraSettings(settings =>
+        {
+            settings.DefaultValueHandling = DefaultValueHandling.Ignore;
+            settings.Formatting = Formatting.Indented;
+        });
+        
+        // Add custom scrubbers
+        VerifySettings.AddScrubber(s => 
+        {
+            s = Regex.Replace(s, @"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z", "DATETIME");
+            s = Regex.Replace(s, @"""id"": \d+", @"""id"": 0");
+            return s;
+        });
+    }
+    
+    [Fact]
+    public async Task GetFileContent_StructureStable()
+    {
+        var content = await _githubService.GetFileContentAsync("repo", "file.md");
+        
+        // Uses global settings
+        await Verify(content);
+    }
+}
+```
+
+### Verify API Request/Response Pair
+```csharp
+[Fact]
+public async Task CreateIssue_RequestResponseContract()
+{
+    // Arrange
+    var request = new IssueRequest
+    {
+        Title = "Test Issue",
+        Body = "Test body",
+        Labels = new[] { "bug", "enhancement" }
+    };
+    
+    // Act
+    var response = await _githubService.CreateIssueAsync(
+        repositoryId: 12345,
+        title: request.Title,
+        body: request.Body,
+        labels: request.Labels
+    );
+    
+    // Assert - Verify both request and response structure
+    await Verify(new { request, response })
+        .UseDirectory("Snapshots")
+        .UseMethodName("CreateIssueContract");
+}
+```
+
+## Recording Real API Responses with WireMock
+
+### Record Mode for Schema Generation
+```csharp
+[Fact]
+public async Task RecordGitHubApiResponses()
+{
+    // Arrange - Start WireMock in recording mode
+    var wireMockServer = WireMockServer.Start();
+    wireMockServer.StartRecording("https://api.github.com");
+    
+    // Act - Make real API calls through proxy
+    var githubService = new GitHubService(
+        baseUrl: wireMockServer.Url  // Proxy through WireMock
+    );
+    
+    await githubService.GetRepositoryAsync(123456);
+    await githubService.GetFileContentAsync("repo", "README.md");
+    await githubService.GetOpenIssuesAsync(123456, "bug");
+    
+    // Save recordings
+    wireMockServer.SaveMappings("Recordings");
+    
+    // Now you can:
+    // 1. Use recordings for integration tests (fast replay)
+    // 2. Generate schemas from recorded responses
+    // 3. Create snapshot tests from recorded data
+    
+    wireMockServer.Stop();
+}
+```
+
+### Use Recorded Responses in Tests
+```csharp
+[Fact]
+public async Task GetRepository_UsesRecordedResponse()
+{
+    // Arrange - Load previously recorded responses
+    var wireMockServer = WireMockServer.Start();
+    wireMockServer.ReadStaticMappings("Recordings");
+    
+    var githubService = new GitHubService(baseUrl: wireMockServer.Url);
+    
+    // Act - Uses recorded response (fast, no real API call)
+    var repository = await githubService.GetRepositoryAsync(123456);
+    
+    // Assert - Validate against schema
+    var json = JsonSerializer.Serialize(repository);
+    var errors = _repositorySchema.Validate(json);
+    
+    errors.Should().BeEmpty();
+    
+    wireMockServer.Stop();
+}
+```
+
+## Contract Test Examples for GitHub API
+
+### Repository Endpoint Contract
+```csharp
+[Fact]
+public async Task GetRepository_ContractStability()
+{
+    // Schema validation
+    var repository = await _githubService.GetRepositoryAsync(12345);
+    var json = JsonSerializer.Serialize(repository);
+    var errors = _repositorySchema.Validate(json);
+    
+    errors.Should().BeEmpty(
+        because: "repository endpoint contract must remain stable"
+    );
+    
+    // Snapshot for structure changes
+    await Verify(repository)
+        .ScrubMembers("id", "created_at", "updated_at", "pushed_at")
+        .UseDirectory("Snapshots");
+}
+```
+
+### File Content Endpoint Contract
+```csharp
+[Fact]
+public async Task GetFileContent_Base64EncodingContract()
+{
+    var content = await _githubService.GetFileContentAsync("repo", "README.md");
+    
+    // Verify it's base64 encoded
+    content.Should().NotBeNullOrEmpty();
+    Func<string> decode = () => Encoding.UTF8.GetString(
+        Convert.FromBase64String(content)
+    );
+    decode.Should().NotThrow(because: "content must be valid base64");
+    
+    // Schema validation for metadata
+    var metadata = await _githubService.GetFileMetadataAsync("repo", "README.md");
+    var json = JsonSerializer.Serialize(metadata);
+    var errors = _fileContentSchema.Validate(json);
+    
+    errors.Should().BeEmpty();
+}
+```
+
+### Workflow Permissions Endpoint Contract
+```csharp
+[Fact]
+public async Task GetWorkflowPermissions_ValidValues()
+{
+    var permissions = await _githubService.GetWorkflowPermissionsAsync(12345);
+    
+    // Validate enum values
+    if (permissions != null)
+    {
+        permissions.Should().BeOneOf("read", "write",
+            because: "GitHub only supports read or write permissions"
+        );
+    }
+    
+    // Snapshot test for full response structure
+    await Verify(new { permissions })
+        .UseDirectory("Snapshots");
+}
+```
+
+### Issue Creation Contract
+```csharp
+[Fact]
+public async Task CreateIssue_RequestResponseContract()
+{
+    var issue = await _githubService.CreateIssueAsync(
+        repositoryId: 12345,
+        title: "Contract Test Issue",
+        body: "Testing issue creation contract",
+        labels: new[] { "test", "automation" }
+    );
+    
+    // Validate response structure
+    var json = JsonSerializer.Serialize(issue);
+    var errors = _issueSchema.Validate(json);
+    
+    errors.Should().BeEmpty();
+    
+    // Verify critical fields
+    issue.Number.Should().BeGreaterThan(0);
+    issue.State.Should().Be("open");
+    issue.HtmlUrl.Should().NotBeNullOrEmpty();
+}
+```
+
+## Contract Change Detection
+
+### Automated Schema Comparison
+```csharp
+[Fact]
+public async Task DetectApiChanges()
+{
+    // Load baseline schema (committed to repo)
+    var baselineSchema = await JsonSchema.FromFileAsync(
+        "Schemas/github-repository-response-v1.json"
+    );
+    
+    // Get current API response
+    var repository = await _githubService.GetRepositoryAsync(12345);
+    var json = JsonSerializer.Serialize(repository);
+    
+    // Generate schema from current response
+    var currentSchema = JsonSchema.FromSampleJson(json);
+    
+    // Compare schemas
+    var baselineProps = baselineSchema.Properties.Keys.ToHashSet();
+    var currentProps = currentSchema.Properties.Keys.ToHashSet();
+    
+    var removedFields = baselineProps.Except(currentProps).ToList();
+    var addedFields = currentProps.Except(baselineProps).ToList();
+    
+    // Assert
+    removedFields.Should().BeEmpty(
+        because: "GitHub should not remove fields (breaking change)"
+    );
+    
+    // Log added fields (non-breaking but worth noting)
+    if (addedFields.Any())
+    {
+        _output.WriteLine($"New fields detected: {string.Join(", ", addedFields)}");
+        _output.WriteLine("Consider updating schema if these fields are useful.");
+    }
+}
+```
+
+## CI/CD Integration
+
+### Verify Configuration
+```csharp
+// In your test project, add a module initializer
+public static class VerifyInitializer
+{
+    [ModuleInitializer]
+    public static void Initialize()
+    {
+        // Configure Verify for CI/CD
+        if (Environment.GetEnvironmentVariable("CI") == "true")
+        {
+            // In CI: fail on any differences
+            Verifier.ThrowOnVerifyFailure = true;
+        }
+        else
+        {
+            // Locally: show diffs but don't fail
+            Verifier.ThrowOnVerifyFailure = false;
+        }
+        
+        // Global scrubbers
+        VerifierSettings.ScrubMembers("id", "created_at", "updated_at");
+    }
+}
+```
+
+### Updating Snapshots
+```bash
+# When API changes are expected and verified:
+dotnet test -- Verify.AcceptAll=true
+
+# Or accept specific test:
+dotnet verify accept --test-name "GetRepository_StructureRemainsStable"
+
+# Review diff before accepting:
+git diff Tests.Contracts/Snapshots/
+```
+
+## Best Practices Summary
+
+1. ✅ Use JSON Schema for structural validation
+2. ✅ Use Verify.NET for detecting unexpected changes
+3. ✅ Record real API responses with WireMock for baseline
+4. ✅ Scrub dynamic fields (IDs, timestamps) from snapshots
+5. ✅ Store schemas and snapshots in version control
+6. ✅ Run contract tests on schedule (daily/weekly) not on every PR
+7. ✅ Document breaking vs non-breaking changes
+8. ✅ Focus on critical endpoints (not every API call)
+9. ❌ Don't mock GitHub responses in contract tests (defeats the purpose)
+10. ❌ Don't over-specify schemas (allow additionalProperties for forward compatibility)
+
+## Running Contract Tests
+
+```bash
+# Run contract tests separately
+dotnet test --filter Category=Contract
+
+# Update all snapshots after API changes
+dotnet test --filter Category=Contract -- Verify.AcceptAll=true
+
+# Run on schedule (not every commit)
+# In CI/CD: Run daily or weekly to catch API changes early
+```

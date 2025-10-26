@@ -41,3 +41,11 @@
 *   **Automated Delivery Pipeline:** Automates the entire build and deployment process, ensuring that new features and bug fixes are delivered to users quickly and reliably.
 *   **Ensures Reliability:** Enables the creation of automated testing suites that verify the logic of policy checks and actions, directly supporting the "Action Reliability" success metric.
 *   **Unified Ecosystem:** Keeps the entire development, testing, and deployment lifecycle within the GitHub ecosystem, providing a seamless workflow for developers.
+
+### Testing Stack
+
+*   **xUnit, FluentAssertions, NSubstitute**: Provides a robust, industry-standard foundation for all .NET testing. `xUnit` is the test runner, `FluentAssertions` creates readable assertions, and `NSubstitute` offers a clean mocking framework for isolating components in unit tests.
+*   **bUnit**: The de-facto standard for testing Blazor components. It allows for rendering components in-memory and verifying their output and interactivity without a browser, making UI tests fast and reliable.
+*   **WireMock.Net**: Essential for creating reliable integration tests against the GitHub API. It allows mocking the API at the HTTP level to simulate various scenarios, including rate limiting, API errors, and specific data payloads, isolating our tests from external network failures.
+*   **Testcontainers**: Manages ephemeral SQL Server instances in Docker for integration tests. This ensures that every test run starts with a clean, consistent, and isolated database, which is critical for reliable data-dependent tests.
+*   **Verify.NET & NJsonSchema**: Enables contract testing to protect the application from breaking changes in the GitHub API. By validating response schemas (`NJsonSchema`) and snapshotting response structures (`Verify.NET`), we can detect and adapt to API changes before they impact production.

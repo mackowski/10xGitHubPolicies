@@ -59,6 +59,7 @@ The application uses a dual-authentication strategy:
 | **API Docs**      | Swagger / OpenAPI                        |
 | **Hosting**       | Azure App Service                        |
 | **GitHub API**    | Octokit.net                              |
+| **Testing**       | xUnit, bUnit, WireMock.Net, Testcontainers |
 | **CI/CD**         | GitHub Actions                           |
 
 ---
@@ -246,7 +247,8 @@ Detailed documentation for specific features and integrations:
 - **[Configuration Service](./docs/configuration-service.md)**: Managing centralized policy configuration from `.github/config.yaml`
 - **[Action Service](./docs/action-service.md)**: Automated action processing for policy violations
 - **[Hangfire Integration](./docs/hangfire-integration.md)**: Background job processing and scheduling
-- **[Policy Evaluation](./docs/policy-evaluation.md)**: How the policy evaluation engine works and how to add new policies.
+- **[Policy Evaluation](./docs/policy-evaluation.md)**: How the policy evaluation engine works and how to add new policies
+- **[Testing Strategy](./docs/testing-strategy.md)**: Comprehensive testing approach, tooling, and best practices
 
 ---
 

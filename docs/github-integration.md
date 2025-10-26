@@ -195,3 +195,11 @@ public async Task CreateIssueWithDuplicateCheckAsync(long repositoryId, string t
 4. **Use Async/Await**: All methods are asynchronous; always use `await` to avoid blocking threads.
 5. **Respect Rate Limits**: GitHub API has rate limits. Monitor your usage and implement backoff strategies if needed.
 6. **Log Appropriately**: Use structured logging to track API calls and diagnose issues.
+
+## Testing
+
+For guidance on testing GitHub API integrations, see:
+- **[Testing Strategy](./testing-strategy.md)**: Comprehensive testing approach including unit, integration, and contract testing
+- **Unit Testing**: Mock `IGitHubService` with NSubstitute for fast, isolated tests
+- **Integration Testing**: Use WireMock.Net for HTTP-level mocking to simulate rate limits and API errors
+- **Contract Testing**: Use NJsonSchema and Verify.NET to detect GitHub API breaking changes

@@ -1,0 +1,1302 @@
+---
+alwaysApply: false
+---
+
+# Integration Testing Guidelines - Testcontainers + Respawn + WireMock.Net
+
+## Overview
+Integration tests verify component interactions with real dependencies like databases and HTTP APIs. This rule applies when writing or modifying integration test files that use Testcontainers, Respawn, or WireMock.Net.
+
+## Technology Stack
+- **Test Framework**: xUnit 2.6+
+- **Database**: Testcontainers.MsSql 3.7+ (ephemeral SQL Server)
+- **Database Cleanup**: Respawn 6.2+ (fast reset between tests)
+- **HTTP Mocking**: WireMock.Net 1.5+ (GitHub API mocking)
+- **ASP.NET Testing**: WebApplicationFactory (built-in)
+- **Assertions**: FluentAssertions 6.12+
+
+## File Naming Conventions
+```
+Pattern: {Feature}IntegrationTests.cs
+Location: Tests.Integration/{Feature}/
+
+Examples:
+- GitHubApiIntegrationTests.cs
+- DatabaseIntegrationTests.cs
+- ScanningWorkflowIntegrationTests.cs
+- HangfireIntegrationTests.cs
+```
+
+## Test Class Structure with Testcontainers
+
+```csharp
+using Testcontainers.MsSql;
+using Respawn;
+using Xunit;
+using FluentAssertions;
+
+namespace _10xGitHubPolicies.Tests.Integration;
+
+public class DatabaseIntegrationTests : IAsyncLifetime
+{
+    private readonly MsSqlContainer _sqlContainer;
+    private readonly ApplicationDbContext _dbContext;
+    private Respawn.Checkpoint _checkpoint;
+    
+    public DatabaseIntegrationTests()
+    {
+        // Create SQL Server container
+        _sqlContainer = new MsSqlBuilder()
+            .WithImage("mcr.microsoft.com/mssql/server:2022-latest")
+            .WithPassword("YourStrong@Passw0rd")
+            .Build();
+    }
+    
+    public async Task InitializeAsync()
+    {
+        // Start container
+        await _sqlContainer.StartAsync();
+        
+        // Run migrations
+        var options = new DbContextOptionsBuilder<ApplicationDbContext>()
+            .UseSqlServer(_sqlContainer.GetConnectionString())
+            .Options;
+        
+        _dbContext = new ApplicationDbContext(options);
+        await _dbContext.Database.MigrateAsync();
+        
+        // Initialize Respawn
+        _checkpoint = await Respawn.Checkpoint.ForDatabase(
+            _sqlContainer.GetConnectionString(),
+            new RespawnOptions
+            {
+                TablesToIgnore = new[] { "__EFMigrationsHistory" }
+            }
+        );
+    }
+    
+    [Fact]
+    public async Task SaveScanResults_WhenCalled_PersistsToDatabase()
+    {
+        // Arrange
+        var scan = new Scan
+        {
+            OrganizationName = "test-org",
+            Status = "InProgress",
+            StartedAt = DateTime.UtcNow
+        };
+        
+        // Act
+        _dbContext.Scans.Add(scan);
+        await _dbContext.SaveChangesAsync();
+        
+        // Assert
+        var savedScan = await _dbContext.Scans.FindAsync(scan.ScanId);
+        savedScan.Should().NotBeNull();
+        savedScan.OrganizationName.Should().Be("test-org");
+        
+        // Cleanup for next test
+        await _checkpoint.Reset(_sqlContainer.GetConnectionString());
+    }
+    
+    public async Task DisposeAsync()
+    {
+        await _dbContext.DisposeAsync();
+        await _sqlContainer.DisposeAsync();
+    }
+}
+```
+
+## Testcontainers Best Practices
+
+### Container Configuration
+```csharp
+// DO: Use specific image version
+_sqlContainer = new MsSqlBuilder()
+    .WithImage("mcr.microsoft.com/mssql/server:2022-latest")
+    .WithPassword("YourStrong@Passw0rd")
+    .WithPortBinding(1433, true)  // Random host port
+    .WithWaitStrategy(Wait.ForUnixContainer().UntilPortIsAvailable(1433))
+    .Build();
+
+// DO: Set resource limits
+_sqlContainer = new MsSqlBuilder()
+    .WithImage("mcr.microsoft.com/mssql/server:2022-latest")
+    .WithPassword("YourStrong@Passw0rd")
+    .WithResourceMemoryLimit("2GB")
+    .Build();
+
+// DO: Use environment variables
+_sqlContainer = new MsSqlBuilder()
+    .WithEnvironment("ACCEPT_EULA", "Y")
+    .Build();
+```
+
+### Container Lifecycle
+```csharp
+// DO: Share container across test class
+public class DatabaseIntegrationTests : IClassFixture<DatabaseFixture>
+{
+    private readonly DatabaseFixture _fixture;
+    
+    public DatabaseIntegrationTests(DatabaseFixture fixture)
+    {
+        _fixture = fixture;
+    }
+}
+
+public class DatabaseFixture : IAsyncLifetime
+{
+    public MsSqlContainer SqlContainer { get; private set; }
+    
+    public async Task InitializeAsync()
+    {
+        SqlContainer = new MsSqlBuilder().Build();
+        await SqlContainer.StartAsync();
+    }
+    
+    public async Task DisposeAsync()
+    {
+        await SqlContainer.DisposeAsync();
+    }
+}
+
+// DON'T: Create new container for each test (too slow)
+[Fact]
+public async Task SlowTest()
+{
+    var container = new MsSqlBuilder().Build();
+    await container.StartAsync();  // ❌ Takes 10-30 seconds!
+    // ...
+}
+```
+
+## Respawn Best Practices
+
+### Initialization
+```csharp
+// DO: Initialize once per test class
+private Respawn.Checkpoint _checkpoint;
+
+public async Task InitializeAsync()
+{
+    _checkpoint = await Respawn.Checkpoint.ForDatabase(
+        connectionString,
+        new RespawnOptions
+        {
+            TablesToIgnore = new[] { "__EFMigrationsHistory" },
+            DbAdapter = DbAdapter.SqlServer
+        }
+    );
+}
+
+// DO: Reset between tests
+[Fact]
+public async Task Test1()
+{
+    // Test logic
+    await _checkpoint.Reset(connectionString);
+}
+
+[Fact]
+public async Task Test2()
+{
+    // Test logic
+    await _checkpoint.Reset(connectionString);
+}
+```
+
+### Advanced Configuration
+```csharp
+// DO: Configure what to reset
+_checkpoint = await Respawn.Checkpoint.ForDatabase(
+    connectionString,
+    new RespawnOptions
+    {
+        TablesToIgnore = new[] 
+        { 
+            "__EFMigrationsHistory",
+            "SystemConfiguration"  // Don't reset static config tables
+        },
+        SchemasToInclude = new[] { "dbo" },
+        CommandTimeout = 30
+    }
+);
+
+// DO: Handle errors gracefully
+try
+{
+    await _checkpoint.Reset(connectionString);
+}
+catch (Exception ex)
+{
+    _logger.LogError(ex, "Failed to reset database");
+    throw;
+}
+```
+
+## WireMock.Net for GitHub API Mocking
+
+### Basic Setup
+```csharp
+using WireMock.Server;
+using WireMock.RequestBuilders;
+using WireMock.ResponseBuilders;
+
+public class GitHubApiIntegrationTests : IAsyncLifetime
+{
+    private WireMockServer _wireMockServer;
+    private IGitHubService _githubService;
+    
+    public async Task InitializeAsync()
+    {
+        // Start WireMock server
+        _wireMockServer = WireMockServer.Start();
+        
+        // Configure GitHubService to use WireMock URL
+        _githubService = new GitHubService(
+            baseUrl: _wireMockServer.Url  // Points to WireMock instead of GitHub
+        );
+    }
+    
+    [Fact]
+    public async Task GetRepository_WhenApiReturns200_ReturnsRepository()
+    {
+        // Arrange - Mock GitHub API response
+        _wireMockServer
+            .Given(Request.Create()
+                .WithPath("/repos/owner/repo")
+                .UsingGet())
+            .RespondWith(Response.Create()
+                .WithStatusCode(200)
+                .WithHeader("Content-Type", "application/json")
+                .WithBodyFromFile("Fixtures/github-repository-response.json"));
+        
+        // Act
+        var repository = await _githubService.GetRepositoryAsync("owner", "repo");
+        
+        // Assert
+        repository.Should().NotBeNull();
+        repository.Name.Should().Be("repo");
+    }
+    
+    public async Task DisposeAsync()
+    {
+        _wireMockServer?.Stop();
+        _wireMockServer?.Dispose();
+    }
+}
+```
+
+### Advanced WireMock Patterns
+
+#### Response from File
+```csharp
+// DO: Store complex responses in JSON files
+_wireMockServer
+    .Given(Request.Create().WithPath("/repos/*/*").UsingGet())
+    .RespondWith(Response.Create()
+        .WithStatusCode(200)
+        .WithBodyFromFile("Fixtures/github-repository-response.json"));
+```
+
+#### Dynamic Responses
+```csharp
+// DO: Return different responses based on request
+_wireMockServer
+    .Given(Request.Create()
+        .WithPath("/repos/*/AGENTS.md")
+        .UsingGet())
+    .RespondWith(Response.Create()
+        .WithStatusCode(200)
+        .WithBody("Found"));
+
+_wireMockServer
+    .Given(Request.Create()
+        .WithPath("/repos/*/missing.md")
+        .UsingGet())
+    .RespondWith(Response.Create()
+        .WithStatusCode(404));
+```
+
+#### Simulate Rate Limiting
+```csharp
+// DO: Test rate limit handling
+_wireMockServer
+    .Given(Request.Create().WithPath("/*").UsingAnyMethod())
+    .RespondWith(Response.Create()
+        .WithStatusCode(429)
+        .WithHeader("X-RateLimit-Remaining", "0")
+        .WithHeader("X-RateLimit-Reset", "1640000000")
+        .WithBody("{\"message\": \"API rate limit exceeded\"}"));
+```
+
+#### Simulate Network Delays
+```csharp
+// DO: Test timeout handling
+_wireMockServer
+    .Given(Request.Create().WithPath("/slow").UsingGet())
+    .RespondWith(Response.Create()
+        .WithStatusCode(200)
+        .WithDelay(TimeSpan.FromSeconds(30)));
+```
+
+#### Record and Replay
+```csharp
+// DO: Record real GitHub API responses
+_wireMockServer.StartRecording("https://api.github.com");
+
+// Make real API calls through WireMock proxy
+await _githubService.GetRepositoryAsync("octokit", "octokit.net");
+
+// Save recordings
+_wireMockServer.SaveMappings();
+
+// Later: Replay recorded responses
+_wireMockServer.ReadStaticMappings();
+```
+
+#### Verify Requests
+```csharp
+// DO: Verify API calls were made correctly
+_wireMockServer
+    .Given(Request.Create().WithPath("/repos/*/*").UsingGet())
+    .RespondWith(Response.Create().WithStatusCode(200));
+
+await _githubService.GetRepositoryAsync("owner", "repo");
+
+// Assert
+var requests = _wireMockServer.LogEntries
+    .Where(e => e.RequestMessage.Path.Contains("/repos/"))
+    .ToList();
+
+requests.Should().HaveCount(1);
+requests.First().RequestMessage.Headers.Should()
+    .ContainKey("Authorization");
+```
+
+## WebApplicationFactory for ASP.NET Integration Tests
+
+```csharp
+using Microsoft.AspNetCore.Mvc.Testing;
+
+public class ApiIntegrationTests : IClassFixture<WebApplicationFactory<Program>>
+{
+    private readonly WebApplicationFactory<Program> _factory;
+    private readonly HttpClient _client;
+    
+    public ApiIntegrationTests(WebApplicationFactory<Program> factory)
+    {
+        _factory = factory;
+        _client = factory.CreateClient();
+    }
+    
+    [Fact]
+    public async Task GetDashboard_WhenAuthenticated_ReturnsSuccess()
+    {
+        // Arrange
+        var client = _factory.WithWebHostBuilder(builder =>
+        {
+            builder.ConfigureServices(services =>
+            {
+                // Replace services for testing
+                services.Remove<IGitHubService>();
+                services.AddSingleton<IGitHubService>(mockGitHubService);
+            });
+        }).CreateClient();
+        
+        // Act
+        var response = await client.GetAsync("/");
+        
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+    }
+}
+```
+
+## Hangfire Integration Tests
+
+```csharp
+using Hangfire;
+using Hangfire.MemoryStorage;
+
+public class HangfireIntegrationTests
+{
+    [Fact]
+    public async Task PerformScanAsync_WhenEnqueued_ExecutesSuccessfully()
+    {
+        // Arrange - Use in-memory storage
+        GlobalConfiguration.Configuration.UseMemoryStorage();
+        
+        var jobClient = new BackgroundJobClient();
+        var scanningService = new ScanningService(/* dependencies */);
+        
+        // Act - Enqueue job
+        var jobId = jobClient.Enqueue<IScanningService>(s => s.PerformScanAsync());
+        
+        // Assert
+        jobId.Should().NotBeNullOrEmpty();
+        
+        // Trigger job execution (in-memory)
+        using (var server = new BackgroundJobServer())
+        {
+            await Task.Delay(1000);  // Wait for job processing
+            
+            // Verify job completed
+            var jobDetails = JobStorage.Current.GetMonitoringApi().JobDetails(jobId);
+            jobDetails.History.Should().Contain(h => h.StateName == "Succeeded");
+        }
+    }
+}
+```
+
+## Testing Database Operations
+
+### Testing Entity Framework Queries
+```csharp
+[Fact]
+public async Task GetNonCompliantRepositories_ReturnsCorrectResults()
+{
+    // Arrange - Seed database
+    var compliantRepo = new Repository { Name = "compliant", Archived = false };
+    var nonCompliantRepo = new Repository { Name = "non-compliant", Archived = false };
+    var violation = new PolicyViolation 
+    { 
+        Repository = nonCompliantRepo,
+        PolicyType = "has_agents_md" 
+    };
+    
+    await _dbContext.Repositories.AddRangeAsync(compliantRepo, nonCompliantRepo);
+    await _dbContext.PolicyViolations.AddAsync(violation);
+    await _dbContext.SaveChangesAsync();
+    
+    // Act
+    var dashboardService = new DashboardService(_dbContext);
+    var result = await dashboardService.GetNonCompliantRepositoriesAsync();
+    
+    // Assert
+    result.Should().ContainSingle()
+        .Which.Name.Should().Be("non-compliant");
+    
+    // Cleanup
+    await _checkpoint.Reset(_connectionString);
+}
+```
+
+### Testing Transactions
+```csharp
+[Fact]
+public async Task SaveScanWithViolations_RollsBackOnError()
+{
+    // Arrange
+    var scan = new Scan { OrganizationName = "test" };
+    
+    // Act & Assert
+    await using (var transaction = await _dbContext.Database.BeginTransactionAsync())
+    {
+        _dbContext.Scans.Add(scan);
+        await _dbContext.SaveChangesAsync();
+        
+        // Simulate error
+        await transaction.RollbackAsync();
+    }
+    
+    // Verify rollback
+    var savedScan = await _dbContext.Scans.FindAsync(scan.ScanId);
+    savedScan.Should().BeNull();
+}
+```
+
+## Common Integration Test Patterns
+
+### End-to-End Workflow Test
+```csharp
+[Fact]
+public async Task CompleteScanWorkflow_FromTriggerToActions()
+{
+    // Arrange
+    _wireMockServer.Given(Request.Create().WithPath("/orgs/*/repos"))
+        .RespondWith(Response.Create().WithBodyFromFile("repos.json"));
+    
+    var scanningService = new ScanningService(
+        _dbContext, 
+        _githubService, 
+        _policyService,
+        _actionService
+    );
+    
+    // Act
+    await scanningService.PerformScanAsync();
+    
+    // Assert - Verify database state
+    var scan = await _dbContext.Scans.OrderBy(s => s.StartedAt).LastAsync();
+    scan.Status.Should().Be("Completed");
+    scan.RepositoriesScanned.Should().BeGreaterThan(0);
+    
+    var violations = await _dbContext.PolicyViolations
+        .Where(v => v.ScanId == scan.ScanId)
+        .ToListAsync();
+    violations.Should().NotBeEmpty();
+    
+    // Verify GitHub API calls
+    var apiCalls = _wireMockServer.LogEntries.ToList();
+    apiCalls.Should().Contain(e => e.RequestMessage.Path.Contains("/repos"));
+}
+```
+
+### Testing Concurrent Operations
+```csharp
+[Fact]
+public async Task MultipleConcurrentScans_HandleGracefully()
+{
+    // Arrange
+    var tasks = Enumerable.Range(0, 5)
+        .Select(_ => _scanningService.PerformScanAsync())
+        .ToList();
+    
+    // Act
+    await Task.WhenAll(tasks);
+    
+    // Assert
+    var scans = await _dbContext.Scans.ToListAsync();
+    scans.Should().HaveCount(5);
+    scans.Should().OnlyContain(s => s.Status == "Completed");
+}
+```
+
+## Performance Considerations
+
+```csharp
+// DO: Use AsNoTracking for read-only queries
+var repos = await _dbContext.Repositories
+    .AsNoTracking()
+    .Where(r => !r.Archived)
+    .ToListAsync();
+
+// DO: Test query performance
+[Fact]
+public async Task DashboardQuery_CompletesInReasonableTime()
+{
+    // Arrange - Seed large dataset
+    await SeedDatabaseAsync(1000);
+    
+    // Act
+    var stopwatch = Stopwatch.StartNew();
+    var result = await _dashboardService.GetDashboardDataAsync();
+    stopwatch.Stop();
+    
+    // Assert
+    stopwatch.ElapsedMilliseconds.Should().BeLessThan(500, 
+        because: "dashboard query should be fast");
+}
+```
+
+## Test Data Builders
+
+```csharp
+public class ScanBuilder
+{
+    private readonly Scan _scan = new()
+    {
+        OrganizationName = "test-org",
+        Status = "InProgress",
+        StartedAt = DateTime.UtcNow
+    };
+    
+    public ScanBuilder WithStatus(string status)
+    {
+        _scan.Status = status;
+        return this;
+    }
+    
+    public ScanBuilder WithRepositories(int count)
+    {
+        _scan.RepositoriesScanned = count;
+        return this;
+    }
+    
+    public Scan Build() => _scan;
+}
+
+// Usage
+var scan = new ScanBuilder()
+    .WithStatus("Completed")
+    .WithRepositories(100)
+    .Build();
+```
+
+## Running Integration Tests
+
+```bash
+# Run integration tests (separate from unit tests)
+dotnet test --filter Category=Integration
+
+# Run with Docker required
+docker ps  # Ensure Docker is running
+dotnet test --filter FullyQualifiedName~IntegrationTests
+
+# Integration tests take longer (30s - 2min per test class)
+# Run in parallel by default (xUnit)
+```
+
+## Best Practices Summary
+
+1. ✅ Use Testcontainers for isolated database tests
+2. ✅ Use Respawn for fast database cleanup
+3. ✅ Use WireMock.Net for GitHub API mocking
+4. ✅ Share container across test class with IClassFixture
+5. ✅ Reset database with Respawn between tests
+6. ✅ Store complex responses in fixture files
+7. ✅ Test happy path AND error scenarios
+8. ✅ Verify both application behavior and side effects (DB, API calls)
+9. ❌ Don't create new containers for each test (too slow)
+10. ❌ Don't mock database with in-memory provider (behavior differs)
+# Integration Testing Guidelines - Testcontainers + Respawn + WireMock.Net
+
+## Overview
+Integration tests verify component interactions with real dependencies like databases and HTTP APIs. This rule applies when writing or modifying integration test files that use Testcontainers, Respawn, or WireMock.Net.
+
+## Technology Stack
+- **Test Framework**: xUnit 2.6+
+- **Database**: Testcontainers.MsSql 3.7+ (ephemeral SQL Server)
+- **Database Cleanup**: Respawn 6.2+ (fast reset between tests)
+- **HTTP Mocking**: WireMock.Net 1.5+ (GitHub API mocking)
+- **ASP.NET Testing**: WebApplicationFactory (built-in)
+- **Assertions**: FluentAssertions 6.12+
+
+## File Naming Conventions
+```
+Pattern: {Feature}IntegrationTests.cs
+Location: Tests.Integration/{Feature}/
+
+Examples:
+- GitHubApiIntegrationTests.cs
+- DatabaseIntegrationTests.cs
+- ScanningWorkflowIntegrationTests.cs
+- HangfireIntegrationTests.cs
+```
+
+## Test Class Structure with Testcontainers
+
+```csharp
+using Testcontainers.MsSql;
+using Respawn;
+using Xunit;
+using FluentAssertions;
+
+namespace _10xGitHubPolicies.Tests.Integration;
+
+public class DatabaseIntegrationTests : IAsyncLifetime
+{
+    private readonly MsSqlContainer _sqlContainer;
+    private readonly ApplicationDbContext _dbContext;
+    private Respawn.Checkpoint _checkpoint;
+    
+    public DatabaseIntegrationTests()
+    {
+        // Create SQL Server container
+        _sqlContainer = new MsSqlBuilder()
+            .WithImage("mcr.microsoft.com/mssql/server:2022-latest")
+            .WithPassword("YourStrong@Passw0rd")
+            .Build();
+    }
+    
+    public async Task InitializeAsync()
+    {
+        // Start container
+        await _sqlContainer.StartAsync();
+        
+        // Run migrations
+        var options = new DbContextOptionsBuilder<ApplicationDbContext>()
+            .UseSqlServer(_sqlContainer.GetConnectionString())
+            .Options;
+        
+        _dbContext = new ApplicationDbContext(options);
+        await _dbContext.Database.MigrateAsync();
+        
+        // Initialize Respawn
+        _checkpoint = await Respawn.Checkpoint.ForDatabase(
+            _sqlContainer.GetConnectionString(),
+            new RespawnOptions
+            {
+                TablesToIgnore = new[] { "__EFMigrationsHistory" }
+            }
+        );
+    }
+    
+    [Fact]
+    public async Task SaveScanResults_WhenCalled_PersistsToDatabase()
+    {
+        // Arrange
+        var scan = new Scan
+        {
+            OrganizationName = "test-org",
+            Status = "InProgress",
+            StartedAt = DateTime.UtcNow
+        };
+        
+        // Act
+        _dbContext.Scans.Add(scan);
+        await _dbContext.SaveChangesAsync();
+        
+        // Assert
+        var savedScan = await _dbContext.Scans.FindAsync(scan.ScanId);
+        savedScan.Should().NotBeNull();
+        savedScan.OrganizationName.Should().Be("test-org");
+        
+        // Cleanup for next test
+        await _checkpoint.Reset(_sqlContainer.GetConnectionString());
+    }
+    
+    public async Task DisposeAsync()
+    {
+        await _dbContext.DisposeAsync();
+        await _sqlContainer.DisposeAsync();
+    }
+}
+```
+
+## Testcontainers Best Practices
+
+### Container Configuration
+```csharp
+// DO: Use specific image version
+_sqlContainer = new MsSqlBuilder()
+    .WithImage("mcr.microsoft.com/mssql/server:2022-latest")
+    .WithPassword("YourStrong@Passw0rd")
+    .WithPortBinding(1433, true)  // Random host port
+    .WithWaitStrategy(Wait.ForUnixContainer().UntilPortIsAvailable(1433))
+    .Build();
+
+// DO: Set resource limits
+_sqlContainer = new MsSqlBuilder()
+    .WithImage("mcr.microsoft.com/mssql/server:2022-latest")
+    .WithPassword("YourStrong@Passw0rd")
+    .WithResourceMemoryLimit("2GB")
+    .Build();
+
+// DO: Use environment variables
+_sqlContainer = new MsSqlBuilder()
+    .WithEnvironment("ACCEPT_EULA", "Y")
+    .Build();
+```
+
+### Container Lifecycle
+```csharp
+// DO: Share container across test class
+public class DatabaseIntegrationTests : IClassFixture<DatabaseFixture>
+{
+    private readonly DatabaseFixture _fixture;
+    
+    public DatabaseIntegrationTests(DatabaseFixture fixture)
+    {
+        _fixture = fixture;
+    }
+}
+
+public class DatabaseFixture : IAsyncLifetime
+{
+    public MsSqlContainer SqlContainer { get; private set; }
+    
+    public async Task InitializeAsync()
+    {
+        SqlContainer = new MsSqlBuilder().Build();
+        await SqlContainer.StartAsync();
+    }
+    
+    public async Task DisposeAsync()
+    {
+        await SqlContainer.DisposeAsync();
+    }
+}
+
+// DON'T: Create new container for each test (too slow)
+[Fact]
+public async Task SlowTest()
+{
+    var container = new MsSqlBuilder().Build();
+    await container.StartAsync();  // ❌ Takes 10-30 seconds!
+    // ...
+}
+```
+
+## Respawn Best Practices
+
+### Initialization
+```csharp
+// DO: Initialize once per test class
+private Respawn.Checkpoint _checkpoint;
+
+public async Task InitializeAsync()
+{
+    _checkpoint = await Respawn.Checkpoint.ForDatabase(
+        connectionString,
+        new RespawnOptions
+        {
+            TablesToIgnore = new[] { "__EFMigrationsHistory" },
+            DbAdapter = DbAdapter.SqlServer
+        }
+    );
+}
+
+// DO: Reset between tests
+[Fact]
+public async Task Test1()
+{
+    // Test logic
+    await _checkpoint.Reset(connectionString);
+}
+
+[Fact]
+public async Task Test2()
+{
+    // Test logic
+    await _checkpoint.Reset(connectionString);
+}
+```
+
+### Advanced Configuration
+```csharp
+// DO: Configure what to reset
+_checkpoint = await Respawn.Checkpoint.ForDatabase(
+    connectionString,
+    new RespawnOptions
+    {
+        TablesToIgnore = new[] 
+        { 
+            "__EFMigrationsHistory",
+            "SystemConfiguration"  // Don't reset static config tables
+        },
+        SchemasToInclude = new[] { "dbo" },
+        CommandTimeout = 30
+    }
+);
+
+// DO: Handle errors gracefully
+try
+{
+    await _checkpoint.Reset(connectionString);
+}
+catch (Exception ex)
+{
+    _logger.LogError(ex, "Failed to reset database");
+    throw;
+}
+```
+
+## WireMock.Net for GitHub API Mocking
+
+### Basic Setup
+```csharp
+using WireMock.Server;
+using WireMock.RequestBuilders;
+using WireMock.ResponseBuilders;
+
+public class GitHubApiIntegrationTests : IAsyncLifetime
+{
+    private WireMockServer _wireMockServer;
+    private IGitHubService _githubService;
+    
+    public async Task InitializeAsync()
+    {
+        // Start WireMock server
+        _wireMockServer = WireMockServer.Start();
+        
+        // Configure GitHubService to use WireMock URL
+        _githubService = new GitHubService(
+            baseUrl: _wireMockServer.Url  // Points to WireMock instead of GitHub
+        );
+    }
+    
+    [Fact]
+    public async Task GetRepository_WhenApiReturns200_ReturnsRepository()
+    {
+        // Arrange - Mock GitHub API response
+        _wireMockServer
+            .Given(Request.Create()
+                .WithPath("/repos/owner/repo")
+                .UsingGet())
+            .RespondWith(Response.Create()
+                .WithStatusCode(200)
+                .WithHeader("Content-Type", "application/json")
+                .WithBodyFromFile("Fixtures/github-repository-response.json"));
+        
+        // Act
+        var repository = await _githubService.GetRepositoryAsync("owner", "repo");
+        
+        // Assert
+        repository.Should().NotBeNull();
+        repository.Name.Should().Be("repo");
+    }
+    
+    public async Task DisposeAsync()
+    {
+        _wireMockServer?.Stop();
+        _wireMockServer?.Dispose();
+    }
+}
+```
+
+### Advanced WireMock Patterns
+
+#### Response from File
+```csharp
+// DO: Store complex responses in JSON files
+_wireMockServer
+    .Given(Request.Create().WithPath("/repos/*/*").UsingGet())
+    .RespondWith(Response.Create()
+        .WithStatusCode(200)
+        .WithBodyFromFile("Fixtures/github-repository-response.json"));
+```
+
+#### Dynamic Responses
+```csharp
+// DO: Return different responses based on request
+_wireMockServer
+    .Given(Request.Create()
+        .WithPath("/repos/*/AGENTS.md")
+        .UsingGet())
+    .RespondWith(Response.Create()
+        .WithStatusCode(200)
+        .WithBody("Found"));
+
+_wireMockServer
+    .Given(Request.Create()
+        .WithPath("/repos/*/missing.md")
+        .UsingGet())
+    .RespondWith(Response.Create()
+        .WithStatusCode(404));
+```
+
+#### Simulate Rate Limiting
+```csharp
+// DO: Test rate limit handling
+_wireMockServer
+    .Given(Request.Create().WithPath("/*").UsingAnyMethod())
+    .RespondWith(Response.Create()
+        .WithStatusCode(429)
+        .WithHeader("X-RateLimit-Remaining", "0")
+        .WithHeader("X-RateLimit-Reset", "1640000000")
+        .WithBody("{\"message\": \"API rate limit exceeded\"}"));
+```
+
+#### Simulate Network Delays
+```csharp
+// DO: Test timeout handling
+_wireMockServer
+    .Given(Request.Create().WithPath("/slow").UsingGet())
+    .RespondWith(Response.Create()
+        .WithStatusCode(200)
+        .WithDelay(TimeSpan.FromSeconds(30)));
+```
+
+#### Record and Replay
+```csharp
+// DO: Record real GitHub API responses
+_wireMockServer.StartRecording("https://api.github.com");
+
+// Make real API calls through WireMock proxy
+await _githubService.GetRepositoryAsync("octokit", "octokit.net");
+
+// Save recordings
+_wireMockServer.SaveMappings();
+
+// Later: Replay recorded responses
+_wireMockServer.ReadStaticMappings();
+```
+
+#### Verify Requests
+```csharp
+// DO: Verify API calls were made correctly
+_wireMockServer
+    .Given(Request.Create().WithPath("/repos/*/*").UsingGet())
+    .RespondWith(Response.Create().WithStatusCode(200));
+
+await _githubService.GetRepositoryAsync("owner", "repo");
+
+// Assert
+var requests = _wireMockServer.LogEntries
+    .Where(e => e.RequestMessage.Path.Contains("/repos/"))
+    .ToList();
+
+requests.Should().HaveCount(1);
+requests.First().RequestMessage.Headers.Should()
+    .ContainKey("Authorization");
+```
+
+## WebApplicationFactory for ASP.NET Integration Tests
+
+```csharp
+using Microsoft.AspNetCore.Mvc.Testing;
+
+public class ApiIntegrationTests : IClassFixture<WebApplicationFactory<Program>>
+{
+    private readonly WebApplicationFactory<Program> _factory;
+    private readonly HttpClient _client;
+    
+    public ApiIntegrationTests(WebApplicationFactory<Program> factory)
+    {
+        _factory = factory;
+        _client = factory.CreateClient();
+    }
+    
+    [Fact]
+    public async Task GetDashboard_WhenAuthenticated_ReturnsSuccess()
+    {
+        // Arrange
+        var client = _factory.WithWebHostBuilder(builder =>
+        {
+            builder.ConfigureServices(services =>
+            {
+                // Replace services for testing
+                services.Remove<IGitHubService>();
+                services.AddSingleton<IGitHubService>(mockGitHubService);
+            });
+        }).CreateClient();
+        
+        // Act
+        var response = await client.GetAsync("/");
+        
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+    }
+}
+```
+
+## Hangfire Integration Tests
+
+```csharp
+using Hangfire;
+using Hangfire.MemoryStorage;
+
+public class HangfireIntegrationTests
+{
+    [Fact]
+    public async Task PerformScanAsync_WhenEnqueued_ExecutesSuccessfully()
+    {
+        // Arrange - Use in-memory storage
+        GlobalConfiguration.Configuration.UseMemoryStorage();
+        
+        var jobClient = new BackgroundJobClient();
+        var scanningService = new ScanningService(/* dependencies */);
+        
+        // Act - Enqueue job
+        var jobId = jobClient.Enqueue<IScanningService>(s => s.PerformScanAsync());
+        
+        // Assert
+        jobId.Should().NotBeNullOrEmpty();
+        
+        // Trigger job execution (in-memory)
+        using (var server = new BackgroundJobServer())
+        {
+            await Task.Delay(1000);  // Wait for job processing
+            
+            // Verify job completed
+            var jobDetails = JobStorage.Current.GetMonitoringApi().JobDetails(jobId);
+            jobDetails.History.Should().Contain(h => h.StateName == "Succeeded");
+        }
+    }
+}
+```
+
+## Testing Database Operations
+
+### Testing Entity Framework Queries
+```csharp
+[Fact]
+public async Task GetNonCompliantRepositories_ReturnsCorrectResults()
+{
+    // Arrange - Seed database
+    var compliantRepo = new Repository { Name = "compliant", Archived = false };
+    var nonCompliantRepo = new Repository { Name = "non-compliant", Archived = false };
+    var violation = new PolicyViolation 
+    { 
+        Repository = nonCompliantRepo,
+        PolicyType = "has_agents_md" 
+    };
+    
+    await _dbContext.Repositories.AddRangeAsync(compliantRepo, nonCompliantRepo);
+    await _dbContext.PolicyViolations.AddAsync(violation);
+    await _dbContext.SaveChangesAsync();
+    
+    // Act
+    var dashboardService = new DashboardService(_dbContext);
+    var result = await dashboardService.GetNonCompliantRepositoriesAsync();
+    
+    // Assert
+    result.Should().ContainSingle()
+        .Which.Name.Should().Be("non-compliant");
+    
+    // Cleanup
+    await _checkpoint.Reset(_connectionString);
+}
+```
+
+### Testing Transactions
+```csharp
+[Fact]
+public async Task SaveScanWithViolations_RollsBackOnError()
+{
+    // Arrange
+    var scan = new Scan { OrganizationName = "test" };
+    
+    // Act & Assert
+    await using (var transaction = await _dbContext.Database.BeginTransactionAsync())
+    {
+        _dbContext.Scans.Add(scan);
+        await _dbContext.SaveChangesAsync();
+        
+        // Simulate error
+        await transaction.RollbackAsync();
+    }
+    
+    // Verify rollback
+    var savedScan = await _dbContext.Scans.FindAsync(scan.ScanId);
+    savedScan.Should().BeNull();
+}
+```
+
+## Common Integration Test Patterns
+
+### End-to-End Workflow Test
+```csharp
+[Fact]
+public async Task CompleteScanWorkflow_FromTriggerToActions()
+{
+    // Arrange
+    _wireMockServer.Given(Request.Create().WithPath("/orgs/*/repos"))
+        .RespondWith(Response.Create().WithBodyFromFile("repos.json"));
+    
+    var scanningService = new ScanningService(
+        _dbContext, 
+        _githubService, 
+        _policyService,
+        _actionService
+    );
+    
+    // Act
+    await scanningService.PerformScanAsync();
+    
+    // Assert - Verify database state
+    var scan = await _dbContext.Scans.OrderBy(s => s.StartedAt).LastAsync();
+    scan.Status.Should().Be("Completed");
+    scan.RepositoriesScanned.Should().BeGreaterThan(0);
+    
+    var violations = await _dbContext.PolicyViolations
+        .Where(v => v.ScanId == scan.ScanId)
+        .ToListAsync();
+    violations.Should().NotBeEmpty();
+    
+    // Verify GitHub API calls
+    var apiCalls = _wireMockServer.LogEntries.ToList();
+    apiCalls.Should().Contain(e => e.RequestMessage.Path.Contains("/repos"));
+}
+```
+
+### Testing Concurrent Operations
+```csharp
+[Fact]
+public async Task MultipleConcurrentScans_HandleGracefully()
+{
+    // Arrange
+    var tasks = Enumerable.Range(0, 5)
+        .Select(_ => _scanningService.PerformScanAsync())
+        .ToList();
+    
+    // Act
+    await Task.WhenAll(tasks);
+    
+    // Assert
+    var scans = await _dbContext.Scans.ToListAsync();
+    scans.Should().HaveCount(5);
+    scans.Should().OnlyContain(s => s.Status == "Completed");
+}
+```
+
+## Performance Considerations
+
+```csharp
+// DO: Use AsNoTracking for read-only queries
+var repos = await _dbContext.Repositories
+    .AsNoTracking()
+    .Where(r => !r.Archived)
+    .ToListAsync();
+
+// DO: Test query performance
+[Fact]
+public async Task DashboardQuery_CompletesInReasonableTime()
+{
+    // Arrange - Seed large dataset
+    await SeedDatabaseAsync(1000);
+    
+    // Act
+    var stopwatch = Stopwatch.StartNew();
+    var result = await _dashboardService.GetDashboardDataAsync();
+    stopwatch.Stop();
+    
+    // Assert
+    stopwatch.ElapsedMilliseconds.Should().BeLessThan(500, 
+        because: "dashboard query should be fast");
+}
+```
+
+## Test Data Builders
+
+```csharp
+public class ScanBuilder
+{
+    private readonly Scan _scan = new()
+    {
+        OrganizationName = "test-org",
+        Status = "InProgress",
+        StartedAt = DateTime.UtcNow
+    };
+    
+    public ScanBuilder WithStatus(string status)
+    {
+        _scan.Status = status;
+        return this;
+    }
+    
+    public ScanBuilder WithRepositories(int count)
+    {
+        _scan.RepositoriesScanned = count;
+        return this;
+    }
+    
+    public Scan Build() => _scan;
+}
+
+// Usage
+var scan = new ScanBuilder()
+    .WithStatus("Completed")
+    .WithRepositories(100)
+    .Build();
+```
+
+## Running Integration Tests
+
+```bash
+# Run integration tests (separate from unit tests)
+dotnet test --filter Category=Integration
+
+# Run with Docker required
+docker ps  # Ensure Docker is running
+dotnet test --filter FullyQualifiedName~IntegrationTests
+
+# Integration tests take longer (30s - 2min per test class)
+# Run in parallel by default (xUnit)
+```
+
+## Best Practices Summary
+
+1. ✅ Use Testcontainers for isolated database tests
+2. ✅ Use Respawn for fast database cleanup
+3. ✅ Use WireMock.Net for GitHub API mocking
+4. ✅ Share container across test class with IClassFixture
+5. ✅ Reset database with Respawn between tests
+6. ✅ Store complex responses in fixture files
+7. ✅ Test happy path AND error scenarios
+8. ✅ Verify both application behavior and side effects (DB, API calls)
+9. ❌ Don't create new containers for each test (too slow)
+10. ❌ Don't mock database with in-memory provider (behavior differs)

@@ -1,0 +1,890 @@
+---
+alwaysApply: false
+---
+
+# Unit Testing Guidelines - xUnit + NSubstitute + FluentAssertions
+
+## Overview
+Unit tests verify individual components in isolation using mocking for dependencies. This rule applies when writing or modifying files in test projects with names ending in `.Tests` that contain unit tests.
+
+## Technology Stack
+- **Test Framework**: xUnit 2.6+
+- **Mocking**: NSubstitute 5.1+
+- **Assertions**: FluentAssertions 6.12+
+- **Test Data**: Bogus 35.4+
+
+## File Naming Conventions
+```
+Pattern: {ClassUnderTest}Tests.cs
+Location: Tests/{Namespace}/
+
+Examples:
+- ConfigurationServiceTests.cs
+- GitHubServiceTests.cs
+- PolicyEvaluationServiceTests.cs
+```
+
+## Test Class Structure
+
+```csharp
+using FluentAssertions;
+using NSubstitute;
+using Xunit;
+using Bogus;
+
+namespace _10xGitHubPolicies.Tests.Services;
+
+public class ServiceNameTests : IAsyncLifetime  // Use IAsyncLifetime for async setup/cleanup
+{
+    private readonly InjectedDependency _dependency;
+    private readonly ServiceUnderTest _sut;  // System Under Test
+    private readonly Faker _faker;  // For test data generation
+    
+    public ServiceNameTests()
+    {
+        // Arrange - Create mocks
+        _dependency = Substitute.For<InjectedDependency>();
+        _faker = new Faker();
+        
+        // Create system under test
+        _sut = new ServiceUnderTest(_dependency);
+    }
+    
+    [Fact]
+    public async Task MethodName_WhenCondition_ExpectedBehavior()
+    {
+        // Arrange
+        var input = _faker.Lorem.Word();
+        _dependency.SomeMethod(Arg.Any<string>()).Returns("mocked result");
+        
+        // Act
+        var result = await _sut.MethodToTest(input);
+        
+        // Assert
+        result.Should().NotBeNull(because: "method should always return a value");
+        await _dependency.Received(1).SomeMethod(input);
+    }
+    
+    public Task InitializeAsync() => Task.CompletedTask;
+    public Task DisposeAsync() => Task.CompletedTask;
+}
+```
+
+## Test Naming Convention
+Use the pattern: `MethodName_WhenCondition_ExpectedBehavior`
+
+**Examples:**
+```csharp
+GetConfigAsync_WhenConfigExists_ReturnsValidConfig
+GetConfigAsync_WhenConfigMissing_ThrowsConfigurationNotFoundException
+GetConfigAsync_WhenCalledConcurrently_FetchesOnlyOnce
+ProcessActionsForScanAsync_WhenNoViolations_CompletesSuccessfully
+```
+
+## NSubstitute Best Practices
+
+### Creating Mocks
+```csharp
+// DO: Use Substitute.For<T>() for interfaces
+var service = Substitute.For<IGitHubService>();
+
+// DO: Mock multiple interfaces
+var service = Substitute.For<IDisposable, IService>();
+
+// DON'T: Try to mock concrete classes (use interface instead)
+```
+
+### Setting Up Return Values
+```csharp
+// DO: Simple return value
+_githubService.GetFileContentAsync(Arg.Any<string>(), Arg.Any<string>())
+    .Returns("base64content");
+
+// DO: Return different values based on arguments
+_githubService.FileExistsAsync(Arg.Any<long>(), "AGENTS.md").Returns(true);
+_githubService.FileExistsAsync(Arg.Any<long>(), "missing.md").Returns(false);
+
+// DO: Throw exceptions
+_githubService.GetFileContentAsync(Arg.Any<string>(), Arg.Any<string>())
+    .Returns(Task.FromException<string>(new FileNotFoundException()));
+
+// DO: Use argument matchers
+_githubService.GetFileContentAsync(
+    Arg.Is<string>(s => s.StartsWith("test")), 
+    Arg.Any<string>()
+).Returns("result");
+```
+
+### Verifying Calls
+```csharp
+// DO: Verify method was called once
+await _githubService.Received(1).GetFileContentAsync("repo", "file.md");
+
+// DO: Verify method was never called
+await _githubService.DidNotReceive().ArchiveRepositoryAsync(Arg.Any<long>());
+
+// DO: Verify with argument matching
+await _githubService.Received().CreateIssueAsync(
+    Arg.Any<long>(),
+    Arg.Is<string>(title => title.Contains("Missing")),
+    Arg.Any<string>(),
+    Arg.Any<IEnumerable<string>>()
+);
+
+// DO: Clear received calls between tests
+_githubService.ClearReceivedCalls();
+```
+
+## FluentAssertions Best Practices
+
+### Basic Assertions
+```csharp
+// DO: Use descriptive assertions with 'because'
+result.Should().NotBeNull(because: "service should always return a value");
+result.Should().BeTrue(because: "policy should be violated");
+result.Should().Be(expectedValue, because: "cached value should be returned");
+
+// DO: Chain assertions
+result.Should()
+    .NotBeNull()
+    .And.BeOfType<AppConfig>()
+    .Which.Policies.Should().HaveCount(3);
+```
+
+### Collection Assertions
+```csharp
+// DO: Assert on collections
+results.Should().NotBeEmpty();
+results.Should().HaveCount(5);
+results.Should().ContainSingle(r => r.Id == 123);
+results.Should().AllSatisfy(r => r.Status.Should().Be("Success"));
+
+// DO: Equivalency comparisons
+actualConfig.Should().BeEquivalentTo(expectedConfig, options => 
+    options.Excluding(c => c.Timestamp));
+```
+
+### Exception Assertions
+```csharp
+// DO: Test for exceptions
+var act = async () => await _sut.GetConfigAsync();
+
+await act.Should()
+    .ThrowAsync<ConfigurationNotFoundException>()
+    .WithMessage("*config.yaml*");
+
+// DO: Test that no exception is thrown
+var act = () => _sut.ValidateConfig(validConfig);
+act.Should().NotThrow();
+```
+
+### Async Assertions
+```csharp
+// DO: Always await async assertions
+await result.Should().CompleteWithinAsync(TimeSpan.FromSeconds(5));
+
+// DO: Test async operations
+var task = _sut.LongRunningOperation();
+await task.Should().NotThrowAsync();
+```
+
+## Bogus for Test Data
+
+```csharp
+// DO: Create faker in constructor
+private readonly Faker _faker = new Faker();
+
+// DO: Generate simple data
+var repoName = _faker.Lorem.Word();
+var url = _faker.Internet.Url();
+var email = _faker.Internet.Email();
+var date = _faker.Date.Past();
+
+// DO: Create typed fakers for complex objects
+private readonly Faker<Repository> _repoFaker = new Faker<Repository>()
+    .RuleFor(r => r.Name, f => f.Company.CompanyName())
+    .RuleFor(r => r.Owner, f => f.Internet.UserName())
+    .RuleFor(r => r.CreatedAt, f => f.Date.Past(2));
+
+var repositories = _repoFaker.Generate(10);
+
+// DO: Generate test data in bulk
+[Theory]
+[MemberData(nameof(RepositoryTestData))]
+public async Task TestWithGeneratedData(Repository repo)
+{
+    // Test implementation
+}
+
+public static IEnumerable<object[]> RepositoryTestData()
+{
+    var faker = new Faker<Repository>();
+    return faker.Generate(5).Select(r => new object[] { r });
+}
+```
+
+## Test Organization
+
+### Use Theory for Multiple Test Cases
+```csharp
+[Theory]
+[InlineData("has_agents_md", "AGENTS.md")]
+[InlineData("has_catalog_info_yaml", "catalog-info.yaml")]
+public async Task FileExistsAsync_ForDifferentPolicies_ReturnsCorrectResult(
+    string policyType, 
+    string fileName)
+{
+    // Arrange & Act & Assert
+}
+
+[Theory]
+[MemberData(nameof(GetInvalidConfigs))]
+public async Task GetConfigAsync_WithInvalidConfig_ThrowsException(string invalidYaml)
+{
+    // Test implementation
+}
+
+public static IEnumerable<object[]> GetInvalidConfigs()
+{
+    yield return new object[] { "invalid: yaml: syntax:" };
+    yield return new object[] { "access_control:\n  authorized_team: ''" };
+    yield return new object[] { "policies: invalid" };
+}
+```
+
+### Use Traits for Test Organization
+```csharp
+[Fact]
+[Trait("Category", "Unit")]
+[Trait("Feature", "Configuration")]
+public async Task GetConfigAsync_BasicTest()
+{
+    // Test implementation
+}
+```
+
+### Use Skip for Temporarily Disabled Tests
+```csharp
+[Fact(Skip = "Waiting for GitHub API mock improvement")]
+public async Task TemporarilyDisabledTest()
+{
+    // Test implementation
+}
+```
+
+## Common Patterns
+
+### Testing Caching Logic
+```csharp
+[Fact]
+public async Task GetConfigAsync_WhenCalledTwice_CachesResult()
+{
+    // Arrange
+    _githubService.GetFileContentAsync(Arg.Any<string>(), Arg.Any<string>())
+        .Returns("base64content");
+    
+    // Act
+    var result1 = await _sut.GetConfigAsync();
+    var result2 = await _sut.GetConfigAsync();
+    
+    // Assert
+    result1.Should().BeSameAs(result2, because: "cached instance should be returned");
+    await _githubService.Received(1).GetFileContentAsync(Arg.Any<string>(), Arg.Any<string>());
+}
+```
+
+### Testing Exception Handling
+```csharp
+[Fact]
+public async Task ProcessAction_WhenGitHubFails_LogsAndContinues()
+{
+    // Arrange
+    _githubService.CreateIssueAsync(Arg.Any<long>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<IEnumerable<string>>())
+        .Returns(Task.FromException<Issue>(new ApiException()));
+    var logger = Substitute.For<ILogger<ActionService>>();
+    
+    // Act
+    await _sut.ProcessActionsForScanAsync(scanId);
+    
+    // Assert
+    logger.Received().LogError(Arg.Any<Exception>(), Arg.Any<string>(), Arg.Any<object[]>());
+}
+```
+
+### Testing Concurrent Access
+```csharp
+[Fact]
+public async Task GetConfigAsync_WhenCalledConcurrently_ThreadSafe()
+{
+    // Arrange
+    var callCount = 0;
+    _githubService.GetFileContentAsync(Arg.Any<string>(), Arg.Any<string>())
+        .Returns(_ => 
+        {
+            Interlocked.Increment(ref callCount);
+            return Task.Delay(100).ContinueWith(_ => "base64content");
+        });
+    
+    // Act - 10 concurrent calls
+    var tasks = Enumerable.Range(0, 10)
+        .Select(_ => _sut.GetConfigAsync())
+        .ToList();
+    
+    var results = await Task.WhenAll(tasks);
+    
+    // Assert
+    callCount.Should().Be(1, because: "only one fetch should occur due to thread safety");
+    results.Should().AllBeEquivalentTo(results.First());
+}
+```
+
+## Anti-Patterns to Avoid
+
+```csharp
+// DON'T: Test implementation details
+[Fact]
+public async Task ServiceCallsPrivateMethodCorrectly()  // ❌ Tests implementation
+{
+    // Private methods are implementation details
+}
+
+// DO: Test public behavior
+[Fact]
+public async Task ServiceReturnsExpectedResult()  // ✅ Tests behavior
+{
+    // Test observable behavior
+}
+
+// DON'T: Mock everything
+var cache = Substitute.For<IMemoryCache>();  // ❌ MemoryCache can be used directly
+var logger = Substitute.For<ILogger>();  // ❌ Rarely needs verification
+
+// DO: Only mock external dependencies
+var githubService = Substitute.For<IGitHubService>();  // ✅ External API
+var dbContext = Substitute.For<ApplicationDbContext>();  // ✅ External database
+
+// DON'T: Have multiple assertions without clear grouping
+result.Property1.Should().Be(expected1);
+result.Property2.Should().Be(expected2);
+// ... 20 more assertions
+
+// DO: Use object comparison or group related assertions
+result.Should().BeEquivalentTo(expectedResult);
+
+// DON'T: Use Thread.Sleep in tests
+Thread.Sleep(1000);  // ❌ Makes tests slow and flaky
+
+// DO: Use Task.Delay or better yet, inject ISystemClock for time
+await Task.Delay(100);  // Only if absolutely necessary
+```
+
+## Test Performance
+
+- Keep unit tests FAST (< 100ms per test)
+- Mock all external dependencies (database, API, file system)
+- Use `IAsyncLifetime` for expensive setup/teardown
+- Consider `ICollectionFixture` for shared setup across test classes
+
+## Code Coverage
+
+- Aim for 85-90% code coverage for unit tests
+- Focus on business logic and critical paths
+- Don't test getters/setters without logic
+- Don't test framework code (DbContext, controllers without logic)
+
+## Examples for This Project
+
+### Testing GitHubService Token Caching
+```csharp
+[Fact]
+public async Task GetAuthenticatedClient_WhenTokenCached_ReusesToken()
+{
+    // Test token caching logic
+}
+```
+
+### Testing ConfigurationService Thread Safety
+```csharp
+[Fact]
+public async Task GetConfigAsync_ConcurrentRequests_ThreadSafe()
+{
+    // Test semaphore prevents duplicate fetches
+}
+```
+
+### Testing PolicyEvaluationService
+```csharp
+[Fact]
+public async Task EvaluateRepositoryAsync_WithMatchingEvaluator_InvokesCorrectEvaluator()
+{
+    // Test strategy pattern resolution
+}
+```
+
+### Testing ActionService Duplicate Prevention
+```csharp
+[Fact]
+public async Task ProcessActionsForScanAsync_WhenDuplicateIssue_SkipsCreation()
+{
+    // Test duplicate issue logic
+}
+```
+
+## Running Tests
+
+```bash
+# Run all unit tests
+dotnet test --filter Category=Unit
+
+# Run specific test class
+dotnet test --filter FullyQualifiedName~ConfigurationServiceTests
+
+# Run with coverage
+dotnet test /p:CollectCoverage=true /p:CoverletOutputFormat=cobertura
+
+# Run in watch mode during development
+dotnet watch test --filter Category=Unit
+```
+# Unit Testing Guidelines - xUnit + NSubstitute + FluentAssertions
+
+## Overview
+Unit tests verify individual components in isolation using mocking for dependencies. This rule applies when writing or modifying files in test projects with names ending in `.Tests` that contain unit tests.
+
+## Technology Stack
+- **Test Framework**: xUnit 2.6+
+- **Mocking**: NSubstitute 5.1+
+- **Assertions**: FluentAssertions 6.12+
+- **Test Data**: Bogus 35.4+
+
+## File Naming Conventions
+```
+Pattern: {ClassUnderTest}Tests.cs
+Location: Tests/{Namespace}/
+
+Examples:
+- ConfigurationServiceTests.cs
+- GitHubServiceTests.cs
+- PolicyEvaluationServiceTests.cs
+```
+
+## Test Class Structure
+
+```csharp
+using FluentAssertions;
+using NSubstitute;
+using Xunit;
+using Bogus;
+
+namespace _10xGitHubPolicies.Tests.Services;
+
+public class ServiceNameTests : IAsyncLifetime  // Use IAsyncLifetime for async setup/cleanup
+{
+    private readonly InjectedDependency _dependency;
+    private readonly ServiceUnderTest _sut;  // System Under Test
+    private readonly Faker _faker;  // For test data generation
+    
+    public ServiceNameTests()
+    {
+        // Arrange - Create mocks
+        _dependency = Substitute.For<InjectedDependency>();
+        _faker = new Faker();
+        
+        // Create system under test
+        _sut = new ServiceUnderTest(_dependency);
+    }
+    
+    [Fact]
+    public async Task MethodName_WhenCondition_ExpectedBehavior()
+    {
+        // Arrange
+        var input = _faker.Lorem.Word();
+        _dependency.SomeMethod(Arg.Any<string>()).Returns("mocked result");
+        
+        // Act
+        var result = await _sut.MethodToTest(input);
+        
+        // Assert
+        result.Should().NotBeNull(because: "method should always return a value");
+        await _dependency.Received(1).SomeMethod(input);
+    }
+    
+    public Task InitializeAsync() => Task.CompletedTask;
+    public Task DisposeAsync() => Task.CompletedTask;
+}
+```
+
+## Test Naming Convention
+Use the pattern: `MethodName_WhenCondition_ExpectedBehavior`
+
+**Examples:**
+```csharp
+GetConfigAsync_WhenConfigExists_ReturnsValidConfig
+GetConfigAsync_WhenConfigMissing_ThrowsConfigurationNotFoundException
+GetConfigAsync_WhenCalledConcurrently_FetchesOnlyOnce
+ProcessActionsForScanAsync_WhenNoViolations_CompletesSuccessfully
+```
+
+## NSubstitute Best Practices
+
+### Creating Mocks
+```csharp
+// DO: Use Substitute.For<T>() for interfaces
+var service = Substitute.For<IGitHubService>();
+
+// DO: Mock multiple interfaces
+var service = Substitute.For<IDisposable, IService>();
+
+// DON'T: Try to mock concrete classes (use interface instead)
+```
+
+### Setting Up Return Values
+```csharp
+// DO: Simple return value
+_githubService.GetFileContentAsync(Arg.Any<string>(), Arg.Any<string>())
+    .Returns("base64content");
+
+// DO: Return different values based on arguments
+_githubService.FileExistsAsync(Arg.Any<long>(), "AGENTS.md").Returns(true);
+_githubService.FileExistsAsync(Arg.Any<long>(), "missing.md").Returns(false);
+
+// DO: Throw exceptions
+_githubService.GetFileContentAsync(Arg.Any<string>(), Arg.Any<string>())
+    .Returns(Task.FromException<string>(new FileNotFoundException()));
+
+// DO: Use argument matchers
+_githubService.GetFileContentAsync(
+    Arg.Is<string>(s => s.StartsWith("test")), 
+    Arg.Any<string>()
+).Returns("result");
+```
+
+### Verifying Calls
+```csharp
+// DO: Verify method was called once
+await _githubService.Received(1).GetFileContentAsync("repo", "file.md");
+
+// DO: Verify method was never called
+await _githubService.DidNotReceive().ArchiveRepositoryAsync(Arg.Any<long>());
+
+// DO: Verify with argument matching
+await _githubService.Received().CreateIssueAsync(
+    Arg.Any<long>(),
+    Arg.Is<string>(title => title.Contains("Missing")),
+    Arg.Any<string>(),
+    Arg.Any<IEnumerable<string>>()
+);
+
+// DO: Clear received calls between tests
+_githubService.ClearReceivedCalls();
+```
+
+## FluentAssertions Best Practices
+
+### Basic Assertions
+```csharp
+// DO: Use descriptive assertions with 'because'
+result.Should().NotBeNull(because: "service should always return a value");
+result.Should().BeTrue(because: "policy should be violated");
+result.Should().Be(expectedValue, because: "cached value should be returned");
+
+// DO: Chain assertions
+result.Should()
+    .NotBeNull()
+    .And.BeOfType<AppConfig>()
+    .Which.Policies.Should().HaveCount(3);
+```
+
+### Collection Assertions
+```csharp
+// DO: Assert on collections
+results.Should().NotBeEmpty();
+results.Should().HaveCount(5);
+results.Should().ContainSingle(r => r.Id == 123);
+results.Should().AllSatisfy(r => r.Status.Should().Be("Success"));
+
+// DO: Equivalency comparisons
+actualConfig.Should().BeEquivalentTo(expectedConfig, options => 
+    options.Excluding(c => c.Timestamp));
+```
+
+### Exception Assertions
+```csharp
+// DO: Test for exceptions
+var act = async () => await _sut.GetConfigAsync();
+
+await act.Should()
+    .ThrowAsync<ConfigurationNotFoundException>()
+    .WithMessage("*config.yaml*");
+
+// DO: Test that no exception is thrown
+var act = () => _sut.ValidateConfig(validConfig);
+act.Should().NotThrow();
+```
+
+### Async Assertions
+```csharp
+// DO: Always await async assertions
+await result.Should().CompleteWithinAsync(TimeSpan.FromSeconds(5));
+
+// DO: Test async operations
+var task = _sut.LongRunningOperation();
+await task.Should().NotThrowAsync();
+```
+
+## Bogus for Test Data
+
+```csharp
+// DO: Create faker in constructor
+private readonly Faker _faker = new Faker();
+
+// DO: Generate simple data
+var repoName = _faker.Lorem.Word();
+var url = _faker.Internet.Url();
+var email = _faker.Internet.Email();
+var date = _faker.Date.Past();
+
+// DO: Create typed fakers for complex objects
+private readonly Faker<Repository> _repoFaker = new Faker<Repository>()
+    .RuleFor(r => r.Name, f => f.Company.CompanyName())
+    .RuleFor(r => r.Owner, f => f.Internet.UserName())
+    .RuleFor(r => r.CreatedAt, f => f.Date.Past(2));
+
+var repositories = _repoFaker.Generate(10);
+
+// DO: Generate test data in bulk
+[Theory]
+[MemberData(nameof(RepositoryTestData))]
+public async Task TestWithGeneratedData(Repository repo)
+{
+    // Test implementation
+}
+
+public static IEnumerable<object[]> RepositoryTestData()
+{
+    var faker = new Faker<Repository>();
+    return faker.Generate(5).Select(r => new object[] { r });
+}
+```
+
+## Test Organization
+
+### Use Theory for Multiple Test Cases
+```csharp
+[Theory]
+[InlineData("has_agents_md", "AGENTS.md")]
+[InlineData("has_catalog_info_yaml", "catalog-info.yaml")]
+public async Task FileExistsAsync_ForDifferentPolicies_ReturnsCorrectResult(
+    string policyType, 
+    string fileName)
+{
+    // Arrange & Act & Assert
+}
+
+[Theory]
+[MemberData(nameof(GetInvalidConfigs))]
+public async Task GetConfigAsync_WithInvalidConfig_ThrowsException(string invalidYaml)
+{
+    // Test implementation
+}
+
+public static IEnumerable<object[]> GetInvalidConfigs()
+{
+    yield return new object[] { "invalid: yaml: syntax:" };
+    yield return new object[] { "access_control:\n  authorized_team: ''" };
+    yield return new object[] { "policies: invalid" };
+}
+```
+
+### Use Traits for Test Organization
+```csharp
+[Fact]
+[Trait("Category", "Unit")]
+[Trait("Feature", "Configuration")]
+public async Task GetConfigAsync_BasicTest()
+{
+    // Test implementation
+}
+```
+
+### Use Skip for Temporarily Disabled Tests
+```csharp
+[Fact(Skip = "Waiting for GitHub API mock improvement")]
+public async Task TemporarilyDisabledTest()
+{
+    // Test implementation
+}
+```
+
+## Common Patterns
+
+### Testing Caching Logic
+```csharp
+[Fact]
+public async Task GetConfigAsync_WhenCalledTwice_CachesResult()
+{
+    // Arrange
+    _githubService.GetFileContentAsync(Arg.Any<string>(), Arg.Any<string>())
+        .Returns("base64content");
+    
+    // Act
+    var result1 = await _sut.GetConfigAsync();
+    var result2 = await _sut.GetConfigAsync();
+    
+    // Assert
+    result1.Should().BeSameAs(result2, because: "cached instance should be returned");
+    await _githubService.Received(1).GetFileContentAsync(Arg.Any<string>(), Arg.Any<string>());
+}
+```
+
+### Testing Exception Handling
+```csharp
+[Fact]
+public async Task ProcessAction_WhenGitHubFails_LogsAndContinues()
+{
+    // Arrange
+    _githubService.CreateIssueAsync(Arg.Any<long>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<IEnumerable<string>>())
+        .Returns(Task.FromException<Issue>(new ApiException()));
+    var logger = Substitute.For<ILogger<ActionService>>();
+    
+    // Act
+    await _sut.ProcessActionsForScanAsync(scanId);
+    
+    // Assert
+    logger.Received().LogError(Arg.Any<Exception>(), Arg.Any<string>(), Arg.Any<object[]>());
+}
+```
+
+### Testing Concurrent Access
+```csharp
+[Fact]
+public async Task GetConfigAsync_WhenCalledConcurrently_ThreadSafe()
+{
+    // Arrange
+    var callCount = 0;
+    _githubService.GetFileContentAsync(Arg.Any<string>(), Arg.Any<string>())
+        .Returns(_ => 
+        {
+            Interlocked.Increment(ref callCount);
+            return Task.Delay(100).ContinueWith(_ => "base64content");
+        });
+    
+    // Act - 10 concurrent calls
+    var tasks = Enumerable.Range(0, 10)
+        .Select(_ => _sut.GetConfigAsync())
+        .ToList();
+    
+    var results = await Task.WhenAll(tasks);
+    
+    // Assert
+    callCount.Should().Be(1, because: "only one fetch should occur due to thread safety");
+    results.Should().AllBeEquivalentTo(results.First());
+}
+```
+
+## Anti-Patterns to Avoid
+
+```csharp
+// DON'T: Test implementation details
+[Fact]
+public async Task ServiceCallsPrivateMethodCorrectly()  // ❌ Tests implementation
+{
+    // Private methods are implementation details
+}
+
+// DO: Test public behavior
+[Fact]
+public async Task ServiceReturnsExpectedResult()  // ✅ Tests behavior
+{
+    // Test observable behavior
+}
+
+// DON'T: Mock everything
+var cache = Substitute.For<IMemoryCache>();  // ❌ MemoryCache can be used directly
+var logger = Substitute.For<ILogger>();  // ❌ Rarely needs verification
+
+// DO: Only mock external dependencies
+var githubService = Substitute.For<IGitHubService>();  // ✅ External API
+var dbContext = Substitute.For<ApplicationDbContext>();  // ✅ External database
+
+// DON'T: Have multiple assertions without clear grouping
+result.Property1.Should().Be(expected1);
+result.Property2.Should().Be(expected2);
+// ... 20 more assertions
+
+// DO: Use object comparison or group related assertions
+result.Should().BeEquivalentTo(expectedResult);
+
+// DON'T: Use Thread.Sleep in tests
+Thread.Sleep(1000);  // ❌ Makes tests slow and flaky
+
+// DO: Use Task.Delay or better yet, inject ISystemClock for time
+await Task.Delay(100);  // Only if absolutely necessary
+```
+
+## Test Performance
+
+- Keep unit tests FAST (< 100ms per test)
+- Mock all external dependencies (database, API, file system)
+- Use `IAsyncLifetime` for expensive setup/teardown
+- Consider `ICollectionFixture` for shared setup across test classes
+
+## Code Coverage
+
+- Aim for 85-90% code coverage for unit tests
+- Focus on business logic and critical paths
+- Don't test getters/setters without logic
+- Don't test framework code (DbContext, controllers without logic)
+
+## Examples for This Project
+
+### Testing GitHubService Token Caching
+```csharp
+[Fact]
+public async Task GetAuthenticatedClient_WhenTokenCached_ReusesToken()
+{
+    // Test token caching logic
+}
+```
+
+### Testing ConfigurationService Thread Safety
+```csharp
+[Fact]
+public async Task GetConfigAsync_ConcurrentRequests_ThreadSafe()
+{
+    // Test semaphore prevents duplicate fetches
+}
+```
+
+### Testing PolicyEvaluationService
+```csharp
+[Fact]
+public async Task EvaluateRepositoryAsync_WithMatchingEvaluator_InvokesCorrectEvaluator()
+{
+    // Test strategy pattern resolution
+}
+```
+
+### Testing ActionService Duplicate Prevention
+```csharp
+[Fact]
+public async Task ProcessActionsForScanAsync_WhenDuplicateIssue_SkipsCreation()
+{
+    // Test duplicate issue logic
+}
+```
+
+## Running Tests
+
+```bash
+# Run all unit tests
+dotnet test --filter Category=Unit
+
+# Run specific test class
+dotnet test --filter FullyQualifiedName~ConfigurationServiceTests
+
+# Run with coverage
+dotnet test /p:CollectCoverage=true /p:CoverletOutputFormat=cobertura
+
+# Run in watch mode during development
+dotnet watch test --filter Category=Unit
+```
