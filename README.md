@@ -286,6 +286,9 @@ Detailed documentation for specific features and integrations:
 *   Action - Slack notification
 *   Exception policies
 *   Getting team ownership 
+*   Better project structure e.g. FrontEnd/UI 
+*   Remove dups between .ai and /docs
+*   Review test coverage
 
 ---
 
