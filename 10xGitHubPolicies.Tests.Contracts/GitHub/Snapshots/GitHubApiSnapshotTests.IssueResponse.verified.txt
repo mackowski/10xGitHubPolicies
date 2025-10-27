@@ -1,0 +1,25 @@
+﻿{
+  Id: {Scrubbed},
+  HtmlUrl: {Scrubbed},
+  Number: {Scrubbed},
+  State: {
+    StringValue: open
+  },
+  Title: Test Issue,
+  Body: Test body,
+  Labels: [
+    {
+      Id: {Scrubbed},
+      Name: policy-violation,
+      Default: false
+    },
+    {
+      Id: {Scrubbed},
+      Name: auto-generated,
+      Default: false
+    }
+  ],
+  CreatedAt: {Scrubbed},
+  UpdatedAt: {Scrubbed},
+  Locked: false
+}

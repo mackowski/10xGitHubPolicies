@@ -16,12 +16,15 @@ This document outlines the approach to integrating with the GitHub API using the
     - `Task<string?> GetFileContentAsync(string repoName, string path)`: Retrieves file content from a repository. Returns Base64-encoded content or `null` if the file doesn't exist.
     - `Task<string?> GetWorkflowPermissionsAsync(long repositoryId)`: Gets the default workflow permissions for a repository. Returns "read" or "write", or null if Actions are disabled.
     - `Task<IReadOnlyList<Issue>> GetOpenIssuesAsync(long repositoryId, string label)`: Retrieves all open issues for a repository filtered by a specific label. Returns an empty list if the repository is not found. Used for duplicate issue prevention.
+    - `Task<IReadOnlyList<Organization>> GetUserOrganizationsAsync(string userAccessToken)`: Retrieves all organizations the authenticated user is a member of.
+    - `Task<IReadOnlyList<Team>> GetOrganizationTeamsAsync(string userAccessToken, string org)`: Retrieves all teams in an organization.
 
 ### `GitHubService`
 - **Purpose**: Implements `IGitHubService` and handles the authentication and caching of the GitHub App installation token.
 - **Authentication**:
     - Generates a JSON Web Token (JWT) using the GitHub App's private key.
     - Uses the JWT to get an installation token for the GitHub App.
+    - Uses `IGitHubClientFactory` to create GitHubClient instances with proper configuration.
     - The `GetAuthenticatedClient()` method is private and used internally by the public methods.
 - **Caching**:
     - Caches the installation token in memory to avoid requesting a new token for every API call.
@@ -29,6 +32,16 @@ This document outlines the approach to integrating with the GitHub API using the
 - **Error Handling**:
     - Methods handle `NotFoundException` gracefully by returning `false` or `null` as appropriate.
     - Team membership verification logs warnings when team lookup fails.
+- **Testability**:
+    - Accepts an optional `IGitHubClientFactory` parameter for dependency injection.
+    - Supports custom base URLs via `GitHubAppOptions.BaseUrl` for testing with WireMock.
+
+### `IGitHubClientFactory`
+- **Purpose**: Factory interface for creating `GitHubClient` instances with optional custom base URLs.
+- **Methods**:
+    - `GitHubClient CreateClient(string token)`: Creates a client authenticated with a user or installation access token.
+    - `GitHubClient CreateAppClient(string jwt)`: Creates a client authenticated with a GitHub App JWT token.
+- **Implementation**: `GitHubClientFactory` supports custom base URLs primarily for testing scenarios with WireMock.Net.
 
 ## Configuration
 
@@ -43,6 +56,10 @@ The GitHub App settings are configured using the .NET Secret Manager for local d
 
 2. **Organization Name** (in `appsettings.json`):
    - `GitHubApp:OrganizationName`: The GitHub organization name (slug)
+
+3. **Optional Testing Configuration** (in `appsettings.json` or test configuration):
+   - `GitHubApp:BaseUrl`: Custom base URL for GitHub API (primarily for testing with WireMock.Net)
+   - When not specified, defaults to the standard GitHub API URL (`https://api.github.com`)
 
 Refer to the main `README.md` for detailed setup instructions.
 
@@ -198,8 +215,77 @@ public async Task CreateIssueWithDuplicateCheckAsync(long repositoryId, string t
 
 ## Testing
 
-For guidance on testing GitHub API integrations, see:
-- **[Testing Strategy](./testing-strategy.md)**: Comprehensive testing approach including unit, integration, and contract testing
-- **Unit Testing**: Mock `IGitHubService` with NSubstitute for fast, isolated tests
-- **Integration Testing**: Use WireMock.Net for HTTP-level mocking to simulate rate limits and API errors
-- **Contract Testing**: Use NJsonSchema and Verify.NET to detect GitHub API breaking changes
+The application includes comprehensive testing for GitHub API integrations across multiple levels:
+
+### Test Infrastructure
+
+**GitHubClientFactory Pattern**:
+- `IGitHubClientFactory` interface enables dependency injection of GitHubClient creation
+- `GitHubClientFactory` implementation supports custom base URLs for testing
+- `GitHubService` accepts an optional factory parameter, defaulting to production configuration
+- Enables redirecting API calls to WireMock.Net for integration and contract testing
+
+**Test Configuration**:
+```csharp
+// In test setup
+var options = new GitHubAppOptions
+{
+    AppId = 123456,
+    InstallationId = 7891011,
+    OrganizationName = "test-org",
+    PrivateKey = GenerateTestPrivateKey(),
+    BaseUrl = mockServer.Url  // Point to WireMock
+};
+
+var clientFactory = new GitHubClientFactory(mockServer.Url);
+var sut = new GitHubService(Options.Create(options), logger, cache, clientFactory);
+```
+
+### Testing Levels
+
+For comprehensive guidance on testing GitHub API integrations, see **[Testing Strategy](./testing-strategy.md)**:
+
+1. **Unit Testing**: Mock `IGitHubService` with NSubstitute for fast, isolated tests
+   - Test business logic without network calls
+   - Fast feedback for service logic
+
+2. **Integration Testing**: Use WireMock.Net for HTTP-level mocking
+   - Test actual HTTP interactions without real API calls
+   - Simulate rate limits, errors, and edge cases
+   - 33 tests covering all GitHubService methods
+   - Located in `10xGitHubPolicies.Tests.Integration`
+
+3. **Contract Testing**: Use NJsonSchema and Verify.NET to detect GitHub API breaking changes
+   - JSON Schema validation for critical responses
+   - Snapshot testing for response structure stability
+   - 11 tests validating API contracts
+   - Located in `10xGitHubPolicies.Tests.Contracts`
+
+### Running GitHub Integration Tests
+
+```bash
+# Run all integration tests
+dotnet test 10xGitHubPolicies.Tests.Integration
+
+# Run specific test categories
+dotnet test --filter "Category=Integration"
+
+# Run contract tests
+dotnet test 10xGitHubPolicies.Tests.Contracts
+dotnet test --filter "Category=Contract"
+```
+
+### Important Notes
+
+**Octokit Path Prefix**: When using a custom `BaseUrl`, Octokit automatically prepends `/api/v3/` to all paths (GitHub Enterprise mode). WireMock stubs must include this prefix:
+
+```csharp
+// Correct - includes /api/v3/ prefix
+MockServer
+    .Given(Request.Create()
+        .WithPath("/api/v3/repos/test-org/test-repo")
+        .UsingGet())
+    .RespondWith(Response.Create()
+        .WithStatusCode(200)
+        .WithBody(repositoryJson));
+```

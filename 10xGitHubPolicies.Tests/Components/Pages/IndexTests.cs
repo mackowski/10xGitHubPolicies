@@ -21,10 +21,10 @@ public class IndexTests : AppTestContext
         var tcs = new TaskCompletionSource<App.ViewModels.DashboardViewModel>();
         DashboardService.GetDashboardViewModelAsync(Arg.Any<string>())
             .Returns(tcs.Task);
-        
+
         ConfigurationService.GetConfigAsync(Arg.Any<bool>())
             .Returns(TestDataBuilder.CreateAppConfig());
-        
+
         AuthorizationService.IsUserAuthorizedAsync(Arg.Any<System.Security.Claims.ClaimsPrincipal>())
             .Returns(true);
 
@@ -48,16 +48,16 @@ public class IndexTests : AppTestContext
 
         DashboardService.GetDashboardViewModelAsync(Arg.Any<string>())
             .Returns(viewModel);
-        
+
         ConfigurationService.GetConfigAsync(Arg.Any<bool>())
             .Returns(TestDataBuilder.CreateAppConfig());
-        
+
         AuthorizationService.IsUserAuthorizedAsync(Arg.Any<System.Security.Claims.ClaimsPrincipal>())
             .Returns(true);
 
         // Act
         var cut = RenderComponent<_10xGitHubPolicies.App.Pages.Index>();
-        
+
         // Wait for async initialization
         await Task.Delay(100);
 
@@ -65,15 +65,15 @@ public class IndexTests : AppTestContext
         var complianceValue = cut.FindAll(".kpi-value")[0];
         complianceValue.TextContent.Should().Contain("85.50",
             because: "compliance percentage should be displayed with 2 decimal places");
-        
+
         var totalRepos = cut.FindAll(".kpi-value")[1];
         totalRepos.TextContent.Should().Contain("100",
             because: "total repository count should be displayed");
-        
+
         var compliantRepos = cut.FindAll(".kpi-value")[2];
         compliantRepos.TextContent.Should().Contain("95",
             because: "compliant repository count should be displayed");
-        
+
         var nonCompliantRepos = cut.FindAll(".kpi-value")[3];
         nonCompliantRepos.TextContent.Should().Contain("5",
             because: "non-compliant repository count should be displayed");
@@ -91,16 +91,16 @@ public class IndexTests : AppTestContext
 
         DashboardService.GetDashboardViewModelAsync(Arg.Any<string>())
             .Returns(viewModel);
-        
+
         ConfigurationService.GetConfigAsync(Arg.Any<bool>())
             .Returns(TestDataBuilder.CreateAppConfig());
-        
+
         AuthorizationService.IsUserAuthorizedAsync(Arg.Any<System.Security.Claims.ClaimsPrincipal>())
             .Returns(true);
 
         // Act
         var cut = RenderComponent<_10xGitHubPolicies.App.Pages.Index>();
-        
+
         // Wait for async initialization
         await Task.Delay(100);
 
@@ -130,10 +130,10 @@ public class IndexTests : AppTestContext
 
         DashboardService.GetDashboardViewModelAsync(Arg.Any<string>())
             .Returns(viewModel);
-        
+
         ConfigurationService.GetConfigAsync(Arg.Any<bool>())
             .Returns(TestDataBuilder.CreateAppConfig());
-        
+
         AuthorizationService.IsUserAuthorizedAsync(Arg.Any<System.Security.Claims.ClaimsPrincipal>())
             .Returns(true);
 
@@ -149,7 +149,7 @@ public class IndexTests : AppTestContext
         // Act - Filter by "frontend"
         var filterInput = cut.Find("fluent-text-field");
         filterInput.Change("frontend");
-        
+
         // Assert - Only frontend-app should be visible
         cut.Markup.Should().Contain("frontend-app",
             because: "filter should show matching repositories");
@@ -174,10 +174,10 @@ public class IndexTests : AppTestContext
 
         DashboardService.GetDashboardViewModelAsync(Arg.Any<string>())
             .Returns(viewModel);
-        
+
         ConfigurationService.GetConfigAsync(Arg.Any<bool>())
             .Returns(TestDataBuilder.CreateAppConfig());
-        
+
         AuthorizationService.IsUserAuthorizedAsync(Arg.Any<System.Security.Claims.ClaimsPrincipal>())
             .Returns(true);
 
@@ -186,7 +186,7 @@ public class IndexTests : AppTestContext
         await Task.Delay(100);
 
         var filterInput = cut.Find("fluent-text-field");
-        
+
         // Apply filter
         filterInput.Change("test-repo-1");
         cut.Markup.Should().Contain("test-repo-1");

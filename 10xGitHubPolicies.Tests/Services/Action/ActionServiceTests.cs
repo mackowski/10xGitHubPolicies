@@ -372,9 +372,9 @@ public class ActionServiceTests : IAsyncLifetime
         var scan = new Scan { ScanId = scanId, StartedAt = DateTime.UtcNow, Status = "InProgress" };
         await _dbContext.Scans.AddAsync(scan);
 
-        var policy = new Policy 
-        { 
-            PolicyKey = "test-policy", 
+        var policy = new Policy
+        {
+            PolicyKey = "test-policy",
             Description = "Test Policy",
             Action = "create-issue"
         };
@@ -587,9 +587,9 @@ public class ActionServiceTests : IAsyncLifetime
         var scan = new Scan { ScanId = scanId, StartedAt = DateTime.UtcNow, Status = "InProgress" };
         await _dbContext.Scans.AddAsync(scan);
 
-        var policy = new Policy 
-        { 
-            PolicyKey = "test-policy", 
+        var policy = new Policy
+        {
+            PolicyKey = "test-policy",
             Description = "Test Policy",
             Action = actionType
         };
@@ -678,7 +678,7 @@ public class ActionServiceTests : IAsyncLifetime
             reactions: null,
             activeLockReason: null,
             stateReason: null);
-        
+
         return issue;
     }
 }

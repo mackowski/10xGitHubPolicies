@@ -29,7 +29,7 @@ public class AuthorizationFlowTests : AppTestContext
 
         // Act
         var cut = RenderComponent<_10xGitHubPolicies.App.Pages.Index>();
-        
+
         // Wait for async initialization
         await Task.Delay(100);
 
@@ -51,7 +51,7 @@ public class AuthorizationFlowTests : AppTestContext
 
         // Act
         var cut = RenderComponent<_10xGitHubPolicies.App.Pages.Index>();
-        
+
         // Wait for async initialization
         await Task.Delay(100);
 
@@ -73,7 +73,7 @@ public class AuthorizationFlowTests : AppTestContext
 
         // Act
         var cut = RenderComponent<_10xGitHubPolicies.App.Pages.Index>();
-        
+
         // Wait for async initialization
         await Task.Delay(100);
 

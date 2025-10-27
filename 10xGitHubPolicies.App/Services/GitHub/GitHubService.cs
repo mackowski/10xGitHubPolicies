@@ -22,13 +22,19 @@ public class GitHubService : IGitHubService
     private readonly GitHubAppOptions _options;
     private readonly ILogger<GitHubService> _logger;
     private readonly IMemoryCache _cache;
+    private readonly IGitHubClientFactory _clientFactory;
     private const string InstallationTokenCacheKey = "GitHubInstallationToken";
 
-    public GitHubService(IOptions<GitHubAppOptions> options, ILogger<GitHubService> logger, IMemoryCache cache)
+    public GitHubService(
+        IOptions<GitHubAppOptions> options, 
+        ILogger<GitHubService> logger, 
+        IMemoryCache cache,
+        IGitHubClientFactory? clientFactory = null)
     {
         _options = options.Value;
         _logger = logger;
         _cache = cache;
+        _clientFactory = clientFactory ?? new GitHubClientFactory(_options.BaseUrl);
     }
 
     public async Task ArchiveRepositoryAsync(long repositoryId)
@@ -76,10 +82,7 @@ public class GitHubService : IGitHubService
 
     public async Task<bool> IsUserMemberOfTeamAsync(string userAccessToken, string org, string teamSlug)
     {
-        var userClient = new GitHubClient(new ProductHeaderValue("10xGitHubPolicies"))
-        {
-            Credentials = new Credentials(userAccessToken)
-        };
+        var userClient = _clientFactory.CreateClient(userAccessToken);
 
         try
         {
@@ -170,10 +173,7 @@ public class GitHubService : IGitHubService
 
     public async Task<IReadOnlyList<Organization>> GetUserOrganizationsAsync(string userAccessToken)
     {
-        var userClient = new GitHubClient(new ProductHeaderValue("10xGitHubPolicies"))
-        {
-            Credentials = new Credentials(userAccessToken)
-        };
+        var userClient = _clientFactory.CreateClient(userAccessToken);
 
         try
         {
@@ -188,10 +188,7 @@ public class GitHubService : IGitHubService
 
     public async Task<IReadOnlyList<Team>> GetOrganizationTeamsAsync(string userAccessToken, string org)
     {
-        var userClient = new GitHubClient(new ProductHeaderValue("10xGitHubPolicies"))
-        {
-            Credentials = new Credentials(userAccessToken)
-        };
+        var userClient = _clientFactory.CreateClient(userAccessToken);
 
         try
         {
@@ -211,7 +208,7 @@ public class GitHubService : IGitHubService
             _logger.LogInformation("Installation token not found in cache. Generating a new one.");
 
             var jwt = GetJwt();
-            var appClient = new GitHubClient(new ProductHeaderValue("10xGitHubPolicies"), new InMemoryCredentialStore(new Credentials(jwt, AuthenticationType.Bearer)));
+            var appClient = _clientFactory.CreateAppClient(jwt);
 
             var tokenResponse = await appClient.GitHubApps.CreateInstallationToken(_options.InstallationId);
 
@@ -222,7 +219,7 @@ public class GitHubService : IGitHubService
             return tokenResponse.Token;
         });
 
-        return new GitHubClient(new ProductHeaderValue("10xGitHubPolicies"), new InMemoryCredentialStore(new Credentials(token)));
+        return _clientFactory.CreateClient(token);
     }
 
     private string GetJwt()

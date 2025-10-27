@@ -42,11 +42,11 @@ public class GitHubServiceTests : IDisposable
     {
         // Initialize Faker first
         _faker = new Faker();
-        
+
         // Arrange - Create test options
         var appOptions = CreateTestGitHubAppOptions();
         _options = Options.Create(appOptions);
-        
+
         _logger = Substitute.For<ILogger<GitHubService>>();
         _cache = new MemoryCache(new MemoryCacheOptions());
 
@@ -74,7 +74,7 @@ public class GitHubServiceTests : IDisposable
 
         // Assert
         service.Should().NotBeNull();
-        
+
         cache.Dispose();
     }
 
@@ -83,7 +83,7 @@ public class GitHubServiceTests : IDisposable
     {
         // NOTE: GitHubService doesn't perform explicit null validation
         // It will throw NullReferenceException when accessing options.Value
-        
+
         // Arrange
         IOptions<GitHubAppOptions> nullOptions = null!;
         var logger = Substitute.For<ILogger<GitHubService>>();
@@ -94,7 +94,7 @@ public class GitHubServiceTests : IDisposable
 
         // Assert
         act.Should().Throw<NullReferenceException>();
-        
+
         cache.Dispose();
     }
 
@@ -103,7 +103,7 @@ public class GitHubServiceTests : IDisposable
     {
         // NOTE: Logger can be null - GitHubService doesn't validate it in constructor
         // Exceptions would occur later when trying to log
-        
+
         // Arrange
         var options = Options.Create(CreateTestGitHubAppOptions());
         ILogger<GitHubService> nullLogger = null!;
@@ -114,7 +114,7 @@ public class GitHubServiceTests : IDisposable
 
         // Assert
         act.Should().NotThrow();
-        
+
         cache.Dispose();
     }
 
@@ -122,7 +122,7 @@ public class GitHubServiceTests : IDisposable
     public void Constructor_WhenCacheIsNull_DoesNotThrowInConstructor()
     {
         // NOTE: Cache can be null in constructor - exception occurs when cache is used
-        
+
         // Arrange
         var options = Options.Create(CreateTestGitHubAppOptions());
         var logger = Substitute.For<ILogger<GitHubService>>();
@@ -179,9 +179,9 @@ public class GitHubServiceTests : IDisposable
     {
         // Verify the cache key constant used for installation token caching
         // This is a documentation test to ensure the cache key is known
-        
+
         const string expectedCacheKey = "GitHubInstallationToken";
-        
+
         // This test documents the cache key used for installation token caching
         // Actual cache testing requires integration tests
         expectedCacheKey.Should().Be("GitHubInstallationToken");

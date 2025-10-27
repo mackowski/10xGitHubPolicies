@@ -87,6 +87,14 @@ builder.Services.AddScoped<IDashboardService, DashboardService>();
 
 
 builder.Services.AddMemoryCache();
+
+// Register GitHub client factory with optional base URL from configuration
+builder.Services.AddSingleton<IGitHubClientFactory>(sp =>
+{
+    var options = sp.GetRequiredService<IOptions<GitHubAppOptions>>();
+    return new GitHubClientFactory(options.Value.BaseUrl);
+});
+
 builder.Services.AddSingleton<IGitHubService, GitHubService>();
 builder.Services.AddSingleton<IConfigurationService, ConfigurationService>();
 builder.Services.AddScoped<IScanningService, ScanningService>();

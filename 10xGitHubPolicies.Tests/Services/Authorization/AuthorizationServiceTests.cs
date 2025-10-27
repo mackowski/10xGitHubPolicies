@@ -124,7 +124,7 @@ public class AuthorizationServiceTests
 
         // Mock failed authentication
         var failedResult = AuthenticateResult.Fail("Authentication failed");
-        
+
         // Mock the authentication service
         var authService = Substitute.For<Microsoft.AspNetCore.Authentication.IAuthenticationService>();
         authService.AuthenticateAsync(Arg.Any<HttpContext>(), Arg.Any<string?>())

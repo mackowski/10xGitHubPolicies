@@ -45,10 +45,10 @@ public class OnboardingTests : AppTestContext
 
         // Act
         var cut = RenderComponent<Onboarding>();
-        
+
         var checkButton = cut.Find("fluent-button:contains('Check Configuration')");
         await checkButton.ClickAsync(new MouseEventArgs());
-        
+
         // Wait for async operation
         await Task.Delay(100);
 
@@ -76,10 +76,10 @@ public class OnboardingTests : AppTestContext
 
         // Act
         var cut = RenderComponent<Onboarding>();
-        
+
         var checkButton = cut.Find("fluent-button:contains('Check Configuration')");
         await checkButton.ClickAsync(new MouseEventArgs());
-        
+
         // Wait for async operation
         await Task.Delay(100);
 
@@ -101,10 +101,10 @@ public class OnboardingTests : AppTestContext
 
         // Act
         var cut = RenderComponent<Onboarding>();
-        
+
         var checkButton = cut.Find("fluent-button:contains('Check Configuration')");
         await checkButton.ClickAsync(new MouseEventArgs());
-        
+
         // Wait for async operation
         await Task.Delay(100);
 

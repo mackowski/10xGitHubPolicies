@@ -6,6 +6,10 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "10xGitHubPolicies.App", "10
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "10xGitHubPolicies.Tests", "10xGitHubPolicies.Tests\10xGitHubPolicies.Tests.csproj", "{AC3B97B0-033C-448D-BB20-89C56735D1F0}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "10xGitHubPolicies.Tests.Integration", "10xGitHubPolicies.Tests.Integration\10xGitHubPolicies.Tests.Integration.csproj", "{FB83AE88-5864-42F9-A35F-E09AB1D66B0E}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "10xGitHubPolicies.Tests.Contracts", "10xGitHubPolicies.Tests.Contracts\10xGitHubPolicies.Tests.Contracts.csproj", "{2F4AB38D-3D9F-4648-AF11-DCD28D0DEF78}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -20,6 +24,14 @@ Global
 		{AC3B97B0-033C-448D-BB20-89C56735D1F0}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{AC3B97B0-033C-448D-BB20-89C56735D1F0}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{AC3B97B0-033C-448D-BB20-89C56735D1F0}.Release|Any CPU.Build.0 = Release|Any CPU
+		{FB83AE88-5864-42F9-A35F-E09AB1D66B0E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{FB83AE88-5864-42F9-A35F-E09AB1D66B0E}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{FB83AE88-5864-42F9-A35F-E09AB1D66B0E}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{FB83AE88-5864-42F9-A35F-E09AB1D66B0E}.Release|Any CPU.Build.0 = Release|Any CPU
+		{2F4AB38D-3D9F-4648-AF11-DCD28D0DEF78}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{2F4AB38D-3D9F-4648-AF11-DCD28D0DEF78}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{2F4AB38D-3D9F-4648-AF11-DCD28D0DEF78}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{2F4AB38D-3D9F-4648-AF11-DCD28D0DEF78}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

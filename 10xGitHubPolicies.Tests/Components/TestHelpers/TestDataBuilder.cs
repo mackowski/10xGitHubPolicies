@@ -20,7 +20,7 @@ public static class TestDataBuilder
         int totalRepositories = 100)
     {
         var nonCompliantRepos = new List<NonCompliantRepositoryViewModel>();
-        
+
         for (int i = 0; i < nonCompliantCount; i++)
         {
             nonCompliantRepos.Add(CreateNonCompliantRepositoryViewModel(
@@ -107,7 +107,7 @@ public static class TestDataBuilder
     public static List<NonCompliantRepositoryViewModel> CreateNonCompliantRepositories(int count = 10)
     {
         var repositories = new List<NonCompliantRepositoryViewModel>();
-        
+
         for (int i = 0; i < count; i++)
         {
             repositories.Add(CreateNonCompliantRepositoryViewModel(

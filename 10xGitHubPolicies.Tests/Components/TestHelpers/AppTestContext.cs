@@ -12,6 +12,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.FluentUI.AspNetCore.Components;
 using NSubstitute;
+using System.Globalization;
 
 namespace _10xGitHubPolicies.Tests.Components.TestHelpers;
 
@@ -31,6 +32,10 @@ public class AppTestContext : TestContext
 
     public AppTestContext()
     {
+        // Set culture to en-US for consistent test behavior across different locales
+        var culture = new CultureInfo("en-US");
+        CultureInfo.CurrentCulture = culture;
+        CultureInfo.CurrentUICulture = culture;
         // Create mocks for all services
         DashboardService = Substitute.For<IDashboardService>();
         ScanningService = Substitute.For<IScanningService>();

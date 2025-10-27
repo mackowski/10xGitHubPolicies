@@ -1,0 +1,28 @@
+﻿{
+  HtmlUrl: https://github.com/test-org/test-repo,
+  Id: 123456,
+  Owner: {
+    SiteAdmin: false,
+    Suspended: false,
+    UpdatedAt: {Scrubbed},
+    CreatedAt: {Scrubbed},
+    Id: 789,
+    Login: test-org,
+    Type: Organization
+  },
+  Name: test-repo,
+  FullName: test-org/test-repo,
+  IsTemplate: false,
+  Description: Test repository,
+  Private: false,
+  Fork: false,
+  PushedAt: {Scrubbed},
+  CreatedAt: {Scrubbed},
+  UpdatedAt: {Scrubbed},
+  HasDiscussions: false,
+  HasIssues: false,
+  HasWiki: false,
+  HasDownloads: false,
+  HasPages: false,
+  Archived: false
+}

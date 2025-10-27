@@ -1,0 +1,18 @@
+﻿{
+  isMember: true,
+  mockResponses: {
+    team: {
+      id: {Scrubbed},
+      name: Test Team,
+      slug: test-team
+    },
+    user: {
+      login: test-user,
+      id: {Scrubbed}
+    },
+    membership: {
+      state: active,
+      role: member
+    }
+  }
+}

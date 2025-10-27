@@ -25,7 +25,7 @@ public class AccessDeniedTests : AppTestContext
 
         // Act
         var cut = RenderComponent<AccessDenied>();
-        
+
         // Wait for async initialization
         await Task.Delay(100);
 
@@ -47,7 +47,7 @@ public class AccessDeniedTests : AppTestContext
 
         // Act
         var cut = RenderComponent<AccessDenied>();
-        
+
         // Wait for async initialization
         await Task.Delay(100);
 
@@ -69,7 +69,7 @@ public class AccessDeniedTests : AppTestContext
 
         // Act
         var cut = RenderComponent<AccessDenied>();
-        
+
         var tryAgainButton = cut.Find("fluent-button:contains('Try Login Again')");
         tryAgainButton.Click();
 

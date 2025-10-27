@@ -59,7 +59,7 @@ The application uses a dual-authentication strategy:
 | **API Docs**      | Swagger / OpenAPI                        |
 | **Hosting**       | Azure App Service                        |
 | **GitHub API**    | Octokit.net                              |
-| **Testing**       | xUnit, bUnit, WireMock.Net, Testcontainers |
+| **Testing**       | xUnit, bUnit, NSubstitute, WireMock.Net, Testcontainers, NJsonSchema, Verify.NET |
 | **CI/CD**         | GitHub Actions                           |
 
 ---
@@ -238,17 +238,53 @@ policies:
 
 ---
 
+## Testing
+
+The project employs a comprehensive multi-level testing strategy:
+
+### Test Projects
+
+1. **10xGitHubPolicies.Tests** - Unit tests
+   - Services, policies, and business logic
+   - Blazor component tests using bUnit
+   - Run: `dotnet test 10xGitHubPolicies.Tests/10xGitHubPolicies.Tests.csproj`
+
+2. **10xGitHubPolicies.Tests.Integration** - Integration tests 
+   - 33 tests for GitHubService with WireMock.Net
+   - HTTP-level mocking of GitHub API
+   - Coverage: file operations, repositories, issues, workflow permissions, rate limiting, token caching, team membership
+   - Run: `dotnet test 10xGitHubPolicies.Tests.Integration/10xGitHubPolicies.Tests.Integration.csproj --filter "Category=Integration"`
+
+3. **10xGitHubPolicies.Tests.Contracts** - Contract tests 
+   - 11 tests validating GitHub API response contracts
+   - Schema validation using NJsonSchema (6 tests)
+   - Snapshot testing using Verify.NET (5 tests)
+   - Coverage: repository, issue, and workflow permissions responses
+   - Run: `dotnet test 10xGitHubPolicies.Tests.Contracts/10xGitHubPolicies.Tests.Contracts.csproj --filter "Category=Contract"`
+
+### Running All Tests
+
+```sh
+dotnet test
+```
+
+For more details, see **[Testing Strategy](./docs/testing-strategy.md)**.
+
+---
+
 ## Documentation
 
 Detailed documentation for specific features and integrations:
 
 - **[Authentication](./docs/authentication.md)**: User authentication and authorization system
 - **[GitHub Integration](./docs/github-integration.md)**: How to use the GitHub API service for repository management
+- **[GitHub Client Factory](./docs/github-client-factory.md)**: Factory pattern for testable GitHub API integration
 - **[Configuration Service](./docs/configuration-service.md)**: Managing centralized policy configuration from `.github/config.yaml`
 - **[Action Service](./docs/action-service.md)**: Automated action processing for policy violations
 - **[Hangfire Integration](./docs/hangfire-integration.md)**: Background job processing and scheduling
 - **[Policy Evaluation](./docs/policy-evaluation.md)**: How the policy evaluation engine works and how to add new policies
 - **[Testing Strategy](./docs/testing-strategy.md)**: Comprehensive testing approach, tooling, and best practices
+- **[Contract Testing](./docs/testing-contract-tests.md)**: Detailed guide to contract testing with WireMock, Verify.NET, and JSON Schema
 
 ---
 
@@ -289,6 +325,7 @@ Detailed documentation for specific features and integrations:
 *   Better project structure e.g. FrontEnd/UI 
 *   Remove dups between .ai and /docs
 *   Review test coverage
+*   Add test for Auth and 'open' URLs
 
 ---
 

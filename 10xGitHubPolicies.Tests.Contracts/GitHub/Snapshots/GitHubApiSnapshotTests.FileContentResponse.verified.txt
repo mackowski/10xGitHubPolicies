@@ -1,0 +1,12 @@
+﻿{
+  content: dGVzdDogdmFsdWU=,
+  structure: {
+    name: config.yaml,
+    path: .github/config.yaml,
+    sha: {Scrubbed},
+    size: 11,
+    type: file,
+    content: dGVzdDogdmFsdWU=,
+    encoding: base64
+  }
+}

@@ -256,7 +256,7 @@ public class PolicyEvaluationServiceTests
         """;
 
         var repository = Newtonsoft.Json.JsonConvert.DeserializeObject<OctokitRepository>(json)!;
-        
+
         // Use reflection to set the Id property if deserialization didn't work
         if (repository.Id == 0 && id != 0)
         {
@@ -268,12 +268,12 @@ public class PolicyEvaluationServiceTests
             else
             {
                 // If property is not writable, use backing field
-                var idField = typeof(OctokitRepository).GetField("<Id>k__BackingField", 
+                var idField = typeof(OctokitRepository).GetField("<Id>k__BackingField",
                     System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
                 idField?.SetValue(repository, id);
             }
         }
-        
+
         return repository;
     }
 

@@ -1,0 +1,13 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "required": ["default_workflow_permissions"],
+  "properties": {
+    "default_workflow_permissions": {
+      "type": "string",
+      "enum": ["read", "write"]
+    },
+    "can_approve_pull_request_reviews": { "type": "boolean" }
+  }
+}
+

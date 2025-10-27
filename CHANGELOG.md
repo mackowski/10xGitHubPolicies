@@ -2,6 +2,88 @@
 
 All notable changes to this project will be documented in this file.
 
+## 1.3
+
+### Added
+- **GitHubService Integration Tests**: Completed comprehensive integration test suite for GitHub API interactions
+  - Created `10xGitHubPolicies.Tests.Integration` project with 33 passing tests
+  - HTTP-level mocking using WireMock.Net to simulate GitHub API responses
+  - Test coverage for all GitHubService methods: repositories, files, issues, workflow permissions, team membership
+  - Rate limiting and error handling test scenarios
+  - Token caching behavior validation
+  - All tests use `IGitHubClientFactory` pattern for proper dependency injection
+- **GitHubService Contract Tests**: Implemented contract testing to detect GitHub API breaking changes
+  - Created `10xGitHubPolicies.Tests.Contracts` project with 11 tests
+  - 6 schema validation tests using NJsonSchema to verify response structure
+  - 5 snapshot tests using Verify.NET to detect unexpected API changes
+  - JSON schemas for repository, issue, and workflow permissions responses
+  - Baseline snapshots for structure stability monitoring
+- **Test Infrastructure**: Resolved Octokit `GitHubClient` redirection challenge
+  - Implemented `IGitHubClientFactory` interface and `GitHubClientFactory` implementation
+  - Added `BaseUrl` configuration option to `GitHubAppOptions` for test environments
+  - Refactored `GitHubService` to use factory pattern for GitHubClient instantiation
+  - Created `GitHubServiceIntegrationTestBase` with authentication mocking helpers
+  - Created `GitHubContractTestBase` with shared test infrastructure
+  - Response builders (`GitHubApiResponseBuilder`) for consistent test data generation
+- **Documentation**: Created comprehensive contract testing guide
+  - Added `docs/testing-contract-tests.md` with detailed step-by-step explanation
+  - Covers WireMock.Net, Verify.NET, and NJsonSchema usage
+  - Includes test organization, best practices, and debugging tips
+  - Added references in README.md and testing-strategy.md
+
+### Changed
+- **GitHubService**: Refactored to accept optional `IGitHubClientFactory` parameter
+  - All internal `GitHubClient` instantiations now use the factory
+  - Maintains backward compatibility with default factory if none provided
+  - Enables test scenarios to redirect API calls to WireMock
+- **Dependency Injection**: Registered `IGitHubClientFactory` in `Program.cs`
+  - Factory uses `BaseUrl` from `GitHubAppOptions` when configured
+  - Defaults to standard GitHub API URL in production
+- **Integration Test Suite**: Removed 3 documentation placeholder tests
+  - Cleaned up `RateLimitHandlingTests` and `TokenCachingTests`
+  - All 33 executable tests now passing with proper mocking
+- **Contract Test Configuration**: Schema files configured to copy to output directory
+  - Added build configuration in `.csproj` to include schema JSON files
+  - Ensures NJsonSchema can load schemas during test execution
+
+### Fixed
+- **Octokit Path Prefix**: Discovered and fixed `/api/v3/` prefix requirement
+  - Octokit prepends `/api/v3/` when custom BaseUrl is provided (GitHub Enterprise mode)
+  - Updated all WireMock stubs to include correct path prefix
+  - Authentication endpoint now properly mocks at `/api/v3/app/installations/*/access_tokens`
+- **Test Assertions**: Corrected assertion mismatches in integration tests
+  - `RateLimitHandlingTests` now expects `ApiException` instead of `RateLimitExceededException`
+  - `IssueOperationsTests` now correctly accesses `State.Value` enum property
+- **Contract Test Method Signatures**: Fixed method calls to match actual service signatures
+  - `GetFileContentAsync` now uses `repoName` parameter instead of `repositoryId`
+  - `IsUserMemberOfTeamAsync` now includes all three required parameters
+
+### Technical Details
+- **New Dependencies**:
+  - WireMock.Net (v1.5.59) - HTTP mocking for integration tests
+  - NJsonSchema (v11.0.2) - JSON schema validation for contract tests
+  - Verify.Xunit (v28.6.0) - Snapshot testing for contract tests
+  - Bogus (v35.4.0) - Test data generation
+- **Test Categories**: Tests are categorized with Traits for selective execution
+  - Integration tests: `[Trait("Category", "Integration")]`
+  - Contract tests: `[Trait("Category", "Contract")]`
+- **Documentation**: Updated plan document (`.cursor/plans/githubservice-integration-contract-f95b8e0c.plan.md`) with completion status
+
+### Test Coverage
+- **Integration Tests**: 33/33 tests passing
+  - File Operations: 5 tests
+  - Repository Operations: 7 tests
+  - Issue Operations: 5 tests
+  - Workflow Permissions: 3 tests
+  - Rate Limit Handling: 5 tests
+  - Token Caching: 3 tests
+  - Team Membership: 5 tests
+- **Contract Tests**: 11/11 tests implemented
+  - Repository Response Schema: 3 tests
+  - Issue Response Schema: 2 tests
+  - Workflow Permissions Schema: 1 test
+  - API Snapshots: 5 tests (require baseline approval on first run)
+
 ## 1.2
 
 ### Added

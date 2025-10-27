@@ -55,7 +55,7 @@ public class LoginTests : AppTestContext
 
         // Act
         var cut = RenderComponent<Login>();
-        
+
         var loginButton = cut.Find("fluent-button:contains('Login with GitHub')");
         loginButton.Click();
 

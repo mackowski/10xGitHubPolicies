@@ -64,11 +64,10 @@ public async Task GetConfigAsync_WhenConfigExists_ReturnsValidConfig()
 }
 ```
 
-### Level 2: Integration Tests
+### Level 2: Integration Tests 
 **Purpose**: Test interaction between components, database operations, and external API integrations  
 **Technology**: Testcontainers + Respawn + WireMock.Net + WebApplicationFactory  
-**Speed**: Slow (1-5 seconds per test)
-
+**Speed**: Slow (1-5 seconds per test)  
 **When to Use**:
 - Database operations
 - GitHub API interactions (HTTP mocking)
@@ -79,33 +78,45 @@ public async Task GetConfigAsync_WhenConfigExists_ReturnsValidConfig()
 - **Testcontainers**: Manages ephemeral SQL Server instances in Docker for isolated database testing
 - **Respawn**: Fast database cleanup between tests to ensure test isolation
 - **WireMock.Net**: HTTP-level mocking for GitHub API to simulate rate limits, errors, and edge cases
+- **GitHubClientFactory Pattern**: Enables redirecting Octokit API calls to WireMock for testing
+
+**Implemented Test Coverage** (33 tests):
+- File Operations: 5 tests
+- Repository Operations: 7 tests
+- Issue Operations: 5 tests
+- Workflow Permissions: 3 tests
+- Rate Limit Handling: 5 tests
+- Token Caching: 3 tests
+- Team Membership: 5 tests
 
 **Example**:
 ```csharp
-public class ScanningIntegrationTests : IAsyncLifetime
+public class GitHubServiceIntegrationTests : GitHubServiceIntegrationTestBase
 {
-    private readonly MsSqlContainer _sqlContainer;
-    private Respawn.Checkpoint _checkpoint;
-    
-    public async Task InitializeAsync()
-    {
-        await _sqlContainer.StartAsync();
-        _checkpoint = await Respawn.Checkpoint.ForDatabase(_connectionString);
-    }
-    
     [Fact]
-    public async Task PerformScanAsync_SavesViolationsToDatabase()
+    [Trait("Category", "Integration")]
+    public async Task GetOrganizationRepositoriesAsync_ReturnsRepositories()
     {
-        // Test logic
-        await _checkpoint.Reset(_connectionString);
+        // Arrange
+        SetupGitHubAppAuthentication();
+        SetupRepositoryListResponse();
+        
+        // Act
+        var repositories = await Sut.GetOrganizationRepositoriesAsync();
+        
+        // Assert
+        repositories.Should().NotBeEmpty();
+        repositories.Should().HaveCount(2);
     }
 }
 ```
 
-### Level 3: Contract Tests
+### Level 3: Contract Tests 
 **Purpose**: Detect breaking changes in the GitHub API contract  
 **Technology**: NJsonSchema + Verify.NET + WireMock.Net  
-**Speed**: Slow (1-3 seconds per test)
+**Speed**: Slow (1-3 seconds per test)  
+
+> **📖 For a detailed guide**, see **[Contract Testing Documentation](./testing-contract-tests.md)**
 
 **When to Use**:
 - GitHub API response validation
@@ -116,30 +127,48 @@ public class ScanningIntegrationTests : IAsyncLifetime
 **Key Features**:
 - **NJsonSchema**: JSON Schema validation for critical API responses
 - **Verify.NET**: Snapshot testing to detect structural changes
-- **WireMock.Net Recording Mode**: Capture real GitHub API responses for baseline snapshots
+- **WireMock.Net**: Mock GitHub API responses for consistent testing
+- **JSON Schemas**: Defined schemas for repository, issue, and workflow permissions responses
+
+**Implemented Test Coverage** (11 tests):
+- Repository Response Schema: 3 tests (structure, required fields, field types)
+- Issue Response Schema: 2 tests (structure, required fields)
+- Workflow Permissions Schema: 1 test (structure validation)
+- API Snapshots: 5 tests (repository list, single repository, issue creation, workflow permissions, file content)
 
 **Example**:
 ```csharp
 [Fact]
+[Trait("Category", "Contract")]
 public async Task GetRepository_ResponseMatchesSchema()
 {
-    // Arrange - Load JSON Schema
-    var schema = await JsonSchema.FromFileAsync("Schemas/github-repository.json");
+    // Arrange
+    SetupGitHubAppAuthentication();
+    var schema = await JsonSchema.FromFileAsync("Schemas/github-repository-response.json");
     
-    // Act - Call GitHub API through service
-    var repository = await _githubService.GetRepositoryAsync(12345);
+    // Act
+    var repository = await Sut.GetRepositorySettingsAsync(12345);
     var json = JsonSerializer.Serialize(repository);
     
-    // Assert - Validate against schema
+    // Assert
     var errors = schema.Validate(json);
-    errors.Should().BeEmpty();
+    errors.Should().BeEmpty("GitHub API response should match the expected schema");
 }
 
 [Fact]
-public async Task GetRepository_StructureStable()
+[Trait("Category", "Contract")]
+public async Task GetRepositoryList_SnapshotStable()
 {
-    var repository = await _githubService.GetRepositoryAsync(12345);
-    await Verify(repository).ScrubMembers("id", "created_at");
+    // Arrange
+    SetupGitHubAppAuthentication();
+    SetupRepositoryListResponse();
+    
+    // Act
+    var repositories = await Sut.GetOrganizationRepositoriesAsync();
+    
+    // Assert - Snapshot testing with scrubbing of volatile fields
+    await Verify(repositories)
+        .ScrubMembers("Id", "CreatedAt", "UpdatedAt", "PushedAt");
 }
 ```
 
@@ -329,9 +358,9 @@ dotnet test 10xGitHubPolicies.Tests.Components
 | Test Type | Target Coverage | Reality Check | Status |
 |-----------|----------------|---------------|--------|
 | Unit | 85-90% | Focus on business logic, not getters/setters | ✅ Implemented |
-| Integration | All critical paths | Database operations, API calls, workflows | 🚧 Partial |
-| Contract | Critical APIs only | 5-10 endpoints maximum | ⏳ Planned |
-| Component | Key UI components | Dashboard, forms, navigation | ✅ Implemented |
+| Integration | All critical paths | Database operations, API calls, workflows | ✅ Implemented (33 tests) |
+| Contract | Critical APIs only | 5-10 endpoints maximum | ✅ Implemented (11 tests) |
+| Component | Key UI components | Dashboard, forms, navigation | ✅ Implemented (22 tests) |
 | E2E | 5-10 critical workflows | Authentication, scan, view results | ⏳ Planned |
 
 ## Testing Best Practices

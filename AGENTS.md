@@ -106,10 +106,15 @@ You are a senior Blazor and .NET developer and an expert in `C#`, `ASP.NET Core`
 ### Testing
 - **Multi-Level Strategy**: Employ a multi-level testing strategy (Unit, Integration, Contract, Component, E2E) to ensure comprehensive coverage.
   - **Level 1: Unit Tests (xUnit, NSubstitute)**: Test individual components and business logic in isolation. Mock dependencies to ensure tests are fast and reliable.
-  - **Level 2: Integration Tests (WireMock.Net, Testcontainers)**: Test the interaction between components. Use `WireMock.Net` to mock the GitHub API at the HTTP level and `Testcontainers` for ephemeral database instances.
-  - **Level 3: Contract Tests (NJsonSchema, Verify.NET)**: Use schema validation and snapshot testing to detect breaking changes in the GitHub API contract, preventing production failures.
-  - **Level 4: Blazor Component Tests (bUnit)**: ✅ **COMPLETED** - Comprehensive UI component testing with 22 tests covering all major UI components, authentication flows, and user interactions.
+  - **Level 2: Integration Tests (WireMock.Net, Testcontainers)**: ✅ **COMPLETED** - 33 tests covering all GitHubService methods. Test the interaction between components using `WireMock.Net` to mock the GitHub API at the HTTP level and `Testcontainers` for ephemeral database instances.
+  - **Level 3: Contract Tests (NJsonSchema, Verify.NET)**: ✅ **COMPLETED** - 11 tests validating GitHub API contracts. Use schema validation and snapshot testing to detect breaking changes in the GitHub API contract, preventing production failures.
+  - **Level 4: Blazor Component Tests (bUnit)**: ✅ **COMPLETED** - 22 tests covering all major UI components, authentication flows, and user interactions.
   - **Level 5: E2E Tests (Playwright)**: Reserve for critical user workflows. These tests should be used sparingly due to their slow and costly nature.
+- **GitHub API Testing Infrastructure**:
+  - Use `IGitHubClientFactory` pattern for dependency injection of GitHubClient creation
+  - `GitHubClientFactory` supports custom base URLs for redirecting API calls to WireMock.Net
+  - Configure `GitHubAppOptions.BaseUrl` in test scenarios to point to WireMock server
+  - Note: Octokit prepends `/api/v3/` to all paths when custom BaseUrl is provided (GitHub Enterprise mode)
 - **Blazor Component Testing**: Use `bUnit` for writing unit tests for Blazor components to verify rendering and interactivity. Implementation includes test infrastructure (`AppTestContext`, `TestDataBuilder`) and covers Pages, Shared components, and Integration flows.
 - **Database Testing**: Use `Respawn` to efficiently reset the database state between integration tests, ensuring test isolation.
 
@@ -134,6 +139,7 @@ You are a senior Blazor and .NET developer and an expert in `C#`, `ASP.NET Core`
 - The service provides high-level methods for common operations (repository management, file operations, issue creation, etc.).
 - Do not directly access `GitHubClient` - use the specialized methods provided by `IGitHubService`.
 - The `GitHubService` handles authentication, token caching, and error handling internally.
+- `GitHubService` uses `IGitHubClientFactory` for creating GitHubClient instances, enabling testability and custom base URLs.
 - Be mindful of API rate limits. Cache responses where appropriate.
 - Use asynchronous methods to avoid blocking threads.
 - Refer to `/docs/github-integration.md` for detailed usage examples and best practices.
