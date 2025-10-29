@@ -8,3 +8,5 @@ appsettings.Development.json
 **/Properties/launchSettings.json
 
 TestResults/
+coverage-report/
+coverage/

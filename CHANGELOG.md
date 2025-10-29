@@ -2,6 +2,68 @@
 
 All notable changes to this project will be documented in this file.
 
+## 1.8
+
+### Added
+- **Local Workflow Testing Script**: Script to replicate CI/CD pipeline locally
+  - Created `test-workflow-local.sh` to execute the same test sequence as GitHub Actions
+  - Runs linting, unit tests, component tests, integration tests, and contract tests
+  - Outputs test results to `./coverage/` directory as TRX files
+  - Provides faster feedback cycle by catching issues before pushing to GitHub
+  - Same test filters and configuration as CI/CD workflow ensures consistency
+- **Enhanced GitHubClientFactory**: Improved test infrastructure support
+  - Added support for custom `HttpClientHandler` in `GitHubClientFactory`
+  - Enables better SSL certificate handling for test scenarios
+  - Supports custom HTTP configuration for WireMock integration
+  - Maintains backward compatibility with existing implementations
+- **Integration Test SSL Certificate Handling**: Enhanced WireMock fixture for HTTPS support
+  - Updated `GitHubApiFixture` to use `HttpClientHandler` instead of `ServicePointManager`
+  - Modern .NET Core approach for SSL certificate validation
+  - Handles self-signed certificates from WireMock server
+  - Properly disposes of HttpClientHandler in cleanup to avoid resource leaks
+  - Enables realistic SSL communication testing without certificate errors
+
+### Changed
+- **CI/CD Workflow**: Enhanced pull request workflow
+  - Improved workflow structure with better job dependencies
+  - Updated status comment job to provide comprehensive test results summary
+- **Documentation Updates**:
+  - Updated `README.md` with local workflow testing script documentation
+  - Enhanced `docs/ci-cd-workflows.md` with local workflow execution guide
+  - Updated `docs/testing-integration-tests.md` with SSL certificate handling details
+
+## 1.7
+
+### Added
+- **CI/CD Workflow**: Comprehensive pull request workflow for automated testing and quality checks
+  - Created `.github/workflows/pull-request.yml` workflow that runs on PRs to `main` and `develop` branches
+  - Multi-level testing pipeline: lint → unit tests → component tests → integration/contract tests → coverage report
+  - Automated code formatting verification using `dotnet format --verify-no-changes`
+  - Parallel test execution for faster feedback (unit and component tests run concurrently)
+  - Comprehensive code coverage collection and reporting with ReportGenerator
+  - Coverage aggregation across all test levels (unit, component, integration, contract)
+  - Codecov integration for coverage tracking with separate flags per test level
+  - Automated PR status comments with test results and coverage percentage
+  - Test result artifacts (TRX files) uploaded for analysis
+  - All GitHub Actions pinned to commit SHAs for security compliance
+  - Minimal workflow permissions following principle of least privilege
+- **CI/CD Documentation**: Comprehensive documentation for workflows
+  - Created `docs/ci-cd-workflows.md` with detailed workflow documentation
+  - Covers job structure, security considerations, coverage reporting, and troubleshooting
+  - Includes local testing guide and workflow best practices
+  - Documents security practices for pinned action versions
+
+### Changed
+- **.gitignore**: Updated to exclude CI/CD artifacts
+  - Added `coverage-report/` directory to gitignore
+  - Ensures generated coverage reports are not committed to repository
+
+### Security
+- **Workflow Security**: All GitHub Actions pinned to commit SHAs (not version tags)
+  - Prevents supply chain attacks from malicious action updates
+  - Requires manual verification when updating action versions
+  - Minimal permissions (`contents: read`, `packages: read`, `pull-requests: write`)
+
 ## 1.6
 
 ### Changed

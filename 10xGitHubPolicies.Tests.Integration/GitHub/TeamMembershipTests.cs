@@ -35,7 +35,7 @@ public class TeamMembershipTests : GitHubServiceIntegrationTestBase
         var teamJson = _responseBuilder.BuildTeamResponse(teamId, teamSlug);
         MockServer
             .Given(Request.Create()
-                .WithPath($"/api/v3/orgs/{org}/teams/{teamSlug}")
+                .WithPath($"/orgs/{org}/teams/{teamSlug}")
                 .UsingGet())
             .RespondWith(Response.Create()
                 .WithStatusCode(200)
@@ -45,7 +45,7 @@ public class TeamMembershipTests : GitHubServiceIntegrationTestBase
         // Mock get current user
         MockServer
             .Given(Request.Create()
-                .WithPath("/api/v3/user")
+                .WithPath("/user")
                 .UsingGet())
             .RespondWith(Response.Create()
                 .WithStatusCode(200)
@@ -56,7 +56,7 @@ public class TeamMembershipTests : GitHubServiceIntegrationTestBase
         var membershipJson = _responseBuilder.BuildTeamMembershipResponse("active");
         MockServer
             .Given(Request.Create()
-                .WithPath($"/api/v3/teams/{teamId}/memberships/test-user")
+                .WithPath($"/teams/{teamId}/memberships/test-user")
                 .UsingGet())
             .RespondWith(Response.Create()
                 .WithStatusCode(200)
@@ -87,7 +87,7 @@ public class TeamMembershipTests : GitHubServiceIntegrationTestBase
         var teamJson = _responseBuilder.BuildTeamResponse(teamId, teamSlug);
         MockServer
             .Given(Request.Create()
-                .WithPath($"/api/v3/orgs/{org}/teams/{teamSlug}")
+                .WithPath($"/orgs/{org}/teams/{teamSlug}")
                 .UsingGet())
             .RespondWith(Response.Create()
                 .WithStatusCode(200)
@@ -97,7 +97,7 @@ public class TeamMembershipTests : GitHubServiceIntegrationTestBase
         // Mock get current user
         MockServer
             .Given(Request.Create()
-                .WithPath("/api/v3/user")
+                .WithPath("/user")
                 .UsingGet())
             .RespondWith(Response.Create()
                 .WithStatusCode(200)
@@ -107,7 +107,7 @@ public class TeamMembershipTests : GitHubServiceIntegrationTestBase
         // Mock team membership check - not a member
         MockServer
             .Given(Request.Create()
-                .WithPath($"/api/v3/teams/{teamId}/memberships/test-user")
+                .WithPath($"/teams/{teamId}/memberships/test-user")
                 .UsingGet())
             .RespondWith(Response.Create()
                 .WithStatusCode(404)
@@ -177,7 +177,7 @@ public class TeamMembershipTests : GitHubServiceIntegrationTestBase
 
         MockServer
             .Given(Request.Create()
-                .WithPath("/api/v3/user/orgs")
+                .WithPath("/user/orgs")
                 .UsingGet())
             .RespondWith(Response.Create()
                 .WithStatusCode(200)
@@ -211,7 +211,7 @@ public class TeamMembershipTests : GitHubServiceIntegrationTestBase
 
         MockServer
             .Given(Request.Create()
-                .WithPath($"/api/v3/orgs/{org}/teams")
+                .WithPath($"/orgs/{org}/teams")
                 .UsingGet())
             .RespondWith(Response.Create()
                 .WithStatusCode(200)

@@ -357,7 +357,26 @@ The project employs a comprehensive multi-level testing strategy:
 dotnet test
 ```
 
-For more details, see **[Testing Strategy](./docs/testing-strategy.md)**.
+### Running Local Workflow (Replicates CI/CD Pipeline)
+
+A local testing script is available to replicate the GitHub Actions pull request workflow locally:
+
+```sh
+./test-workflow-local.sh
+```
+
+This script executes the same sequence as the CI/CD pipeline:
+1. **Linting**: Code formatting verification
+2. **Unit Tests**: Fast business logic validation
+3. **Component Tests**: Blazor UI component testing
+4. **Integration Tests**: GitHub API integration with WireMock
+5. **Contract Tests**: API contract validation
+
+Test results are saved to the `./coverage` directory as TRX files for analysis.
+
+**Note**: This script uses the same test filters and logging configuration as the GitHub Actions workflow, ensuring consistency between local and CI environments.
+
+For more details, see **[Testing Strategy](./docs/testing-strategy.md)** and **[CI/CD Workflows](./docs/ci-cd-workflows.md)**.
 
 ---
 
@@ -375,6 +394,7 @@ Detailed documentation for specific features and integrations:
 - **[Testing Strategy](./docs/testing-strategy.md)**: Comprehensive testing approach, tooling, and best practices
 - **[Contract Testing](./docs/testing-contract-tests.md)**: Detailed guide to contract testing with WireMock, Verify.NET, and JSON Schema
 - **[E2E Testing](./docs/testing-e2e-tests.md)**: Complete guide to End-to-End testing with Playwright
+- **[CI/CD Workflows](./docs/ci-cd-workflows.md)**: GitHub Actions workflows, code coverage, and automated testing pipelines
 
 ---
 

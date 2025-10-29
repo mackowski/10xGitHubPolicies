@@ -29,7 +29,7 @@ public class RateLimitHandlingTests : GitHubServiceIntegrationTestBase
 
         MockServer
             .Given(Request.Create()
-                .WithPath($"/api/v3/repositories/{repositoryId}")
+                .WithPath($"/repositories/{repositoryId}")
                 .UsingGet())
             .RespondWith(Response.Create()
                 .WithStatusCode(429) // Rate limit exceeded
@@ -66,7 +66,7 @@ public class RateLimitHandlingTests : GitHubServiceIntegrationTestBase
 
         MockServer
             .Given(Request.Create()
-                .WithPath($"/api/v3/repositories/{repositoryId}")
+                .WithPath($"/repositories/{repositoryId}")
                 .UsingGet())
             .RespondWith(Response.Create()
                 .WithStatusCode(403) // Forbidden - secondary rate limit
@@ -119,7 +119,7 @@ public class RateLimitHandlingTests : GitHubServiceIntegrationTestBase
 
         MockServer
             .Given(Request.Create()
-                .WithPath($"/api/v3/repositories/{repositoryId}")
+                .WithPath($"/repositories/{repositoryId}")
                 .UsingGet())
             .RespondWith(Response.Create()
                 .WithStatusCode(200)
@@ -159,7 +159,7 @@ public class RateLimitHandlingTests : GitHubServiceIntegrationTestBase
         // First call - rate limit exceeded
         MockServer
             .Given(Request.Create()
-                .WithPath($"/api/v3/repositories/{repositoryId}")
+                .WithPath($"/repositories/{repositoryId}")
                 .UsingGet())
             .InScenario("RateLimit")
             .WillSetStateTo("RateLimitExceeded")
@@ -188,7 +188,7 @@ public class RateLimitHandlingTests : GitHubServiceIntegrationTestBase
 
         MockServer
             .Given(Request.Create()
-                .WithPath($"/api/v3/repositories/{repositoryId}")
+                .WithPath($"/repositories/{repositoryId}")
                 .UsingGet())
             .InScenario("RateLimit")
             .WhenStateIs("RateLimitExceeded")

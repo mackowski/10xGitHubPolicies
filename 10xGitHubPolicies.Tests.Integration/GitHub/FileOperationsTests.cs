@@ -39,7 +39,7 @@ public class FileOperationsTests : GitHubServiceIntegrationTestBase
 
         MockServer
             .Given(Request.Create()
-                .WithPath($"/api/v3/repositories/{repositoryId}/contents/{filePath}")
+                .WithPath($"/repositories/{repositoryId}/contents/{filePath}")
                 .UsingGet())
             .RespondWith(Response.Create()
                 .WithStatusCode(200)
@@ -77,7 +77,7 @@ public class FileOperationsTests : GitHubServiceIntegrationTestBase
 
         MockServer
             .Given(Request.Create()
-                .WithPath($"/api/v3/repositories/{repositoryId}/contents/{filePath}")
+                .WithPath($"/repositories/{repositoryId}/contents/{filePath}")
                 .UsingGet())
             .RespondWith(Response.Create()
                 .WithStatusCode(404)
@@ -138,7 +138,7 @@ public class FileOperationsTests : GitHubServiceIntegrationTestBase
 
         MockServer
             .Given(Request.Create()
-                .WithPath($"/api/v3/repos/{Options.OrganizationName}/{repoName}/contents/{path}")
+                .WithPath($"/repos/{Options.OrganizationName}/{repoName}/contents/{path}")
                 .UsingGet())
             .RespondWith(Response.Create()
                 .WithStatusCode(200)
@@ -172,7 +172,7 @@ public class FileOperationsTests : GitHubServiceIntegrationTestBase
 
         MockServer
             .Given(Request.Create()
-                .WithPath($"/api/v3/repos/{Options.OrganizationName}/{repoName}/contents/{path}")
+                .WithPath($"/repos/{Options.OrganizationName}/{repoName}/contents/{path}")
                 .UsingGet())
             .RespondWith(Response.Create()
                 .WithStatusCode(404)

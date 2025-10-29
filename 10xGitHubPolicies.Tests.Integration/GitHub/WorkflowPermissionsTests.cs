@@ -34,7 +34,7 @@ public class WorkflowPermissionsTests : GitHubServiceIntegrationTestBase
 
         MockServer
             .Given(Request.Create()
-                .WithPath($"/api/v3/repositories/{repositoryId}/actions/permissions/workflow")
+                .WithPath($"/repositories/{repositoryId}/actions/permissions/workflow")
                 .UsingGet())
             .RespondWith(Response.Create()
                 .WithStatusCode(200)
@@ -64,7 +64,7 @@ public class WorkflowPermissionsTests : GitHubServiceIntegrationTestBase
 
         MockServer
             .Given(Request.Create()
-                .WithPath($"/api/v3/repositories/{repositoryId}/actions/permissions/workflow")
+                .WithPath($"/repositories/{repositoryId}/actions/permissions/workflow")
                 .UsingGet())
             .RespondWith(Response.Create()
                 .WithStatusCode(200)
@@ -93,7 +93,7 @@ public class WorkflowPermissionsTests : GitHubServiceIntegrationTestBase
 
         MockServer
             .Given(Request.Create()
-                .WithPath($"/api/v3/repositories/{repositoryId}/actions/permissions/workflow")
+                .WithPath($"/repositories/{repositoryId}/actions/permissions/workflow")
                 .UsingGet())
             .RespondWith(Response.Create()
                 .WithStatusCode(404)

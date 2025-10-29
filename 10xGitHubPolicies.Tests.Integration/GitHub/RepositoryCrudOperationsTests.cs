@@ -39,7 +39,7 @@ public class RepositoryCrudOperationsTests : GitHubServiceIntegrationTestBase
 
         MockServer
             .Given(Request.Create()
-                .WithPath($"/api/v3/orgs/{Options.OrganizationName}/repos")
+                .WithPath($"/orgs/{Options.OrganizationName}/repos")
                 .UsingPost())
             .RespondWith(Response.Create()
                 .WithStatusCode(201)
@@ -72,7 +72,7 @@ public class RepositoryCrudOperationsTests : GitHubServiceIntegrationTestBase
 
         MockServer
             .Given(Request.Create()
-                .WithPath($"/api/v3/orgs/{Options.OrganizationName}/repos")
+                .WithPath($"/orgs/{Options.OrganizationName}/repos")
                 .UsingPost())
             .RespondWith(Response.Create()
                 .WithStatusCode(422)
@@ -100,7 +100,7 @@ public class RepositoryCrudOperationsTests : GitHubServiceIntegrationTestBase
 
         MockServer
             .Given(Request.Create()
-                .WithPath($"/api/v3/repos/{Options.OrganizationName}/{repoName}")
+                .WithPath($"/repos/{Options.OrganizationName}/{repoName}")
                 .UsingDelete())
             .RespondWith(Response.Create()
                 .WithStatusCode(204));
@@ -129,7 +129,7 @@ public class RepositoryCrudOperationsTests : GitHubServiceIntegrationTestBase
 
         MockServer
             .Given(Request.Create()
-                .WithPath($"/api/v3/repos/{Options.OrganizationName}/{invalidRepoName}")
+                .WithPath($"/repos/{Options.OrganizationName}/{invalidRepoName}")
                 .UsingDelete())
             .RespondWith(Response.Create()
                 .WithStatusCode(404)
@@ -161,7 +161,7 @@ public class RepositoryCrudOperationsTests : GitHubServiceIntegrationTestBase
 
         MockServer
             .Given(Request.Create()
-                .WithPath($"/api/v3/repositories/{repositoryId}")
+                .WithPath($"/repositories/{repositoryId}")
                 .UsingPatch()
                 .WithBody("*archived*false*"))
             .RespondWith(Response.Create()
@@ -193,7 +193,7 @@ public class RepositoryCrudOperationsTests : GitHubServiceIntegrationTestBase
 
         MockServer
             .Given(Request.Create()
-                .WithPath($"/api/v3/repositories/{invalidRepositoryId}")
+                .WithPath($"/repositories/{invalidRepositoryId}")
                 .UsingPatch())
             .RespondWith(Response.Create()
                 .WithStatusCode(404)

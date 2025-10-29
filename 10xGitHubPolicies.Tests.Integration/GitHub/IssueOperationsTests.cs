@@ -38,7 +38,7 @@ public class IssueOperationsTests : GitHubServiceIntegrationTestBase
 
         MockServer
             .Given(Request.Create()
-                .WithPath($"/api/v3/repositories/{repositoryId}/issues")
+                .WithPath($"/repositories/{repositoryId}/issues")
                 .UsingPost())
             .RespondWith(Response.Create()
                 .WithStatusCode(201)
@@ -91,7 +91,7 @@ public class IssueOperationsTests : GitHubServiceIntegrationTestBase
 
         MockServer
             .Given(Request.Create()
-                .WithPath($"/api/v3/repositories/{repositoryId}/issues")
+                .WithPath($"/repositories/{repositoryId}/issues")
                 .UsingPost())
             .RespondWith(Response.Create()
                 .WithStatusCode(201)
@@ -127,7 +127,7 @@ public class IssueOperationsTests : GitHubServiceIntegrationTestBase
 
         MockServer
             .Given(Request.Create()
-                .WithPath($"/api/v3/repositories/{repositoryId}/issues")
+                .WithPath($"/repositories/{repositoryId}/issues")
                 .WithParam("state", "open")
                 .WithParam("labels", label)
                 .UsingGet())
@@ -161,7 +161,7 @@ public class IssueOperationsTests : GitHubServiceIntegrationTestBase
 
         MockServer
             .Given(Request.Create()
-                .WithPath($"/api/v3/repositories/{repositoryId}/issues")
+                .WithPath($"/repositories/{repositoryId}/issues")
                 .WithParam("state", "open")
                 .WithParam("labels", label)
                 .UsingGet())

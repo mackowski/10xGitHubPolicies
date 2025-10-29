@@ -9,6 +9,9 @@ using NSubstitute;
 using WireMock.Server;
 using WireMock.RequestBuilders;
 using WireMock.ResponseBuilders;
+using System.Net.Http;
+using System.Net.Security;
+using System.Security.Cryptography.X509Certificates;
 
 namespace _10xGitHubPolicies.Tests.Integration.GitHub;
 
@@ -33,7 +36,7 @@ public abstract class GitHubServiceIntegrationTestBase : IClassFixture<GitHubApi
         Options.BaseUrl = MockServer.Url; // Point to WireMock!
 
         var optionsWrapper = Microsoft.Extensions.Options.Options.Create(Options);
-        ClientFactory = new GitHubClientFactory(MockServer.Url);
+        ClientFactory = new GitHubClientFactory(MockServer.Url, fixture.HttpClientHandler);
 
         Sut = new GitHubService(optionsWrapper, Logger, Cache, ClientFactory);
     }
@@ -87,7 +90,7 @@ public abstract class GitHubServiceIntegrationTestBase : IClassFixture<GitHubApi
     /// <summary>
     /// Sets up WireMock stub for GitHub App authentication (JWT token exchange).
     /// This must be called in the Arrange phase of every test that makes authenticated API calls.
-    /// Note: Octokit treats custom base URLs as GitHub Enterprise and prepends /api/v3/ to all paths
+    /// Note: When using custom HttpClientAdapter, Octokit prepends / to all paths
     /// </summary>
     /// <param name="expiresAt">Optional expiration time for the token. Defaults to 1 hour from now.</param>
     protected void SetupGitHubAppAuthentication(DateTimeOffset? expiresAt = null)
@@ -96,11 +99,11 @@ public abstract class GitHubServiceIntegrationTestBase : IClassFixture<GitHubApi
         var installationToken = Faker.Random.Hexadecimal(40, prefix: "ghs_");
 
         // Mock the installation token endpoint
-        // POST /api/v3/app/installations/{installationId}/access_tokens
-        // Note: /api/v3/ prefix is added by Octokit for Enterprise GitHub
+        // POST /app/installations/{installationId}/access_tokens
+        // Note: / prefix is added by Octokit when using custom HttpClientAdapter
         MockServer
             .Given(Request.Create()
-                .WithPath("/api/v3/app/installations/*/access_tokens")
+                .WithPath("/app/installations/*/access_tokens")
                 .UsingPost())
             .RespondWith(Response.Create()
                 .WithStatusCode(201)
