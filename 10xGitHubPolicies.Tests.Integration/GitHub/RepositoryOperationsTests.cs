@@ -37,7 +37,7 @@ public class RepositoryOperationsTests : GitHubServiceIntegrationTestBase
 
         MockServer
             .Given(Request.Create()
-                .WithPath($"/api/v3/orgs/{Options.OrganizationName}/repos")
+                .WithPath($"/orgs/{Options.OrganizationName}/repos")
                 .UsingGet())
             .RespondWith(Response.Create()
                 .WithStatusCode(200)
@@ -73,7 +73,7 @@ public class RepositoryOperationsTests : GitHubServiceIntegrationTestBase
 
         MockServer
             .Given(Request.Create()
-                .WithPath($"/api/v3/repositories/{repositoryId}")
+                .WithPath($"/repositories/{repositoryId}")
                 .UsingGet())
             .RespondWith(Response.Create()
                 .WithStatusCode(200)
@@ -136,7 +136,7 @@ public class RepositoryOperationsTests : GitHubServiceIntegrationTestBase
 
         MockServer
             .Given(Request.Create()
-                .WithPath($"/api/v3/repositories/{repositoryId}")
+                .WithPath($"/repositories/{repositoryId}")
                 .UsingPatch()
                 .WithBody("*archived*true*")) // Simple body match
             .RespondWith(Response.Create()

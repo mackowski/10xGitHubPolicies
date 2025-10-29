@@ -86,13 +86,17 @@ public class GitHubApiFixture : IAsyncLifetime
 {
     public WireMockServer MockServer { get; private set; } = null!;
     public string BaseUrl => MockServer.Url!;
+    public HttpClientHandler HttpClientHandler { get; private set; } = null!;
     
     public async Task InitializeAsync()
     {
-        // Configure .NET to accept self-signed certificates for WireMock
-        // This must be done before creating any HttpClient instances
-        ServicePointManager.ServerCertificateValidationCallback =
-            (sender, certificate, chain, sslPolicyErrors) => true;
+        // Create HttpClientHandler that accepts self-signed certificates
+        // This is the .NET Core/.NET 5+ way to handle certificate validation for test scenarios
+        // ServicePointManager is legacy and doesn't work reliably with HttpClient in .NET Core
+        HttpClientHandler = new HttpClientHandler
+        {
+            ServerCertificateCustomValidationCallback = (message, cert, chain, sslPolicyErrors) => true
+        };
 
         MockServer = WireMockServer.Start(new WireMockServerSettings
         {
@@ -104,9 +108,7 @@ public class GitHubApiFixture : IAsyncLifetime
     
     public async Task DisposeAsync()
     {
-        // Reset certificate validation callback
-        ServicePointManager.ServerCertificateValidationCallback = null;
-
+        HttpClientHandler?.Dispose();
         MockServer?.Stop();
         MockServer?.Dispose();
         await Task.CompletedTask;
@@ -121,7 +123,7 @@ public class GitHubApiFixture : IAsyncLifetime
 4. **Random port** - Avoids port conflicts when running tests in parallel
 5. **Automatic cleanup** - Server stops and certificate validation is reset after all tests complete
 
-**SSL Certificate Note**: WireMock uses self-signed certificates for HTTPS, which .NET rejects by default. The fixture configures `ServicePointManager.ServerCertificateValidationCallback` to accept these certificates. This callback is reset to `null` in `DisposeAsync()` to avoid affecting other tests or production code.
+**SSL Certificate Note**: WireMock uses self-signed certificates for HTTPS, which .NET rejects by default. The fixture creates a custom `HttpClientHandler` with `ServerCertificateCustomValidationCallback` set to accept these certificates. This is the modern .NET Core approach and is properly disposed of in `DisposeAsync()` to avoid resource leaks.
 
 ### Step 2: Test Base Class
 
@@ -149,7 +151,7 @@ public abstract class GitHubServiceIntegrationTestBase : IClassFixture<GitHubApi
         Options.BaseUrl = MockServer.Url; // Point to WireMock!
         
         var optionsWrapper = Microsoft.Extensions.Options.Options.Create(Options);
-        ClientFactory = new GitHubClientFactory(MockServer.Url);
+        ClientFactory = new GitHubClientFactory(MockServer.Url, fixture.HttpClientHandler);
         
         Sut = new GitHubService(optionsWrapper, Logger, Cache, ClientFactory);
     }
@@ -162,6 +164,7 @@ public abstract class GitHubServiceIntegrationTestBase : IClassFixture<GitHubApi
 - **Real Dependencies**: Uses real `IMemoryCache` for token caching behavior
 - **Substitute Logger**: Logs are captured but don't pollute test output
 - **Test Credentials**: Generates valid RSA keys and fake GitHub App credentials
+- **Custom HttpClientHandler**: Passes the SSL-enabled HttpClientHandler to GitHubClientFactory for proper certificate handling
 
 ### Step 3: Mock GitHub App Authentication
 

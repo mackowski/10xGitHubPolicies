@@ -37,7 +37,7 @@ public class IssueManagementTests : GitHubServiceIntegrationTestBase
 
         MockServer
             .Given(Request.Create()
-                .WithPath($"/api/v3/repositories/{repositoryId}/issues/{issueNumber}")
+                .WithPath($"/repositories/{repositoryId}/issues/{issueNumber}")
                 .UsingPatch())
             .RespondWith(Response.Create()
                 .WithStatusCode(200)
@@ -69,7 +69,7 @@ public class IssueManagementTests : GitHubServiceIntegrationTestBase
 
         MockServer
             .Given(Request.Create()
-                .WithPath($"/api/v3/repositories/{repositoryId}/issues/{invalidIssueNumber}")
+                .WithPath($"/repositories/{repositoryId}/issues/{invalidIssueNumber}")
                 .UsingPatch())
             .RespondWith(Response.Create()
                 .WithStatusCode(404)
@@ -101,7 +101,7 @@ public class IssueManagementTests : GitHubServiceIntegrationTestBase
 
         MockServer
             .Given(Request.Create()
-                .WithPath($"/api/v3/repositories/{repositoryId}/issues/{issueNumber}")
+                .WithPath($"/repositories/{repositoryId}/issues/{issueNumber}")
                 .UsingPatch())
             .RespondWith(Response.Create()
                 .WithStatusCode(200)
@@ -133,7 +133,7 @@ public class IssueManagementTests : GitHubServiceIntegrationTestBase
 
         MockServer
             .Given(Request.Create()
-                .WithPath($"/api/v3/repos/{Options.OrganizationName}/{repoName}/issues")
+                .WithPath($"/repos/{Options.OrganizationName}/{repoName}/issues")
                 .UsingGet())
             .RespondWith(Response.Create()
                 .WithStatusCode(200)
@@ -166,7 +166,7 @@ public class IssueManagementTests : GitHubServiceIntegrationTestBase
 
         MockServer
             .Given(Request.Create()
-                .WithPath($"/api/v3/repos/{Options.OrganizationName}/{repoName}/issues")
+                .WithPath($"/repos/{Options.OrganizationName}/{repoName}/issues")
                 .UsingGet())
             .RespondWith(Response.Create()
                 .WithStatusCode(200)
@@ -195,7 +195,7 @@ public class IssueManagementTests : GitHubServiceIntegrationTestBase
 
         MockServer
             .Given(Request.Create()
-                .WithPath($"/api/v3/repos/{Options.OrganizationName}/{invalidRepoName}/issues")
+                .WithPath($"/repos/{Options.OrganizationName}/{invalidRepoName}/issues")
                 .UsingGet())
             .RespondWith(Response.Create()
                 .WithStatusCode(404)

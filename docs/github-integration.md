@@ -49,11 +49,15 @@ This document outlines the approach to integrating with the GitHub API using the
     - Supports custom base URLs via `GitHubAppOptions.BaseUrl` for testing with WireMock.
 
 ### `IGitHubClientFactory`
-- **Purpose**: Factory interface for creating `GitHubClient` instances with optional custom base URLs.
+- **Purpose**: Factory interface for creating `GitHubClient` instances with optional custom base URLs and HTTP configuration.
 - **Methods**:
     - `GitHubClient CreateClient(string token)`: Creates a client authenticated with a user or installation access token.
     - `GitHubClient CreateAppClient(string jwt)`: Creates a client authenticated with a GitHub App JWT token.
-- **Implementation**: `GitHubClientFactory` supports custom base URLs primarily for testing scenarios with WireMock.Net.
+- **Implementation**: `GitHubClientFactory` supports:
+    - Custom base URLs for testing scenarios with WireMock.Net
+    - Custom `HttpClientHandler` for advanced HTTP configuration (e.g., SSL certificate handling)
+    - Automatic Enterprise mode detection when using custom base URLs
+    - Proper connection setup for both production and test environments
 
 ## Configuration
 
@@ -308,9 +312,10 @@ The application includes comprehensive testing for GitHub API integrations acros
 
 **GitHubClientFactory Pattern**:
 - `IGitHubClientFactory` interface enables dependency injection of GitHubClient creation
-- `GitHubClientFactory` implementation supports custom base URLs for testing
+- `GitHubClientFactory` implementation supports custom base URLs and HttpClientHandler for testing
 - `GitHubService` accepts an optional factory parameter, defaulting to production configuration
 - Enables redirecting API calls to WireMock.Net for integration and contract testing
+- Supports custom SSL certificate handling for test environments with self-signed certificates
 
 **Test Configuration**:
 ```csharp
@@ -324,7 +329,11 @@ var options = new GitHubAppOptions
     BaseUrl = mockServer.Url  // Point to WireMock
 };
 
-var clientFactory = new GitHubClientFactory(mockServer.Url);
+var httpClientHandler = new HttpClientHandler
+{
+    ServerCertificateCustomValidationCallback = (message, cert, chain, sslPolicyErrors) => true
+};
+var clientFactory = new GitHubClientFactory(mockServer.Url, httpClientHandler);
 var sut = new GitHubService(Options.Create(options), logger, cache, clientFactory);
 ```
 

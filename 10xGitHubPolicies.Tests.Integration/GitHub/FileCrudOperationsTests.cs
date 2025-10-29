@@ -38,7 +38,7 @@ public class FileCrudOperationsTests : GitHubServiceIntegrationTestBase
         var repoJson = _responseBuilder.BuildRepositoryResponse(repositoryId, repoName, false);
         MockServer
             .Given(Request.Create()
-                .WithPath($"/api/v3/repositories/{repositoryId}")
+                .WithPath($"/repositories/{repositoryId}")
                 .UsingGet())
             .RespondWith(Response.Create()
                 .WithStatusCode(200)
@@ -49,7 +49,7 @@ public class FileCrudOperationsTests : GitHubServiceIntegrationTestBase
         var fileCreationResponse = _responseBuilder.BuildFileCreationResponse(fileContent, filePath, sha, "Add new-file.md");
         MockServer
             .Given(Request.Create()
-                .WithPath($"/api/v3/repositories/{repositoryId}/contents/{filePath}")
+                .WithPath($"/repositories/{repositoryId}/contents/{filePath}")
                 .UsingPut())
             .RespondWith(Response.Create()
                 .WithStatusCode(200)
@@ -87,7 +87,7 @@ public class FileCrudOperationsTests : GitHubServiceIntegrationTestBase
         var repoJson = _responseBuilder.BuildRepositoryResponse(repositoryId, repoName, false);
         MockServer
             .Given(Request.Create()
-                .WithPath($"/api/v3/repositories/{repositoryId}")
+                .WithPath($"/repositories/{repositoryId}")
                 .UsingGet())
             .RespondWith(Response.Create()
                 .WithStatusCode(200)
@@ -98,7 +98,7 @@ public class FileCrudOperationsTests : GitHubServiceIntegrationTestBase
         var fileCreationResponse = _responseBuilder.BuildFileCreationResponse(fileContent, filePath, sha, customCommitMessage);
         MockServer
             .Given(Request.Create()
-                .WithPath($"/api/v3/repositories/{repositoryId}/contents/{filePath}")
+                .WithPath($"/repositories/{repositoryId}/contents/{filePath}")
                 .UsingPut())
             .RespondWith(Response.Create()
                 .WithStatusCode(200)
@@ -134,7 +134,7 @@ public class FileCrudOperationsTests : GitHubServiceIntegrationTestBase
         var repoJson = _responseBuilder.BuildRepositoryResponse(repositoryId, repoName, false);
         MockServer
             .Given(Request.Create()
-                .WithPath($"/api/v3/repositories/{repositoryId}")
+                .WithPath($"/repositories/{repositoryId}")
                 .UsingGet())
             .RespondWith(Response.Create()
                 .WithStatusCode(200)
@@ -144,7 +144,7 @@ public class FileCrudOperationsTests : GitHubServiceIntegrationTestBase
         // Mock PUT file creation - file already exists
         MockServer
             .Given(Request.Create()
-                .WithPath($"/api/v3/repositories/{repositoryId}/contents/{filePath}")
+                .WithPath($"/repositories/{repositoryId}/contents/{filePath}")
                 .UsingPut())
             .RespondWith(Response.Create()
                 .WithStatusCode(422)
@@ -179,7 +179,7 @@ public class FileCrudOperationsTests : GitHubServiceIntegrationTestBase
         var repoJson = _responseBuilder.BuildRepositoryResponse(repositoryId, repoName, false);
         MockServer
             .Given(Request.Create()
-                .WithPath($"/api/v3/repositories/{repositoryId}")
+                .WithPath($"/repositories/{repositoryId}")
                 .UsingGet())
             .RespondWith(Response.Create()
                 .WithStatusCode(200)
@@ -190,7 +190,7 @@ public class FileCrudOperationsTests : GitHubServiceIntegrationTestBase
         var existingFileResponse = _responseBuilder.BuildFileContentResponse(existingContent, filePath);
         MockServer
             .Given(Request.Create()
-                .WithPath($"/api/v3/repositories/{repositoryId}/contents/{filePath}")
+                .WithPath($"/repositories/{repositoryId}/contents/{filePath}")
                 .UsingGet())
             .RespondWith(Response.Create()
                 .WithStatusCode(200)
@@ -201,7 +201,7 @@ public class FileCrudOperationsTests : GitHubServiceIntegrationTestBase
         var fileUpdateResponse = _responseBuilder.BuildFileUpdateResponse(newContent, filePath, sha, "Update existing-file.md");
         MockServer
             .Given(Request.Create()
-                .WithPath($"/api/v3/repositories/{repositoryId}/contents/{filePath}")
+                .WithPath($"/repositories/{repositoryId}/contents/{filePath}")
                 .UsingPut())
             .RespondWith(Response.Create()
                 .WithStatusCode(200)
@@ -237,7 +237,7 @@ public class FileCrudOperationsTests : GitHubServiceIntegrationTestBase
         var repoJson = _responseBuilder.BuildRepositoryResponse(repositoryId, repoName, false);
         MockServer
             .Given(Request.Create()
-                .WithPath($"/api/v3/repositories/{repositoryId}")
+                .WithPath($"/repositories/{repositoryId}")
                 .UsingGet())
             .RespondWith(Response.Create()
                 .WithStatusCode(200)
@@ -247,7 +247,7 @@ public class FileCrudOperationsTests : GitHubServiceIntegrationTestBase
         // Mock GET file - file not found (returns empty array)
         MockServer
             .Given(Request.Create()
-                .WithPath($"/api/v3/repositories/{repositoryId}/contents/{filePath}")
+                .WithPath($"/repositories/{repositoryId}/contents/{filePath}")
                 .UsingGet())
             .RespondWith(Response.Create()
                 .WithStatusCode(200)
@@ -282,7 +282,7 @@ public class FileCrudOperationsTests : GitHubServiceIntegrationTestBase
         var repoJson = _responseBuilder.BuildRepositoryResponse(repositoryId, repoName, false);
         MockServer
             .Given(Request.Create()
-                .WithPath($"/api/v3/repositories/{repositoryId}")
+                .WithPath($"/repositories/{repositoryId}")
                 .UsingGet())
             .RespondWith(Response.Create()
                 .WithStatusCode(200)
@@ -293,7 +293,7 @@ public class FileCrudOperationsTests : GitHubServiceIntegrationTestBase
         var existingFileResponse = _responseBuilder.BuildFileContentResponse(existingContent, filePath);
         MockServer
             .Given(Request.Create()
-                .WithPath($"/api/v3/repositories/{repositoryId}/contents/{filePath}")
+                .WithPath($"/repositories/{repositoryId}/contents/{filePath}")
                 .UsingGet())
             .RespondWith(Response.Create()
                 .WithStatusCode(200)
@@ -304,7 +304,7 @@ public class FileCrudOperationsTests : GitHubServiceIntegrationTestBase
         var fileDeleteResponse = _responseBuilder.BuildFileDeleteResponse(filePath, sha, "Delete file-to-delete.md");
         MockServer
             .Given(Request.Create()
-                .WithPath($"/api/v3/repositories/{repositoryId}/contents/{filePath}")
+                .WithPath($"/repositories/{repositoryId}/contents/{filePath}")
                 .UsingDelete())
             .RespondWith(Response.Create()
                 .WithStatusCode(200)
@@ -339,7 +339,7 @@ public class FileCrudOperationsTests : GitHubServiceIntegrationTestBase
         var repoJson = _responseBuilder.BuildRepositoryResponse(repositoryId, repoName, false);
         MockServer
             .Given(Request.Create()
-                .WithPath($"/api/v3/repositories/{repositoryId}")
+                .WithPath($"/repositories/{repositoryId}")
                 .UsingGet())
             .RespondWith(Response.Create()
                 .WithStatusCode(200)
@@ -349,7 +349,7 @@ public class FileCrudOperationsTests : GitHubServiceIntegrationTestBase
         // Mock GET file - file not found (returns empty array)
         MockServer
             .Given(Request.Create()
-                .WithPath($"/api/v3/repositories/{repositoryId}/contents/{filePath}")
+                .WithPath($"/repositories/{repositoryId}/contents/{filePath}")
                 .UsingGet())
             .RespondWith(Response.Create()
                 .WithStatusCode(200)
@@ -383,7 +383,7 @@ public class FileCrudOperationsTests : GitHubServiceIntegrationTestBase
         var repoJson = _responseBuilder.BuildRepositoryResponse(12345, repoName, false);
         MockServer
             .Given(Request.Create()
-                .WithPath($"/api/v3/repos/{Options.OrganizationName}/{repoName}")
+                .WithPath($"/repos/{Options.OrganizationName}/{repoName}")
                 .UsingGet())
             .RespondWith(Response.Create()
                 .WithStatusCode(200)
@@ -394,7 +394,7 @@ public class FileCrudOperationsTests : GitHubServiceIntegrationTestBase
         var existingFileResponse = _responseBuilder.BuildFileContentResponse(existingContent, filePath);
         MockServer
             .Given(Request.Create()
-                .WithPath($"/api/v3/repos/{Options.OrganizationName}/{repoName}/contents/{filePath}")
+                .WithPath($"/repos/{Options.OrganizationName}/{repoName}/contents/{filePath}")
                 .UsingGet())
             .RespondWith(Response.Create()
                 .WithStatusCode(200)
@@ -405,7 +405,7 @@ public class FileCrudOperationsTests : GitHubServiceIntegrationTestBase
         var fileDeleteResponse = _responseBuilder.BuildFileDeleteResponse(filePath, sha, "Delete file-to-delete.md");
         MockServer
             .Given(Request.Create()
-                .WithPath($"/api/v3/repos/{Options.OrganizationName}/{repoName}/contents/{filePath}")
+                .WithPath($"/repos/{Options.OrganizationName}/{repoName}/contents/{filePath}")
                 .UsingDelete())
             .RespondWith(Response.Create()
                 .WithStatusCode(200)
@@ -439,7 +439,7 @@ public class FileCrudOperationsTests : GitHubServiceIntegrationTestBase
         var repoJson = _responseBuilder.BuildRepositoryResponse(12345, repoName, false);
         MockServer
             .Given(Request.Create()
-                .WithPath($"/api/v3/repos/{Options.OrganizationName}/{repoName}")
+                .WithPath($"/repos/{Options.OrganizationName}/{repoName}")
                 .UsingGet())
             .RespondWith(Response.Create()
                 .WithStatusCode(200)
@@ -449,7 +449,7 @@ public class FileCrudOperationsTests : GitHubServiceIntegrationTestBase
         // Mock GET file - file not found (returns empty array)
         MockServer
             .Given(Request.Create()
-                .WithPath($"/api/v3/repos/{Options.OrganizationName}/{repoName}/contents/{filePath}")
+                .WithPath($"/repos/{Options.OrganizationName}/{repoName}/contents/{filePath}")
                 .UsingGet())
             .RespondWith(Response.Create()
                 .WithStatusCode(200)

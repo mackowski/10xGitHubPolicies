@@ -11,10 +11,16 @@ All notable changes to this project will be documented in this file.
   - Outputs test results to `./coverage/` directory as TRX files
   - Provides faster feedback cycle by catching issues before pushing to GitHub
   - Same test filters and configuration as CI/CD workflow ensures consistency
+- **Enhanced GitHubClientFactory**: Improved test infrastructure support
+  - Added support for custom `HttpClientHandler` in `GitHubClientFactory`
+  - Enables better SSL certificate handling for test scenarios
+  - Supports custom HTTP configuration for WireMock integration
+  - Maintains backward compatibility with existing implementations
 - **Integration Test SSL Certificate Handling**: Enhanced WireMock fixture for HTTPS support
-  - Added SSL certificate validation callback configuration in `GitHubApiFixture`
+  - Updated `GitHubApiFixture` to use `HttpClientHandler` instead of `ServicePointManager`
+  - Modern .NET Core approach for SSL certificate validation
   - Handles self-signed certificates from WireMock server
-  - Properly resets certificate validation callback in cleanup to avoid side effects
+  - Properly disposes of HttpClientHandler in cleanup to avoid resource leaks
   - Enables realistic SSL communication testing without certificate errors
 
 ### Changed
