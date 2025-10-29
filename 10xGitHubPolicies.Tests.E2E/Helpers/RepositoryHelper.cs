@@ -40,7 +40,7 @@ public static class RepositoryHelper
     {
         Console.WriteLine("🔍 Verifying repositories are visible to GitHub API...");
         var allRepos = await gitHubService.GetOrganizationRepositoriesAsync();
-        
+
         var foundRepos = new List<Octokit.Repository>();
         foreach (var repoName in repositoryNames)
         {
@@ -48,12 +48,12 @@ public static class RepositoryHelper
             foundRepos.Add(repo!);
             Console.WriteLine($"🔍 Repository {repoName} visible: {repo != null} (ID: {repo?.Id})");
         }
-        
+
         if (foundRepos.Any(r => r == null))
         {
             Console.WriteLine("❌ Some test repositories are not visible to GitHub API yet. Waiting longer...");
             await Task.Delay(10000);
-            
+
             // Try again
             allRepos = await gitHubService.GetOrganizationRepositoriesAsync();
             foundRepos.Clear();
@@ -89,14 +89,14 @@ public static class RepositoryHelper
         {
             var issues = await gitHubService.GetRepositoryIssuesAsync(repositoryName);
             policyViolationIssues = issues.Where(i => i.Labels.Any(l => l.Name == "policy-violation")).ToList();
-            
+
             if (policyViolationIssues.Any())
             {
                 Console.WriteLine($"✅ Found {policyViolationIssues.Count} policy violation issues for {repositoryName}");
                 issuesFound = true;
                 break;
             }
-            
+
             await Task.Delay(2000); // Wait 2 seconds between retries
         }
 

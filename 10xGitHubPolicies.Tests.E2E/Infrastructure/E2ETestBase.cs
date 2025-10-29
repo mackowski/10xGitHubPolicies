@@ -25,7 +25,7 @@ public abstract class E2ETestBase : PageTest
     protected ApplicationDbContext DbContext => ServiceProvider.GetRequiredService<ApplicationDbContext>();
     protected IGitHubService GitHubService => ServiceProvider.GetRequiredService<IGitHubService>();
     protected string BaseUrl => TestConstants.BaseUrl;
-    
+
     [SetUp]
     public async Task SetupAsync()
     {
@@ -33,14 +33,14 @@ public abstract class E2ETestBase : PageTest
         // This is separate from the web application you're testing
         Host = CreateTestHost();
         await Host.StartAsync();
-        
+
         Console.WriteLine($"🚀 Test services started (separate from web app at {BaseUrl})");
         Console.WriteLine($"🌐 Testing against manually running web app at {BaseUrl}");
-        
+
         // Verify the web app is running
         await VerifyWebAppIsRunning();
     }
-    
+
     [TearDown]
     public async Task TearDownAsync()
     {
@@ -50,7 +50,7 @@ public abstract class E2ETestBase : PageTest
             Host.Dispose();
         }
     }
-    
+
     private async Task VerifyWebAppIsRunning()
     {
         try
@@ -67,7 +67,7 @@ public abstract class E2ETestBase : PageTest
             throw new InvalidOperationException($"Web application is not running at {BaseUrl}. Start it with: dotnet run --launch-profile https", ex);
         }
     }
-    
+
     internal static IHost CreateTestHost()
     {
         var hostBuilder = Microsoft.Extensions.Hosting.Host.CreateDefaultBuilder()
@@ -80,31 +80,31 @@ public abstract class E2ETestBase : PageTest
             {
                 // Add logging
                 services.AddLogging(builder => builder.AddConsole());
-                
+
                 // Add memory cache
                 services.AddMemoryCache();
-                
+
                 // Add application services
                 services.AddDbContext<ApplicationDbContext>(options =>
                     options.UseSqlServer(context.Configuration.GetConnectionString("DefaultConnection")));
-                
+
                 // Configure GitHub App options
                 services.Configure<GitHubAppOptions>(context.Configuration.GetSection(GitHubAppOptions.GitHubApp));
-                
+
                 // Register GitHub client factory
                 services.AddSingleton<IGitHubClientFactory>(sp =>
                 {
                     var options = sp.GetRequiredService<IOptions<GitHubAppOptions>>();
                     return new GitHubClientFactory(options.Value.BaseUrl);
                 });
-                
+
                 services.AddScoped<IGitHubService, GitHubService>();
-                
+
                 // Add test-specific services
                 services.AddScoped<ITestDataManager, TestDataManager>();
                 services.AddScoped<ITestCleanupService, TestCleanupService>();
             });
-            
+
         return hostBuilder.Build();
     }
 }

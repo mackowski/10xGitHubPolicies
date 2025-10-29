@@ -14,7 +14,7 @@ public class RateLimitHandlingTests : GitHubServiceIntegrationTestBase
     public RateLimitHandlingTests(GitHubApiFixture fixture) : base(fixture)
     {
     }
-    
+
     /// <summary>
     /// TC-GITHUB-002: Rate Limit - 429 Response
     /// TC-PERF-002: Verifies that rate limit exceeded errors are handled appropriately
@@ -24,9 +24,9 @@ public class RateLimitHandlingTests : GitHubServiceIntegrationTestBase
     {
         // Arrange
         SetupGitHubAppAuthentication();
-        
+
         const long repositoryId = 12345;
-        
+
         MockServer
             .Given(Request.Create()
                 .WithPath($"/api/v3/repositories/{repositoryId}")
@@ -42,16 +42,16 @@ public class RateLimitHandlingTests : GitHubServiceIntegrationTestBase
                     ""documentation_url"": ""https://docs.github.com/rest/overview/resources-in-the-rest-api#rate-limiting""
                 }")
                 .WithHeader("Content-Type", "application/json"));
-        
+
         // Act
         var act = async () => await Sut.GetRepositorySettingsAsync(repositoryId);
-        
+
         // Assert
         // Note: Octokit throws ApiException (not RateLimitExceededException) for 429 responses in our mock
         await act.Should().ThrowAsync<ApiException>()
             .WithMessage("*rate limit*");
     }
-    
+
     /// <summary>
     /// TC-GITHUB-002: Secondary Rate Limit - 403 with Retry-After
     /// Verifies that secondary rate limits (abuse detection) are handled
@@ -61,9 +61,9 @@ public class RateLimitHandlingTests : GitHubServiceIntegrationTestBase
     {
         // Arrange
         SetupGitHubAppAuthentication();
-        
+
         const long repositoryId = 12345;
-        
+
         MockServer
             .Given(Request.Create()
                 .WithPath($"/api/v3/repositories/{repositoryId}")
@@ -77,17 +77,17 @@ public class RateLimitHandlingTests : GitHubServiceIntegrationTestBase
                     ""documentation_url"": ""https://docs.github.com/rest/overview/resources-in-the-rest-api#secondary-rate-limits""
                 }")
                 .WithHeader("Content-Type", "application/json"));
-        
+
         // Act
         var act = async () => await Sut.GetRepositorySettingsAsync(repositoryId);
-        
+
         // Assert
         await act.Should().ThrowAsync<ForbiddenException>();
-        
+
         // Note: In a real implementation, the service should log a warning
         // about secondary rate limits and potentially implement retry logic
     }
-    
+
     /// <summary>
     /// Rate Limit Headers - Monitors Remaining
     /// Verifies that rate limit headers are accessible in responses
@@ -98,10 +98,10 @@ public class RateLimitHandlingTests : GitHubServiceIntegrationTestBase
     {
         // Arrange
         SetupGitHubAppAuthentication();
-        
+
         const long repositoryId = 12345;
         const string repoName = "test-repo";
-        
+
         var repoJson = $$"""
         {
           "id": {{repositoryId}},
@@ -116,7 +116,7 @@ public class RateLimitHandlingTests : GitHubServiceIntegrationTestBase
           }
         }
         """;
-        
+
         MockServer
             .Given(Request.Create()
                 .WithPath($"/api/v3/repositories/{repositoryId}")
@@ -129,20 +129,20 @@ public class RateLimitHandlingTests : GitHubServiceIntegrationTestBase
                 .WithHeader("X-RateLimit-Used", "150")
                 .WithBody(repoJson)
                 .WithHeader("Content-Type", "application/json"));
-        
+
         // Act
         var result = await Sut.GetRepositorySettingsAsync(repositoryId);
-        
+
         // Assert
         result.Should().NotBeNull();
         result.Id.Should().Be(repositoryId);
-        
+
         // Note: To properly test rate limit monitoring, GitHubService would need to:
         // 1. Expose rate limit information through a separate property or method
         // 2. Log warnings when remaining calls drop below threshold (e.g., 100)
         // 3. Potentially implement throttling when approaching limit
     }
-    
+
     /// <summary>
     /// Rate Limit Recovery
     /// Verifies that API calls succeed after rate limit reset
@@ -152,10 +152,10 @@ public class RateLimitHandlingTests : GitHubServiceIntegrationTestBase
     {
         // Arrange
         SetupGitHubAppAuthentication();
-        
+
         const long repositoryId = 12345;
         const string repoName = "test-repo";
-        
+
         // First call - rate limit exceeded
         MockServer
             .Given(Request.Create()
@@ -169,7 +169,7 @@ public class RateLimitHandlingTests : GitHubServiceIntegrationTestBase
                 .WithHeader("Retry-After", "1")
                 .WithBody(@"{""message"": ""API rate limit exceeded""}")
                 .WithHeader("Content-Type", "application/json"));
-        
+
         // Second call - after reset, success
         var repoJson = $$"""
         {
@@ -185,7 +185,7 @@ public class RateLimitHandlingTests : GitHubServiceIntegrationTestBase
           }
         }
         """;
-        
+
         MockServer
             .Given(Request.Create()
                 .WithPath($"/api/v3/repositories/{repositoryId}")
@@ -198,13 +198,13 @@ public class RateLimitHandlingTests : GitHubServiceIntegrationTestBase
                 .WithHeader("X-RateLimit-Remaining", "5000")
                 .WithBody(repoJson)
                 .WithHeader("Content-Type", "application/json"));
-        
+
         // Act & Assert
         // First call should throw
         var firstCall = async () => await Sut.GetRepositorySettingsAsync(repositoryId);
         // Note: Octokit throws ApiException (not RateLimitExceededException) for 429 responses in our mock
         await firstCall.Should().ThrowAsync<ApiException>();
-        
+
         // Second call should succeed (after hypothetical retry or wait)
         var result = await Sut.GetRepositorySettingsAsync(repositoryId);
         result.Should().NotBeNull();

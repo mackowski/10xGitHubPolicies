@@ -1,4 +1,8 @@
+using System.Security.Claims;
+
+using _10xGitHubPolicies.App.Authorization;
 using _10xGitHubPolicies.App.Data;
+using _10xGitHubPolicies.App.Middleware;
 using _10xGitHubPolicies.App.Options;
 using _10xGitHubPolicies.App.Services.Action;
 using _10xGitHubPolicies.App.Services.Authorization;
@@ -11,17 +15,14 @@ using _10xGitHubPolicies.App.Services.Scanning;
 
 using Hangfire;
 
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
+using Microsoft.AspNetCore.HttpsPolicy;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using Microsoft.FluentUI.AspNetCore.Components;
-using Microsoft.AspNetCore.Authentication.Cookies;
-using Microsoft.AspNetCore.Authentication;
-using System.Security.Claims;
-using Microsoft.AspNetCore.HttpsPolicy;
-using _10xGitHubPolicies.App.Authorization;
-using _10xGitHubPolicies.App.Middleware;
 
 var builder = WebApplication.CreateBuilder(args);
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
@@ -76,7 +77,7 @@ if (!testModeOptions.Enabled)
         options.CallbackPath = "/signin-github";
         options.Scope.Add("read:org");
         options.SaveTokens = true; // Save access token for team verification
-        
+
         // Configure OAuth events to handle failures gracefully
         options.Events.OnRemoteFailure = context =>
         {

@@ -1,7 +1,9 @@
+using System.Security.Claims;
+
+using _10xGitHubPolicies.App.Options;
+
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.Extensions.Options;
-using System.Security.Claims;
-using _10xGitHubPolicies.App.Options;
 
 namespace _10xGitHubPolicies.App.Middleware;
 
@@ -43,7 +45,7 @@ public class TestModeAuthenticationMiddleware
 
             // Create authentication properties (no access token needed in test mode)
             var properties = new AuthenticationProperties();
-            
+
             // Set authentication result
             var authResult = AuthenticateResult.Success(new AuthenticationTicket(principal, properties, "TestMode"));
             context.Features.Set<IAuthenticateResultFeature>(new AuthenticateResultFeature { AuthenticateResult = authResult });

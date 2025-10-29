@@ -13,12 +13,12 @@ namespace _10xGitHubPolicies.Tests.Integration.GitHub;
 public class RepositoryOperationsTests : GitHubServiceIntegrationTestBase
 {
     private readonly GitHubApiResponseBuilder _responseBuilder;
-    
+
     public RepositoryOperationsTests(GitHubApiFixture fixture) : base(fixture)
     {
         _responseBuilder = new GitHubApiResponseBuilder();
     }
-    
+
     /// <summary>
     /// GetOrganizationRepositoriesAsync - Success
     /// Verifies that GetOrganizationRepositoriesAsync returns list of repositories
@@ -28,13 +28,13 @@ public class RepositoryOperationsTests : GitHubServiceIntegrationTestBase
     {
         // Arrange
         SetupGitHubAppAuthentication();
-        
+
         var repo1 = _responseBuilder.BuildRepositoryResponse(12345, "repo1", false);
         var repo2 = _responseBuilder.BuildRepositoryResponse(12346, "repo2", false);
         var repo3 = _responseBuilder.BuildRepositoryResponse(12347, "repo3", true);
-        
+
         var repositoriesJson = $"[{repo1},{repo2},{repo3}]";
-        
+
         MockServer
             .Given(Request.Create()
                 .WithPath($"/api/v3/orgs/{Options.OrganizationName}/repos")
@@ -43,10 +43,10 @@ public class RepositoryOperationsTests : GitHubServiceIntegrationTestBase
                 .WithStatusCode(200)
                 .WithBody(repositoriesJson)
                 .WithHeader("Content-Type", "application/json"));
-        
+
         // Act
         var result = await Sut.GetOrganizationRepositoriesAsync();
-        
+
         // Assert
         result.Should().NotBeNull();
         result.Should().HaveCount(3);
@@ -55,7 +55,7 @@ public class RepositoryOperationsTests : GitHubServiceIntegrationTestBase
         result[0].Archived.Should().BeFalse();
         result[2].Archived.Should().BeTrue();
     }
-    
+
     /// <summary>
     /// GetRepositorySettingsAsync - Success
     /// Verifies that GetRepositorySettingsAsync returns repository details
@@ -65,12 +65,12 @@ public class RepositoryOperationsTests : GitHubServiceIntegrationTestBase
     {
         // Arrange
         SetupGitHubAppAuthentication();
-        
+
         const long repositoryId = 12345;
         const string repoName = "test-repo";
-        
+
         var repoJson = _responseBuilder.BuildRepositoryResponse(repositoryId, repoName, false);
-        
+
         MockServer
             .Given(Request.Create()
                 .WithPath($"/api/v3/repositories/{repositoryId}")
@@ -79,17 +79,17 @@ public class RepositoryOperationsTests : GitHubServiceIntegrationTestBase
                 .WithStatusCode(200)
                 .WithBody(repoJson)
                 .WithHeader("Content-Type", "application/json"));
-        
+
         // Act
         var result = await Sut.GetRepositorySettingsAsync(repositoryId);
-        
+
         // Assert
         result.Should().NotBeNull();
         result.Id.Should().Be(repositoryId);
         result.Name.Should().Be(repoName);
         result.Archived.Should().BeFalse();
     }
-    
+
     /// <summary>
     /// GetRepositorySettingsAsync - Not Found
     /// Verifies that GetRepositorySettingsAsync throws NotFoundException for invalid repository
@@ -99,9 +99,9 @@ public class RepositoryOperationsTests : GitHubServiceIntegrationTestBase
     {
         // Arrange
         SetupGitHubAppAuthentication();
-        
+
         const long invalidRepositoryId = 99999;
-        
+
         MockServer
             .Given(Request.Create()
                 .WithPath($"/repositories/{invalidRepositoryId}")
@@ -110,14 +110,14 @@ public class RepositoryOperationsTests : GitHubServiceIntegrationTestBase
                 .WithStatusCode(404)
                 .WithBody("{\"message\": \"Not Found\"}")
                 .WithHeader("Content-Type", "application/json"));
-        
+
         // Act
         var act = async () => await Sut.GetRepositorySettingsAsync(invalidRepositoryId);
-        
+
         // Assert
         await act.Should().ThrowAsync<NotFoundException>();
     }
-    
+
     /// <summary>
     /// TC-ACTION-002: ArchiveRepositoryAsync - Success
     /// Verifies that ArchiveRepositoryAsync sets repository to archived state
@@ -127,13 +127,13 @@ public class RepositoryOperationsTests : GitHubServiceIntegrationTestBase
     {
         // Arrange
         SetupGitHubAppAuthentication();
-        
+
         const long repositoryId = 12345;
         const string repoName = "repo-to-archive";
-        
+
         // Mock the PATCH request to archive the repository
         var archivedRepoJson = _responseBuilder.BuildRepositoryResponse(repositoryId, repoName, true);
-        
+
         MockServer
             .Given(Request.Create()
                 .WithPath($"/api/v3/repositories/{repositoryId}")
@@ -143,17 +143,17 @@ public class RepositoryOperationsTests : GitHubServiceIntegrationTestBase
                 .WithStatusCode(200)
                 .WithBody(archivedRepoJson)
                 .WithHeader("Content-Type", "application/json"));
-        
+
         // Act
         await Sut.ArchiveRepositoryAsync(repositoryId);
-        
+
         // Assert - Verify the mock server received the archive request
         var requests = MockServer.LogEntries;
-        requests.Should().ContainSingle(r => 
-            r.RequestMessage.Path.Contains(repositoryId.ToString()) && 
+        requests.Should().ContainSingle(r =>
+            r.RequestMessage.Path.Contains(repositoryId.ToString()) &&
             r.RequestMessage.Method == "PATCH");
     }
-    
+
     /// <summary>
     /// ArchiveRepositoryAsync - Invalid Repository
     /// Verifies that ArchiveRepositoryAsync throws exception for invalid repository
@@ -163,7 +163,7 @@ public class RepositoryOperationsTests : GitHubServiceIntegrationTestBase
     {
         // Arrange
         SetupGitHubAppAuthentication();
-        
+
         const long invalidRepositoryId = 99999;
 
         MockServer
@@ -174,10 +174,10 @@ public class RepositoryOperationsTests : GitHubServiceIntegrationTestBase
                 .WithStatusCode(404)
                 .WithBody("{\"message\": \"Not Found\"}")
                 .WithHeader("Content-Type", "application/json"));
-        
+
         // Act
         var act = async () => await Sut.ArchiveRepositoryAsync(invalidRepositoryId);
-        
+
         // Assert
         await act.Should().ThrowAsync<NotFoundException>();
     }

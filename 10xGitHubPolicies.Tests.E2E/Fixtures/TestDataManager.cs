@@ -27,7 +27,7 @@ public class TestDataManager : ITestDataManager
         // Create compliant repository
         var compliantRepoObj = await _gitHubService.CreateRepositoryAsync(compliantRepo, "E2E test compliant repository", true);
         _logger.LogInformation("Created compliant test repository: {RepoName}", compliantRepo);
-        
+
         // Add AGENTS.md file to make it compliant
         await _gitHubService.CreateFileAsync(compliantRepoObj.Id, "AGENTS.md", "# AGENTS.md\n\nThis is a test AGENTS.md file for E2E testing.", "Add AGENTS.md for compliance testing");
         _logger.LogInformation("Added AGENTS.md to compliant repository: {RepoName}", compliantRepo);
@@ -44,14 +44,14 @@ public class TestDataManager : ITestDataManager
     {
         var timestamp = DateTime.UtcNow.ToString("yyyyMMdd-HHmmss");
         var repoName = $"e2e-test-compliant-{name}-{timestamp}";
-        
+
         var repo = await _gitHubService.CreateRepositoryAsync(repoName, "E2E test compliant repository", true);
         _logger.LogInformation("Created compliant test repository: {RepoName}", repoName);
-        
+
         // Create AGENTS.md file to make it compliant
         await _gitHubService.CreateFileAsync(repo.Id, "AGENTS.md", "# AGENTS.md\n\nThis is a test AGENTS.md file for E2E testing.", "Add AGENTS.md for compliance testing");
         _logger.LogInformation("Added AGENTS.md to compliant repository: {RepoName}", repoName);
-        
+
         return repo;
     }
 
@@ -59,13 +59,13 @@ public class TestDataManager : ITestDataManager
     {
         var timestamp = DateTime.UtcNow.ToString("yyyyMMdd-HHmmss");
         var repoName = $"e2e-test-non-compliant-{name}-{timestamp}";
-        
+
         var repo = await _gitHubService.CreateRepositoryAsync(repoName, "E2E test non-compliant repository", true);
         _logger.LogInformation("Created non-compliant test repository: {RepoName} with violations: {Violations}", repoName, string.Join(", ", violations));
-        
+
         // Intentionally don't create AGENTS.md to make it non-compliant
         // This simulates a repository that violates the has_agents_md policy
-        
+
         return repo;
     }
 }

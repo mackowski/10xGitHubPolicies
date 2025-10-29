@@ -19,11 +19,11 @@ public class GitHubApiSnapshotTests : GitHubContractTestBase
     {
         // Arrange
         SetupGitHubAppAuthentication();
-        
+
         var repositoryId = 123456L; // Fixed for snapshot stability
         var repoName = "test-repo";
         var orgName = Options.OrganizationName;
-        
+
         var repositoryResponse = new
         {
             id = repositoryId,
@@ -42,7 +42,7 @@ public class GitHubApiSnapshotTests : GitHubContractTestBase
             created_at = "2024-01-01T00:00:00Z",
             updated_at = "2024-01-02T00:00:00Z"
         };
-        
+
         MockServer
             .Given(Request.Create()
                 .WithPath($"/api/v3/repositories/{repositoryId}")
@@ -51,17 +51,17 @@ public class GitHubApiSnapshotTests : GitHubContractTestBase
                 .WithStatusCode(200)
                 .WithHeader("Content-Type", "application/json")
                 .WithBodyAsJson(repositoryResponse));
-        
+
         // Act
         var result = await Sut.GetRepositorySettingsAsync(repositoryId);
-        
+
         // Assert - Snapshot test
         await Verify(result)
             .UseDirectory("Snapshots")
             .UseMethodName("RepositoryResponse")
             .ScrubMembers("CreatedAt", "UpdatedAt", "PushedAt"); // Scrub dynamic date values
     }
-    
+
     /// <summary>
     /// File Content Response Structure
     /// Verifies that GetFileContentAsync response structure remains stable
@@ -71,13 +71,13 @@ public class GitHubApiSnapshotTests : GitHubContractTestBase
     {
         // Arrange
         SetupGitHubAppAuthentication();
-        
+
         var repoName = "test-repo";
         var orgName = Options.OrganizationName;
         var filePath = ".github/config.yaml";
         var fileContent = "test: value";
         var encodedContent = Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(fileContent));
-        
+
         // Mock file content response
         var fileContentResponse = new
         {
@@ -89,7 +89,7 @@ public class GitHubApiSnapshotTests : GitHubContractTestBase
             content = encodedContent,
             encoding = "base64"
         };
-        
+
         MockServer
             .Given(Request.Create()
                 .WithPath($"/api/v3/repos/{orgName}/{repoName}/contents/{filePath}")
@@ -98,17 +98,17 @@ public class GitHubApiSnapshotTests : GitHubContractTestBase
                 .WithStatusCode(200)
                 .WithHeader("Content-Type", "application/json")
                 .WithBodyAsJson(fileContentResponse));
-        
+
         // Act
         var result = await Sut.GetFileContentAsync(repoName, filePath);
-        
+
         // Assert - Snapshot test
         await Verify(new { content = result, structure = fileContentResponse })
             .UseDirectory("Snapshots")
             .UseMethodName("FileContentResponse")
             .ScrubMembers("sha"); // Scrub dynamic SHA values
     }
-    
+
     /// <summary>
     /// Issue Response Structure
     /// Verifies that CreateIssueAsync response structure remains stable
@@ -118,13 +118,13 @@ public class GitHubApiSnapshotTests : GitHubContractTestBase
     {
         // Arrange
         SetupGitHubAppAuthentication();
-        
+
         var repositoryId = 123456L;
         var repoName = "test-repo";
         var orgName = Options.OrganizationName;
         var issueNumber = 42;
         var issueId = 789L;
-        
+
         // Mock issue creation using repositoryId endpoint
         var issueResponse = new
         {
@@ -142,7 +142,7 @@ public class GitHubApiSnapshotTests : GitHubContractTestBase
             created_at = "2024-01-01T00:00:00Z",
             updated_at = "2024-01-02T00:00:00Z"
         };
-        
+
         MockServer
             .Given(Request.Create()
                 .WithPath($"/api/v3/repositories/{repositoryId}/issues")
@@ -151,21 +151,21 @@ public class GitHubApiSnapshotTests : GitHubContractTestBase
                 .WithStatusCode(201)
                 .WithHeader("Content-Type", "application/json")
                 .WithBodyAsJson(issueResponse));
-        
+
         // Act
         var result = await Sut.CreateIssueAsync(
             repositoryId,
             "Test Issue",
             "Test body",
             new[] { "policy-violation", "auto-generated" });
-        
+
         // Assert - Snapshot test
         await Verify(result)
             .UseDirectory("Snapshots")
             .UseMethodName("IssueResponse")
             .ScrubMembers("Id", "Number", "CreatedAt", "UpdatedAt", "HtmlUrl");
     }
-    
+
     /// <summary>
     /// Workflow Permissions Response Structure
     /// Verifies that GetWorkflowPermissionsAsync response structure remains stable
@@ -175,11 +175,11 @@ public class GitHubApiSnapshotTests : GitHubContractTestBase
     {
         // Arrange
         SetupGitHubAppAuthentication();
-        
+
         var repositoryId = 123456L;
         var repoName = "test-repo";
         var orgName = Options.OrganizationName;
-        
+
         // Mock repository lookup
         MockServer
             .Given(Request.Create()
@@ -195,14 +195,14 @@ public class GitHubApiSnapshotTests : GitHubContractTestBase
                     full_name = $"{orgName}/{repoName}",
                     owner = new { login = orgName, type = "Organization" }
                 }));
-        
+
         // Mock workflow permissions response
         var workflowPermissionsResponse = new
         {
             default_workflow_permissions = "read",
             can_approve_pull_request_reviews = true
         };
-        
+
         MockServer
             .Given(Request.Create()
                 .WithPath($"/api/v3/repos/{orgName}/{repoName}/actions/permissions/workflow")
@@ -211,16 +211,16 @@ public class GitHubApiSnapshotTests : GitHubContractTestBase
                 .WithStatusCode(200)
                 .WithHeader("Content-Type", "application/json")
                 .WithBodyAsJson(workflowPermissionsResponse));
-        
+
         // Act
         var result = await Sut.GetWorkflowPermissionsAsync(repositoryId);
-        
+
         // Assert - Snapshot test (capture the result string)
         await Verify(new { permissions = result, apiResponse = workflowPermissionsResponse })
             .UseDirectory("Snapshots")
             .UseMethodName("WorkflowPermissionsResponse");
     }
-    
+
     /// <summary>
     /// Team Membership Response Structure
     /// Verifies that IsUserMemberOfTeamAsync response structure remains stable
@@ -234,10 +234,10 @@ public class GitHubApiSnapshotTests : GitHubContractTestBase
         var teamId = 123;
         var username = "test-user";
         var userId = 456;
-        
+
         // Note: This method uses user token, not app authentication
         // So we don't call SetupGitHubAppAuthentication()
-        
+
         // Mock team lookup
         MockServer
             .Given(Request.Create()
@@ -253,7 +253,7 @@ public class GitHubApiSnapshotTests : GitHubContractTestBase
                     slug = teamSlug,
                     description = "Test team description"
                 }));
-        
+
         // Mock current user
         MockServer
             .Given(Request.Create()
@@ -268,7 +268,7 @@ public class GitHubApiSnapshotTests : GitHubContractTestBase
                     id = userId,
                     type = "User"
                 }));
-        
+
         // Mock team membership
         MockServer
             .Given(Request.Create()
@@ -282,11 +282,11 @@ public class GitHubApiSnapshotTests : GitHubContractTestBase
                     state = "active",
                     role = "member"
                 }));
-        
+
         // Act
         var userToken = "ghu_testtoken123";
         var result = await Sut.IsUserMemberOfTeamAsync(userToken, orgName, teamSlug);
-        
+
         // Assert - Snapshot test (capture the boolean result and mock responses)
         var captureData = new
         {
@@ -298,7 +298,7 @@ public class GitHubApiSnapshotTests : GitHubContractTestBase
                 membership = new { state = "active", role = "member" }
             }
         };
-        
+
         await Verify(captureData)
             .UseDirectory("Snapshots")
             .UseMethodName("TeamMembershipResponse")

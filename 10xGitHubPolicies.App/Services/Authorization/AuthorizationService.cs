@@ -1,9 +1,11 @@
 using System.Security.Claims;
+
+using _10xGitHubPolicies.App.Exceptions;
+using _10xGitHubPolicies.App.Options;
 using _10xGitHubPolicies.App.Services.Configuration;
 using _10xGitHubPolicies.App.Services.GitHub;
-using _10xGitHubPolicies.App.Exceptions;
+
 using Microsoft.AspNetCore.Authentication;
-using _10xGitHubPolicies.App.Options;
 using Microsoft.Extensions.Options;
 
 namespace _10xGitHubPolicies.App.Services.Authorization;
@@ -87,7 +89,7 @@ public class AuthorizationService : IAuthorizationService
             // Check if user is a member of the authorized team
             _logger.LogInformation("Checking team membership for user. Org: {Org}, Team: {TeamSlug}", org, teamSlug);
             var isMember = await _gitHubService.IsUserMemberOfTeamAsync(accessToken, org, teamSlug);
-            
+
             _logger.LogInformation("User team membership check result: {IsMember} for team {Team}", isMember, authorizedTeam);
             return isMember;
         }

@@ -13,12 +13,12 @@ namespace _10xGitHubPolicies.Tests.Integration.GitHub;
 public class FileOperationsTests : GitHubServiceIntegrationTestBase
 {
     private readonly GitHubApiResponseBuilder _responseBuilder;
-    
+
     public FileOperationsTests(GitHubApiFixture fixture) : base(fixture)
     {
         _responseBuilder = new GitHubApiResponseBuilder();
     }
-    
+
     /// <summary>
     /// TC-GITHUB-003: FileExistsAsync - File Exists
     /// Verifies that FileExistsAsync returns true when a file exists in the repository
@@ -28,15 +28,15 @@ public class FileOperationsTests : GitHubServiceIntegrationTestBase
     {
         // Arrange
         SetupGitHubAppAuthentication(); // Setup authentication first!
-        
+
         const long repositoryId = 12345;
         const string filePath = "AGENTS.md";
-        
+
         var fileContent = _responseBuilder.BuildFileContentResponse(
-            "# Agents Documentation", 
+            "# Agents Documentation",
             filePath
         );
-        
+
         MockServer
             .Given(Request.Create()
                 .WithPath($"/api/v3/repositories/{repositoryId}/contents/{filePath}")
@@ -45,12 +45,12 @@ public class FileOperationsTests : GitHubServiceIntegrationTestBase
                 .WithStatusCode(200)
                 .WithBody(fileContent)
                 .WithHeader("Content-Type", "application/json"));
-        
+
         // Act
         try
         {
             var result = await Sut.FileExistsAsync(repositoryId, filePath);
-            
+
             // Assert
             result.Should().BeTrue();
         }
@@ -61,7 +61,7 @@ public class FileOperationsTests : GitHubServiceIntegrationTestBase
             throw;
         }
     }
-    
+
     /// <summary>
     /// TC-GITHUB-003: FileExistsAsync - File Not Found
     /// Verifies that FileExistsAsync returns false when a file doesn't exist
@@ -71,10 +71,10 @@ public class FileOperationsTests : GitHubServiceIntegrationTestBase
     {
         // Arrange
         SetupGitHubAppAuthentication();
-        
+
         const long repositoryId = 12345;
         const string filePath = "missing-file.md";
-        
+
         MockServer
             .Given(Request.Create()
                 .WithPath($"/api/v3/repositories/{repositoryId}/contents/{filePath}")
@@ -83,14 +83,14 @@ public class FileOperationsTests : GitHubServiceIntegrationTestBase
                 .WithStatusCode(404)
                 .WithBody("{\"message\": \"Not Found\"}")
                 .WithHeader("Content-Type", "application/json"));
-        
+
         // Act
         var result = await Sut.FileExistsAsync(repositoryId, filePath);
-        
+
         // Assert
         result.Should().BeFalse();
     }
-    
+
     /// <summary>
     /// TC-GITHUB-003: FileExistsAsync - Repository Not Found
     /// Verifies that FileExistsAsync returns false when repository doesn't exist
@@ -100,10 +100,10 @@ public class FileOperationsTests : GitHubServiceIntegrationTestBase
     {
         // Arrange
         SetupGitHubAppAuthentication();
-        
+
         const long invalidRepositoryId = 99999;
         const string filePath = "AGENTS.md";
-        
+
         MockServer
             .Given(Request.Create()
                 .WithPath($"/repositories/{invalidRepositoryId}/contents/{filePath}")
@@ -112,14 +112,14 @@ public class FileOperationsTests : GitHubServiceIntegrationTestBase
                 .WithStatusCode(404)
                 .WithBody("{\"message\": \"Not Found\"}")
                 .WithHeader("Content-Type", "application/json"));
-        
+
         // Act
         var result = await Sut.FileExistsAsync(invalidRepositoryId, filePath);
-        
+
         // Assert
         result.Should().BeFalse();
     }
-    
+
     /// <summary>
     /// TC-CONFIG-004: GetFileContentAsync - File Exists
     /// Verifies that GetFileContentAsync returns Base64-encoded content when file exists
@@ -129,13 +129,13 @@ public class FileOperationsTests : GitHubServiceIntegrationTestBase
     {
         // Arrange
         SetupGitHubAppAuthentication();
-        
+
         const string repoName = "test-repo";
         const string path = ".github/config.yaml";
         const string fileContent = "authorized_team: 'org/team'";
-        
+
         var responseJson = _responseBuilder.BuildFileContentResponse(fileContent, path);
-        
+
         MockServer
             .Given(Request.Create()
                 .WithPath($"/api/v3/repos/{Options.OrganizationName}/{repoName}/contents/{path}")
@@ -144,19 +144,19 @@ public class FileOperationsTests : GitHubServiceIntegrationTestBase
                 .WithStatusCode(200)
                 .WithBody(responseJson)
                 .WithHeader("Content-Type", "application/json"));
-        
+
         // Act
         var result = await Sut.GetFileContentAsync(repoName, path);
-        
+
         // Assert
         result.Should().NotBeNull();
-        
+
         // Decode Base64 to verify content
         var decodedBytes = Convert.FromBase64String(result!);
         var decodedContent = System.Text.Encoding.UTF8.GetString(decodedBytes);
         decodedContent.Should().Be(fileContent);
     }
-    
+
     /// <summary>
     /// TC-CONFIG-001: GetFileContentAsync - File Not Found
     /// Verifies that GetFileContentAsync returns null when file doesn't exist
@@ -166,10 +166,10 @@ public class FileOperationsTests : GitHubServiceIntegrationTestBase
     {
         // Arrange
         SetupGitHubAppAuthentication();
-        
+
         const string repoName = "test-repo";
         const string path = "missing-file.yaml";
-        
+
         MockServer
             .Given(Request.Create()
                 .WithPath($"/api/v3/repos/{Options.OrganizationName}/{repoName}/contents/{path}")
@@ -178,14 +178,14 @@ public class FileOperationsTests : GitHubServiceIntegrationTestBase
                 .WithStatusCode(404)
                 .WithBody("{\"message\": \"Not Found\"}")
                 .WithHeader("Content-Type", "application/json"));
-        
+
         // Act
         var result = await Sut.GetFileContentAsync(repoName, path);
-        
+
         // Assert
         result.Should().BeNull();
     }
-    
+
     /// <summary>
     /// GetFileContentAsync - Invalid Repository
     /// Verifies that GetFileContentAsync returns null when repository doesn't exist
@@ -195,10 +195,10 @@ public class FileOperationsTests : GitHubServiceIntegrationTestBase
     {
         // Arrange
         SetupGitHubAppAuthentication();
-        
+
         const string invalidRepoName = "non-existent-repo";
         const string path = "README.md";
-        
+
         MockServer
             .Given(Request.Create()
                 .WithPath($"/repos/{Options.OrganizationName}/{invalidRepoName}/contents/{path}")
@@ -207,10 +207,10 @@ public class FileOperationsTests : GitHubServiceIntegrationTestBase
                 .WithStatusCode(404)
                 .WithBody("{\"message\": \"Not Found\"}")
                 .WithHeader("Content-Type", "application/json"));
-        
+
         // Act
         var result = await Sut.GetFileContentAsync(invalidRepoName, path);
-        
+
         // Assert
         result.Should().BeNull();
     }

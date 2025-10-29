@@ -26,8 +26,8 @@ public class GitHubService : IGitHubService
     private const string InstallationTokenCacheKey = "GitHubInstallationToken";
 
     public GitHubService(
-        IOptions<GitHubAppOptions> options, 
-        ILogger<GitHubService> logger, 
+        IOptions<GitHubAppOptions> options,
+        ILogger<GitHubService> logger,
         IMemoryCache cache,
         IGitHubClientFactory? clientFactory = null)
     {
@@ -89,14 +89,14 @@ public class GitHubService : IGitHubService
             _logger.LogInformation("Attempting to get team {Org}/{TeamSlug}", org, teamSlug);
             var team = await userClient.Organization.Team.GetByName(org, teamSlug);
             _logger.LogInformation("Team found with ID: {TeamId}", team.Id);
-            
+
             var user = await userClient.User.Current();
             _logger.LogInformation("Current user: {UserLogin}", user.Login);
-            
+
             var membership = await userClient.Organization.Team.GetMembershipDetails(team.Id, user.Login);
             var isActive = membership.State.ToString().Equals("active", StringComparison.OrdinalIgnoreCase);
             _logger.LogInformation("Team membership state: {State}, Active: {IsActive}", membership.State, isActive);
-            
+
             return isActive;
         }
         catch (NotFoundException ex)
@@ -211,7 +211,7 @@ public class GitHubService : IGitHubService
             Private = isPrivate,
             AutoInit = true
         };
-        
+
         return await client.Repository.Create(_options.OrganizationName, newRepo);
     }
 
@@ -219,16 +219,16 @@ public class GitHubService : IGitHubService
     {
         var client = await GetAuthenticatedClient();
         var repository = await client.Repository.Get(repositoryId);
-        
+
         var commitMessageText = string.IsNullOrEmpty(commitMessage) ? $"Add {path}" : commitMessage;
-        
+
         var fileContent = Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(content));
-        
+
         var createFileRequest = new CreateFileRequest(commitMessageText, fileContent)
         {
             Branch = repository.DefaultBranch
         };
-        
+
         await client.Repository.Content.CreateFile(repositoryId, path, createFileRequest);
     }
 
@@ -236,25 +236,25 @@ public class GitHubService : IGitHubService
     {
         var client = await GetAuthenticatedClient();
         var repository = await client.Repository.Get(repositoryId);
-        
+
         var commitMessageText = string.IsNullOrEmpty(commitMessage) ? $"Update {path}" : commitMessage;
-        
+
         // Get the current file to get its SHA
         var existingFile = await client.Repository.Content.GetAllContents(repositoryId, path);
         var file = existingFile.FirstOrDefault();
-        
+
         if (file == null)
         {
             throw new InvalidOperationException($"File {path} not found in repository {repositoryId}");
         }
-        
+
         var fileContent = Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(content));
-        
+
         var updateFileRequest = new UpdateFileRequest(commitMessageText, fileContent, file.Sha)
         {
             Branch = repository.DefaultBranch
         };
-        
+
         await client.Repository.Content.UpdateFile(repositoryId, path, updateFileRequest);
     }
 
@@ -262,23 +262,23 @@ public class GitHubService : IGitHubService
     {
         var client = await GetAuthenticatedClient();
         var repository = await client.Repository.Get(repositoryId);
-        
+
         var commitMessageText = string.IsNullOrEmpty(commitMessage) ? $"Delete {path}" : commitMessage;
-        
+
         // Get the current file to get its SHA
         var existingFile = await client.Repository.Content.GetAllContents(repositoryId, path);
         var file = existingFile.FirstOrDefault();
-        
+
         if (file == null)
         {
             throw new InvalidOperationException($"File {path} not found in repository {repositoryId}");
         }
-        
+
         var deleteFileRequest = new DeleteFileRequest(commitMessageText, file.Sha)
         {
             Branch = repository.DefaultBranch
         };
-        
+
         await client.Repository.Content.DeleteFile(repositoryId, path, deleteFileRequest);
     }
 
@@ -286,23 +286,23 @@ public class GitHubService : IGitHubService
     {
         var client = await GetAuthenticatedClient();
         var repository = await client.Repository.Get(_options.OrganizationName, repositoryName);
-        
+
         var commitMessageText = string.IsNullOrEmpty(commitMessage) ? $"Delete {path}" : commitMessage;
-        
+
         // Get the current file to get its SHA
         var existingFile = await client.Repository.Content.GetAllContents(_options.OrganizationName, repositoryName, path);
         var file = existingFile.FirstOrDefault();
-        
+
         if (file == null)
         {
             throw new InvalidOperationException($"File {path} not found in repository {repositoryName}");
         }
-        
+
         var deleteFileRequest = new DeleteFileRequest(commitMessageText, file.Sha)
         {
             Branch = repository.DefaultBranch
         };
-        
+
         await client.Repository.Content.DeleteFile(_options.OrganizationName, repositoryName, path, deleteFileRequest);
     }
 
@@ -310,10 +310,10 @@ public class GitHubService : IGitHubService
     {
         var client = await GetAuthenticatedClient();
         var connection = client.Connection;
-        
+
         var endpoint = new Uri($"repositories/{repositoryId}/actions/permissions/workflow", UriKind.Relative);
         var body = $"{{\"default_workflow_permissions\": \"{permissions}\"}}";
-        
+
         await connection.Patch<object>(endpoint, body, "application/vnd.github.v3+json");
     }
 

@@ -5,12 +5,12 @@ namespace _10xGitHubPolicies.Tests.Integration.Builders;
 public class GitHubApiResponseBuilder
 {
     private readonly Faker _faker;
-    
+
     public GitHubApiResponseBuilder()
     {
         _faker = new Faker();
     }
-    
+
     public string BuildRepositoryResponse(long id, string name, bool archived = false)
     {
         return $$"""
@@ -28,7 +28,7 @@ public class GitHubApiResponseBuilder
         }
         """;
     }
-    
+
     public string BuildFileContentResponse(string content, string path)
     {
         var base64Content = Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(content));
@@ -44,7 +44,7 @@ public class GitHubApiResponseBuilder
         }]
         """;
     }
-    
+
     public string BuildIssueResponse(int number, string title, string label)
     {
         return $$"""
@@ -62,7 +62,7 @@ public class GitHubApiResponseBuilder
         }
         """;
     }
-    
+
     public string BuildWorkflowPermissionsResponse(string permissions)
     {
         return $$"""
@@ -72,7 +72,7 @@ public class GitHubApiResponseBuilder
         }
         """;
     }
-    
+
     public string BuildTeamResponse(int id, string slug)
     {
         return $$"""
@@ -84,7 +84,7 @@ public class GitHubApiResponseBuilder
         }
         """;
     }
-    
+
     public string BuildTeamMembershipResponse(string state = "active")
     {
         return $$"""
@@ -94,7 +94,7 @@ public class GitHubApiResponseBuilder
         }
         """;
     }
-    
+
     public string BuildRepositoryCreationResponse(long id, string name, bool isPrivate = false, string defaultBranch = "main")
     {
         return $$"""
@@ -113,7 +113,7 @@ public class GitHubApiResponseBuilder
         }
         """;
     }
-    
+
     public string BuildFileCreationResponse(string content, string path, string sha, string commitMessage)
     {
         var base64Content = Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(content));
@@ -140,13 +140,13 @@ public class GitHubApiResponseBuilder
         }
         """;
     }
-    
+
     public string BuildFileUpdateResponse(string content, string path, string sha, string commitMessage)
     {
         // Same structure as CreateFileResponse
         return BuildFileCreationResponse(content, path, sha, commitMessage);
     }
-    
+
     public string BuildFileDeleteResponse(string path, string sha, string commitMessage)
     {
         return $$"""
@@ -164,7 +164,7 @@ public class GitHubApiResponseBuilder
         }
         """;
     }
-    
+
     public string BuildClosedIssueResponse(int number, string title)
     {
         return $$"""
@@ -179,7 +179,7 @@ public class GitHubApiResponseBuilder
         }
         """;
     }
-    
+
     public string BuildRepositoryIssuesResponse(int[] issueNumbers, string[] issueTitles)
     {
         var issues = issueNumbers.Zip(issueTitles, (num, title) => $$"""
@@ -193,10 +193,10 @@ public class GitHubApiResponseBuilder
             "html_url": "https://github.com/test-org/test-repo/issues/{{num}}"
           }
         """);
-        
+
         return $"[{string.Join(",", issues)}]";
     }
-    
+
     public string BuildWorkflowPermissionsUpdateResponse(string permissions)
     {
         // Same structure as GetWorkflowPermissionsResponse

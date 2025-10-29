@@ -48,7 +48,7 @@ public class DashboardPage
     public async Task<DashboardMetrics> GetDashboardMetrics()
     {
         await WaitForPageLoad();
-        
+
         var compliancePercentage = await GetCompliancePercentage();
         var totalRepositories = await GetTotalRepositories();
         var compliantRepositories = await GetCompliantRepositories();
@@ -106,16 +106,16 @@ public class DashboardPage
             Console.WriteLine("🔍 Checking if page is still accessible...");
             var pageTitle = await _page.TitleAsync();
             Console.WriteLine($"✅ Page title: {pageTitle}");
-            
+
             // Wait for scan button to be available and clickable
             Console.WriteLine("🔍 Waiting for scan button...");
             scanButton = await _page.Locator("[data-testid='scan-button']").ElementHandleAsync();
             scanButton.Should().NotBeNull("Scan button should be visible");
-            
+
             // Wait for button to be enabled
             Console.WriteLine("🔍 Waiting for scan button to be enabled...");
             await _page.WaitForFunctionAsync("() => document.querySelector('[data-testid=\"scan-button\"]')?.disabled === false", new PageWaitForFunctionOptions { Timeout = 5000 });
-            
+
             Console.WriteLine("✅ Scan button is ready, clicking...");
             await scanButton!.ClickAsync();
             Console.WriteLine("✅ Scan button clicked successfully");
@@ -124,16 +124,17 @@ public class DashboardPage
         {
             Console.WriteLine($"❌ Failed to click scan button: {ex.Message}");
             Console.WriteLine($"❌ Error type: {ex.GetType().Name}");
-            
+
             // Take a screenshot for debugging if filename provided
             if (!string.IsNullOrEmpty(errorScreenshotFileName))
             {
-                await _page.ScreenshotAsync(new() { 
+                await _page.ScreenshotAsync(new()
+                {
                     Path = $"test-results/screenshots/{errorScreenshotFileName}",
-                    FullPage = true 
+                    FullPage = true
                 });
             }
-            
+
             Console.WriteLine($"❌ Stack trace: {ex.StackTrace}");
             throw;
         }
@@ -148,7 +149,7 @@ public class DashboardPage
         // Wait for scanning to start
         await _page.Locator("[data-testid='scan-button']:has-text('Scanning...')").WaitForAsync(new() { Timeout = 5000 });
         Console.WriteLine("✅ Scan started successfully");
-        
+
         // Wait for scanning to complete (the button text changes back to "Scan Now")
         await _page.Locator("[data-testid='scan-button']:has-text('Scan Now')").WaitForAsync(new() { Timeout = TestConstants.ScanTimeoutSeconds * 1000 });
         Console.WriteLine("✅ Scan completed successfully");
@@ -180,17 +181,17 @@ public class DashboardPage
     public async Task<List<NonCompliantRepository>> GetNonCompliantRepositories()
     {
         await WaitForPageLoad();
-        
+
         var repositories = new List<NonCompliantRepository>();
-        
+
         try
         {
             // Check if there's a data grid with non-compliant repositories
             var dataGrid = await _page.WaitForSelectorAsync("[data-testid='non-compliant-repositories-grid']", new() { Timeout = 2000 });
-            
+
             // Get all repository rows
             var rows = await _page.QuerySelectorAllAsync("fluent-data-grid fluent-data-grid-row");
-            
+
             foreach (var row in rows)
             {
                 try
@@ -198,11 +199,11 @@ public class DashboardPage
                     // Get repository name (first column)
                     var nameElement = await row.QuerySelectorAsync("fluent-data-grid-cell:first-child fluent-anchor");
                     var name = await nameElement?.TextContentAsync() ?? "";
-                    
+
                     // Get violations (second column)
                     var violationsElement = await row.QuerySelectorAsync("fluent-data-grid-cell:nth-child(2)");
                     var violations = new List<string>();
-                    
+
                     if (violationsElement != null)
                     {
                         var badges = await violationsElement.QuerySelectorAllAsync("fluent-badge");
@@ -215,7 +216,7 @@ public class DashboardPage
                             }
                         }
                     }
-                    
+
                     if (!string.IsNullOrEmpty(name))
                     {
                         repositories.Add(new NonCompliantRepository
@@ -235,7 +236,7 @@ public class DashboardPage
         {
             Console.WriteLine($"No non-compliant repositories found or error reading data grid: {ex.Message}");
         }
-        
+
         return repositories;
     }
 
@@ -260,37 +261,37 @@ public class DashboardPage
     {
         // Wait for the grid to be available
         await _page.Locator("[data-testid='non-compliant-repositories-grid']").WaitForAsync(new() { Timeout = 10000 });
-        
+
         // Get all table rows (tbody > tr elements, excluding header row)
         var rows = _page.Locator("[data-testid='non-compliant-repositories-grid'] tbody tr");
         var rowCount = await rows.CountAsync();
-        
+
         Console.WriteLine($"🔍 Searching through {rowCount} rows for repository: {fullRepoName}");
-        
+
         for (int i = 0; i < rowCount; i++)
         {
             var row = rows.Nth(i);
-            
+
             // Get the repository name from the first column's fluent-anchor
             var repoNameElement = row.Locator("[data-testid='repository-name']").First;
-            
+
             // Check if this element exists
             var elementCount = await repoNameElement.CountAsync();
             if (elementCount == 0)
             {
                 continue; // Skip rows without repository names
             }
-            
+
             var repoNameText = await repoNameElement.TextContentAsync();
-            
+
             if (repoNameText != null && repoNameText.Contains(fullRepoName, StringComparison.OrdinalIgnoreCase))
             {
                 Console.WriteLine($"✅ Found repository in row {i}: {repoNameText}");
-                
+
                 // Found the matching repository row, get violations from second column
                 // The violations container is in the same row
                 var violationsContainer = row.Locator("[data-testid='repository-violations']");
-                
+
                 // Wait for violations container to be available
                 var containerCount = await violationsContainer.CountAsync();
                 if (containerCount == 0)
@@ -298,13 +299,13 @@ public class DashboardPage
                     Console.WriteLine($"⚠️ Warning: No violations container found for repository {fullRepoName}");
                     return new List<string>();
                 }
-                
+
                 await violationsContainer.WaitForAsync(new() { Timeout = 5000 });
-                
+
                 // Get all violation badges
                 var violationBadges = violationsContainer.Locator("[data-testid='violation-badge']");
                 var badgeCount = await violationBadges.CountAsync();
-                
+
                 var violations = new List<string>();
                 for (int j = 0; j < badgeCount; j++)
                 {
@@ -314,12 +315,12 @@ public class DashboardPage
                         violations.Add(badgeText.Trim());
                     }
                 }
-                
+
                 Console.WriteLine($"✅ Found {violations.Count} violations: {string.Join(", ", violations)}");
                 return violations;
             }
         }
-        
+
         // If we get here, repository was not found - list all repository names for debugging
         Console.WriteLine($"❌ Repository {fullRepoName} not found. Listing all repository names:");
         for (int i = 0; i < rowCount; i++)
@@ -333,7 +334,7 @@ public class DashboardPage
                 Console.WriteLine($"  - Row {i}: {repoNameText}");
             }
         }
-        
+
         throw new Exception($"Repository {fullRepoName} not found in the non-compliant repositories list");
     }
 
@@ -346,7 +347,7 @@ public class DashboardPage
         // Wait for the non-compliant repositories grid to be visible
         Console.WriteLine("🔍 Waiting for non-compliant repositories grid to load...");
         await _page.Locator("[data-testid='non-compliant-repositories-grid']").WaitForAsync(new() { Timeout = 10000 });
-        
+
         // Additional wait to ensure all repository names are loaded
         Console.WriteLine("🔍 Waiting for repository names to load...");
         await Task.Delay(3000);
@@ -364,7 +365,7 @@ public class DashboardPage
         Console.WriteLine("🔄 Refreshing page to show updated scan results...");
         await _page.ReloadAsync();
         await _page.WaitForLoadStateAsync(LoadState.NetworkIdle);
-        
+
         // Navigate to dashboard to show updated scan results
         Console.WriteLine("🔄 Navigating to dashboard to show updated scan results...");
         await _page.GotoAsync(TestConstants.BaseUrl);
@@ -372,10 +373,10 @@ public class DashboardPage
 
         // Wait a bit for the page to fully load
         await Task.Delay(2000);
-        
+
         // Wait for the non-compliant repositories grid to be visible
         await WaitForNonCompliantRepositoriesGrid();
-        
+
         Console.WriteLine("✅ Page refreshed successfully");
     }
 
