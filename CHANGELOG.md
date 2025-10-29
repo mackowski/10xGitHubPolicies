@@ -30,7 +30,7 @@ All notable changes to this project will be documented in this file.
 
 ### Security
 - **Workflow Security**: All GitHub Actions pinned to commit SHAs (not version tags)
-  - Prevents supply chain accounts from malicious action updates
+  - Prevents supply chain attacks from malicious action updates
   - Requires manual verification when updating action versions
   - Minimal permissions (`contents: read`, `packages: read`, `pull-requests: write`)
 
