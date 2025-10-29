@@ -2,6 +2,32 @@
 
 All notable changes to this project will be documented in this file.
 
+## 1.5
+
+### Added
+- **Enhanced Repository Synchronization**: Improved `ScanningService` repository synchronization logic
+  - Added automatic repository rename detection and updates when repositories are renamed in GitHub
+  - Added automatic repository deletion when repositories no longer exist in GitHub organization
+  - Added cascading deletion of related records (PolicyViolations and ActionLogs) before removing repositories
+  - Added comprehensive logging for repository operations (add, rename, remove) with detailed information
+  - Ensures database stays in sync with GitHub organization state without manual intervention
+- **Repository Synchronization Unit Tests**: Added comprehensive test coverage for repository synchronization scenarios
+  - `PerformScanAsync_WhenRepositoriesDeletedInGitHub_RemovesFromDatabase`: Tests repository deletion with cascading cleanup
+  - `PerformScanAsync_WhenRepositoryRenamed_UpdatesName`: Tests repository rename detection and updates
+
+### Changed
+- **ScanningService**: Refactored `SyncRepositoriesAsync` method for improved repository synchronization
+  - Changed from filtering database repositories by GitHub IDs to loading all repositories and mapping them
+  - Improved performance by using dictionary lookups instead of repeated database queries
+  - Enhanced data consistency by maintaining complete repository state in database
+
+### Technical Details
+- **Repository Synchronization Strategy**: 
+  - Loads all repositories from database into memory for efficient comparison
+  - Uses GitHub repository ID as the unique identifier (preserves identity across renames)
+  - Performs three-phase synchronization: add new repos, update existing repos, remove deleted repos
+  - Cascades deletions to maintain referential integrity (PolicyViolations and ActionLogs removed before repositories)
+
 ## 1.4
 
 ### Added

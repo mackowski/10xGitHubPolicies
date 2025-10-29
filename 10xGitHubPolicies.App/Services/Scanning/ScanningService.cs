@@ -118,15 +118,16 @@ public class ScanningService : IScanningService
 
     private async Task SyncRepositoriesAsync(IReadOnlyList<Octokit.Repository> repositories)
     {
-        var githubRepoIds = repositories.Select(r => r.Id).ToList();
-        var reposInDb = await _dbContext.Repositories
-            .Where(r => githubRepoIds.Contains(r.GitHubRepositoryId))
-            .ToListAsync();
-        var reposInDbIds = reposInDb.Select(r => r.GitHubRepositoryId).ToHashSet();
+        var githubRepoIds = repositories.Select(r => r.Id).ToHashSet();
 
+        // Get all repositories from database
+        var allReposInDb = await _dbContext.Repositories.ToListAsync();
+        var reposInDbMap = allReposInDb.ToDictionary(r => r.GitHubRepositoryId);
+
+        // Add new repositories and update existing ones
         foreach (var repo in repositories)
         {
-            if (!reposInDbIds.Contains(repo.Id))
+            if (!reposInDbMap.ContainsKey(repo.Id))
             {
                 _dbContext.Repositories.Add(new Repository
                 {
@@ -134,8 +135,58 @@ public class ScanningService : IScanningService
                     Name = repo.FullName,
                     ComplianceStatus = "Pending"
                 });
+                _logger.LogInformation("Added new repository: {RepoName} (GitHub ID: {GitHubRepoId})", repo.FullName, repo.Id);
+            }
+            else
+            {
+                // Update repository name in case it changed (e.g., repo was renamed)
+                var existingRepo = reposInDbMap[repo.Id];
+                if (existingRepo.Name != repo.FullName)
+                {
+                    _logger.LogInformation("Repository renamed: {OldName} -> {NewName} (GitHub ID: {GitHubRepoId})", existingRepo.Name, repo.FullName, repo.Id);
+                    existingRepo.Name = repo.FullName;
+                }
             }
         }
+
+        // Find repositories that need to be removed (exist in DB but not in GitHub)
+        var reposToRemove = allReposInDb
+            .Where(r => !githubRepoIds.Contains(r.GitHubRepositoryId))
+            .ToList();
+
+        if (reposToRemove.Any())
+        {
+            _logger.LogInformation(
+                "Removing {Count} repositories that no longer exist in GitHub: {RepoNames}",
+                reposToRemove.Count,
+                string.Join(", ", reposToRemove.Select(r => r.Name)));
+
+            // Delete related records first (PolicyViolations and ActionLogs)
+            var repoIdsToRemove = reposToRemove.Select(r => r.RepositoryId).ToList();
+
+            var violationsToRemove = await _dbContext.PolicyViolations
+                .Where(v => repoIdsToRemove.Contains(v.RepositoryId))
+                .ToListAsync();
+
+            var actionLogsToRemove = await _dbContext.ActionsLogs
+                .Where(a => repoIdsToRemove.Contains(a.RepositoryId))
+                .ToListAsync();
+
+            if (violationsToRemove.Any())
+            {
+                _logger.LogInformation("Removing {Count} policy violations for deleted repositories", violationsToRemove.Count);
+                _dbContext.PolicyViolations.RemoveRange(violationsToRemove);
+            }
+
+            if (actionLogsToRemove.Any())
+            {
+                _logger.LogInformation("Removing {Count} action logs for deleted repositories", actionLogsToRemove.Count);
+                _dbContext.ActionsLogs.RemoveRange(actionLogsToRemove);
+            }
+
+            _dbContext.Repositories.RemoveRange(reposToRemove);
+        }
+
         await _dbContext.SaveChangesAsync();
     }
 }

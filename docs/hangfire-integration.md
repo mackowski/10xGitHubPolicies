@@ -125,6 +125,16 @@ The `ActionService` processes violations by:
 
 This decouples the scanning process from the action-taking process. This is a robust design because even if the action-taking process fails, it can be retried independently from the scan itself, and the scan results are already safely stored in the database.
 
+### Repository Synchronization During Scans
+
+During each scan, the `ScanningService` automatically synchronizes the database with the current state of the GitHub organization:
+
+- **New Repositories**: Detected and added to the database
+- **Renamed Repositories**: Repository names updated automatically (detected by GitHub repository ID)
+- **Deleted Repositories**: Removed from database with cascading cleanup of related records
+
+This ensures that the compliance dashboard always reflects the current state of your GitHub organization, even as repositories are added, renamed, or removed over time.
+
 ## Best Practices
 
 -   **Idempotent Jobs**: Whenever possible, design background jobs to be idempotent. This means that running the job multiple times with the same input will produce the same result. Hangfire has built-in retry mechanisms, so idempotent jobs are safer to run.

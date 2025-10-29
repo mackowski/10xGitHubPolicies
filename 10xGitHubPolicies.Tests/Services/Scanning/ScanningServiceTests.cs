@@ -448,6 +448,168 @@ public class ScanningServiceTests : IAsyncLifetime
     [Fact]
     [Trait("Category", "Unit")]
     [Trait("Feature", "Scanning")]
+    public async Task PerformScanAsync_WhenRepositoriesDeletedInGitHub_RemovesFromDatabase()
+    {
+        // Arrange
+        var existingRepo1 = new Repository
+        {
+            GitHubRepositoryId = 100,
+            Name = "test-org/existing-repo-1",
+            ComplianceStatus = "Compliant"
+        };
+        var deletedRepo = new Repository
+        {
+            GitHubRepositoryId = 200,
+            Name = "test-org/deleted-repo",
+            ComplianceStatus = "NonCompliant"
+        };
+        var archivedRepo = new Repository
+        {
+            GitHubRepositoryId = 300,
+            Name = "test-org/archived-repo",
+            ComplianceStatus = "Pending"
+        };
+        _dbContext.Repositories.AddRange(existingRepo1, deletedRepo, archivedRepo);
+        await _dbContext.SaveChangesAsync();
+
+        // Create related violations and action logs for the deleted repos
+        var policy = new Policy
+        {
+            PolicyKey = "has_agents_md",
+            Description = "Test policy",
+            Action = "create-issue"
+        };
+        _dbContext.Policies.Add(policy);
+        await _dbContext.SaveChangesAsync();
+
+        var scan = new Scan
+        {
+            Status = "Completed",
+            StartedAt = DateTime.UtcNow.AddHours(-1),
+            CompletedAt = DateTime.UtcNow.AddHours(-1)
+        };
+        _dbContext.Scans.Add(scan);
+        await _dbContext.SaveChangesAsync();
+
+        var violationForDeletedRepo = new PolicyViolation
+        {
+            ScanId = scan.ScanId,
+            RepositoryId = deletedRepo.RepositoryId,
+            PolicyId = policy.PolicyId,
+            PolicyType = "has_agents_md"
+        };
+        var violationForArchivedRepo = new PolicyViolation
+        {
+            ScanId = scan.ScanId,
+            RepositoryId = archivedRepo.RepositoryId,
+            PolicyId = policy.PolicyId,
+            PolicyType = "has_agents_md"
+        };
+        _dbContext.PolicyViolations.AddRange(violationForDeletedRepo, violationForArchivedRepo);
+
+        var actionLogForDeletedRepo = new ActionLog
+        {
+            RepositoryId = deletedRepo.RepositoryId,
+            PolicyId = policy.PolicyId,
+            ActionType = "create-issue",
+            Timestamp = DateTime.UtcNow,
+            Status = "Completed",
+            Details = "Test action"
+        };
+        var actionLogForArchivedRepo = new ActionLog
+        {
+            RepositoryId = archivedRepo.RepositoryId,
+            PolicyId = policy.PolicyId,
+            ActionType = "log-only",
+            Timestamp = DateTime.UtcNow,
+            Status = "Completed",
+            Details = "Test action"
+        };
+        _dbContext.ActionsLogs.AddRange(actionLogForDeletedRepo, actionLogForArchivedRepo);
+        await _dbContext.SaveChangesAsync();
+
+        var config = CreateTestConfig(
+            new PolicyConfig { Type = "has_agents_md", Action = "create-issue" }
+        );
+
+        // Only repo1 exists in GitHub now (repo2 and repo3 were deleted/archived)
+        var repos = new List<Octokit.Repository>
+        {
+            CreateTestRepository(100, "existing-repo-1")
+        };
+
+        _configurationService.GetConfigAsync(Arg.Any<bool>()).Returns(config);
+        _githubService.GetOrganizationRepositoriesAsync().Returns(repos);
+        _policyEvaluationService.EvaluateRepositoryAsync(
+            Arg.Any<Octokit.Repository>(),
+            Arg.Any<IEnumerable<PolicyConfig>>()
+        ).Returns(Task.FromResult<IEnumerable<PolicyViolation>>(new List<PolicyViolation>()));
+
+        // Act
+        await _sut.PerformScanAsync();
+
+        // Assert
+        var repositories = await _dbContext.Repositories.ToListAsync();
+        repositories.Should().HaveCount(1, because: "only existing repository should remain");
+        repositories.Should().Contain(r => r.RepositoryId == existingRepo1.RepositoryId);
+        repositories.Should().NotContain(r => r.RepositoryId == deletedRepo.RepositoryId);
+        repositories.Should().NotContain(r => r.RepositoryId == archivedRepo.RepositoryId);
+
+        // Verify related violations were removed
+        var violations = await _dbContext.PolicyViolations.ToListAsync();
+        violations.Should().NotContain(v => v.RepositoryId == deletedRepo.RepositoryId);
+        violations.Should().NotContain(v => v.RepositoryId == archivedRepo.RepositoryId);
+
+        // Verify related action logs were removed
+        var actionLogs = await _dbContext.ActionsLogs.ToListAsync();
+        actionLogs.Should().NotContain(a => a.RepositoryId == deletedRepo.RepositoryId);
+        actionLogs.Should().NotContain(a => a.RepositoryId == archivedRepo.RepositoryId);
+    }
+
+    [Fact]
+    [Trait("Category", "Unit")]
+    [Trait("Feature", "Scanning")]
+    public async Task PerformScanAsync_WhenRepositoryRenamed_UpdatesName()
+    {
+        // Arrange
+        var existingRepo = new Repository
+        {
+            GitHubRepositoryId = 100,
+            Name = "test-org/old-repo-name",
+            ComplianceStatus = "Compliant"
+        };
+        _dbContext.Repositories.Add(existingRepo);
+        await _dbContext.SaveChangesAsync();
+
+        var config = CreateTestConfig(
+            new PolicyConfig { Type = "has_agents_md", Action = "create-issue" }
+        );
+
+        // Repository was renamed in GitHub
+        var repos = new List<Octokit.Repository>
+        {
+            CreateTestRepository(100, "new-repo-name")
+        };
+
+        _configurationService.GetConfigAsync(Arg.Any<bool>()).Returns(config);
+        _githubService.GetOrganizationRepositoriesAsync().Returns(repos);
+        _policyEvaluationService.EvaluateRepositoryAsync(
+            Arg.Any<Octokit.Repository>(),
+            Arg.Any<IEnumerable<PolicyConfig>>()
+        ).Returns(Task.FromResult<IEnumerable<PolicyViolation>>(new List<PolicyViolation>()));
+
+        // Act
+        await _sut.PerformScanAsync();
+
+        // Assert
+        var repository = await _dbContext.Repositories.SingleAsync(r => r.GitHubRepositoryId == 100);
+        repository.Name.Should().Be("test-org/new-repo-name", because: "repository name should be updated");
+        repository.RepositoryId.Should().Be(existingRepo.RepositoryId, because: "same repository should be updated, not duplicated");
+    }
+
+    [Fact]
+    [Trait("Category", "Unit")]
+    [Trait("Feature", "Scanning")]
     public async Task PerformScanAsync_WhenViolationsFound_LinksToCorrectEntities()
     {
         // Arrange

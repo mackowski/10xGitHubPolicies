@@ -16,12 +16,30 @@ The key components of the architecture are:
 
 1.  The `ScanningService` initiates a scan.
 2.  It retrieves the policy configuration from the `.github/config.yaml` file.
-3.  For each repository in the organization, it calls `IPolicyEvaluationService.EvaluateRepositoryAsync()`.
-4.  The `PolicyEvaluationService` uses dependency injection to get all registered `IPolicyEvaluator` implementations.
-5.  It matches the `type` of each policy in the configuration with the `PolicyType` property of the available evaluators.
-6.  When a match is found, it executes the `EvaluateAsync` method of that specific evaluator.
-7.  If the evaluator finds a violation, it returns a `PolicyViolation` object.
-8.  The `ScanningService` collects all violations and saves them to the database.
+3.  It synchronizes policies from the configuration file with the database (adds new policies if needed).
+4.  It synchronizes repositories between GitHub and the database:
+    - Adds new repositories that exist in GitHub but not in the database
+    - Updates repository names if repositories were renamed in GitHub
+    - Removes repositories that no longer exist in GitHub (with cascading deletion of related PolicyViolations and ActionLogs)
+5.  For each repository in the organization, it calls `IPolicyEvaluationService.EvaluateRepositoryAsync()`.
+6.  The `PolicyEvaluationService` uses dependency injection to get all registered `IPolicyEvaluator` implementations.
+7.  It matches the `type` of each policy in the configuration with the `PolicyType` property of the available evaluators.
+8.  When a match is found, it executes the `EvaluateAsync` method of that specific evaluator.
+9.  If the evaluator finds a violation, it returns a `PolicyViolation` object.
+10. The `ScanningService` collects all violations and saves them to the database.
+11. After the scan completes, it enqueues a background job to process automated actions for the violations found.
+
+### Repository Synchronization
+
+The `ScanningService` ensures that the database repository list stays synchronized with the GitHub organization:
+
+- **New Repositories**: Automatically detected and added to the database with status "Pending"
+- **Renamed Repositories**: Detection based on GitHub repository ID (which remains constant across renames). Repository names are automatically updated in the database.
+- **Deleted Repositories**: Repositories that no longer exist in GitHub are removed from the database, along with their related records:
+  - Policy violations associated with the repository
+  - Action logs for actions taken on the repository
+
+This synchronization happens automatically during each scan, ensuring the database always reflects the current state of the GitHub organization.
 
 ---
 
