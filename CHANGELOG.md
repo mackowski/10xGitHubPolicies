@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 ## 1.8
 
 ### Added
+- **Dependabot Configuration**: Automated dependency update management
+  - Created `.github/dependabot.yml` for automated dependency updates
+  - Configures weekly updates for NuGet packages (.NET), GitHub Actions, and Docker dependencies
+  - Includes cooldown periods (14 days) to prevent update spam
+  - Automatically creates pull requests with conventional commit message prefixes
+  - Assigns reviewers and applies appropriate labels for dependency updates
+  - Limits concurrent open pull requests (10 for NuGet, 5 for GitHub Actions and Docker)
 - **Local Workflow Testing Script**: Script to replicate CI/CD pipeline locally
   - Created `test-workflow-local.sh` to execute the same test sequence as GitHub Actions
   - Runs linting, unit tests, component tests, integration tests, and contract tests
@@ -31,6 +38,8 @@ All notable changes to this project will be documented in this file.
   - Updated `README.md` with local workflow testing script documentation
   - Enhanced `docs/ci-cd-workflows.md` with local workflow execution guide
   - Updated `docs/testing-integration-tests.md` with SSL certificate handling details
+  - Updated `README.md` settlement section with Dependabot dependency management information
+  - Enhanced `docs/ci-cd-workflows.md` with Dependabot integration details
 
 ## 1.7
 

@@ -4,6 +4,8 @@
 
 The project uses GitHub Actions for continuous integration and continuous deployment. The main workflow runs on pull requests to ensure code quality, test coverage, and compliance before code is merged.
 
+In addition to the pull request workflow, the project uses [Dependabot](https://docs.github.com/en/code-security/dependabot) to automatically manage dependency updates. Dependabot pull requests go through the same CI/CD pipeline as regular pull requests, ensuring all updates are tested before merging.
+
 ## Pull Request Workflow
 
 The **Pull Request** workflow (`.github/workflows/pull-request.yml`) is triggered automatically on pull requests to `main` or `develop` branches. It performs checks including code linting, multi-level testing, code coverage reporting, and automatic PR status comments.
@@ -282,6 +284,55 @@ dotnet test \
   --logger "trx;LogFileName=contract-tests.trx" \
   --logger "console;verbosity=detailed"
 ```
+
+## Dependabot Integration
+
+The project uses GitHub Dependabot for automated dependency management, configured via `.github/dependabot.yml`.
+
+### Configuration
+
+Dependabot monitors three package ecosystems:
+
+1. **NuGet Packages** (.NET dependencies)
+   - Weekly update checks
+   - Up to 10 concurrent pull requests
+   - Commit message prefix: `chore(nuget)`
+   - Labels: `dependencies`, `nuget`
+
+2. **GitHub Actions** (workflow action versions)
+   - Weekly update checks
+   - Up to 5 concurrent pull requests
+   - Commit message prefix: `chore(github-actions)`
+   - Labels: `dependencies`, `github-actions`
+
+3. **Docker Dependencies** (container images)
+   - Weekly update checks
+   - Up to 5 concurrent pull requests
+   - Commit message prefix: `chore(docker)`
+   - Labels: `dependencies`, `docker`
+
+### Update Behavior
+
+- **Cooldown Period**: 14 days between updates for the same dependency to prevent excessive PRs
+- **Automatic Review Assignment**: Pull requests are automatically assigned to designated reviewers
+- **Conventional Commits**: All dependency updates follow the conventional commit format for consistency
+- **CI/CD Integration**: Dependabot PRs automatically trigger the pull request workflow, running all linting, tests, and coverage checks
+
+### Managing Dependabot PRs
+
+1. **Review**: Each PR includes a changelog and release notes when available
+2. **Test**: All PRs run through the full CI/CD pipeline automatically
+3. **Merge**: Once approved and tests pass, merge using standard GitHub PR workflow
+4. **Bulk Operations**: Use GitHub's "Merge" or "Rebase and merge" options for multiple dependency updates
+
+### Best Practices
+
+- **Regular Reviews**: Review and merge Dependabot PRs regularly to stay current with security patches and features
+- **Batch Updates**: Consider batching multiple minor/patch updates together when possible
+- **Test Coverage**: All dependency updates are automatically tested, but manual verification is recommended for major version updates
+- **Security Updates**: Prioritize security-related dependency updates (Dependabot will label these accordingly)
+
+For more information, see the [Dependabot documentation](https://docs.github.com/en/code-security/dependabot).
 
 ## Troubleshooting
 

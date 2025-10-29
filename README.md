@@ -16,9 +16,10 @@ A GitHub App to automate the enforcement of organizational policies and security
   - [Prerequisites](#prerequisites)
   - [Installation](#installation)
 - [Configuration](#configuration)
-- [Project Scope](#project-scope)
+- [Testing](#testing)
+- [Dependency Management](#dependency-management)
 - [Documentation](#documentation)
-- [Project Status](#project-status)
+- [Project Scope](#project-scope)
 - [License](#license)
 
 ---
@@ -377,6 +378,41 @@ Test results are saved to the `./coverage` directory as TRX files for analysis.
 **Note**: This script uses the same test filters and logging configuration as the GitHub Actions workflow, ensuring consistency between local and CI environments.
 
 For more details, see **[Testing Strategy](./docs/testing-strategy.md)** and **[CI/CD Workflows](./docs/ci-cd-workflows.md)**.
+
+---
+
+## Dependency Management
+
+The project uses [Dependabot](https://docs.github.com/en/code-security/dependabot) to automatically keep dependencies up to date.
+
+### Automated Dependency Updates
+
+Dependabot is configured via `.github/dependabot.yml` and monitors the following:
+
+- **NuGet Packages** (.NET): Weekly updates with conventional commit prefixes (`chore(nuget)`)
+- **GitHub Actions**: Weekly updates for workflow action versions (`chore(github-actions)`)
+- **Docker Dependencies**: Weekly updates for Docker images in `docker-compose.yml` (`chore(docker)`)
+
+### Configuration Details
+
+- **Update Schedule**: Weekly checks
+- **Cooldown Period**: 14 days to prevent update spam and malware
+- **Pull Request Limits**: 
+  - NuGet: Up to 10 concurrent PRs
+  - GitHub Actions: Up to 5 concurrent PRs
+  - Docker: Up to 5 concurrent PRs
+- **Commit Messages**: Follow conventional commit format with scoped prefixes
+- **Reviewers**: Pull requests are automatically assigned for review
+- **Labels**: Automatic labeling (`dependencies`, `nuget`, `github-actions`, `docker`)
+
+### Managing Updates
+
+Dependabot pull requests automatically run through the same CI/CD pipeline as regular pull requests, including:
+- Code formatting checks
+- Unit, component, integration, and contract tests
+- Code coverage reporting
+
+You can review and merge these updates through the standard pull request process.
 
 ---
 
