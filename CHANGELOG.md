@@ -2,6 +2,82 @@
 
 All notable changes to this project will be documented in this file.
 
+## 1.4
+
+### Added
+- **Test Mode**: Added authentication bypass mode for E2E testing and development scenarios
+  - Created `TestModeOptions` configuration class for enabling/disabling test mode
+  - Implemented `TestModeAuthenticationMiddleware` and `TestModeAuthenticationHandler` for automatic authentication bypass
+  - When enabled, automatically authenticates users as fake `mackowski` user without requiring GitHub OAuth
+  - Skips team membership verification (always returns `true`) for authorization checks
+  - GitHub App services remain fully functional for repository operations
+  - Configurable via `appsettings.json`, environment variables, or command-line arguments
+  - Documented in README.md with security warnings for production use
+- **E2E Testing Infrastructure**: Implemented End-to-End testing framework using Playwright
+  - Created `10xGitHubPolicies.Tests.E2E` project with Playwright.NET integration
+  - Dual-host architecture: test host for data creation + manually running web application for UI testing
+  - Page Object Model implementation with `DashboardPage` for maintainable tests
+  - Test data management with `RepositoryHelper` and `DatabaseHelper` utilities
+  - Screenshot capture for debugging test failures
+  - Test Mode integration for authentication bypass in E2E scenarios
+  - Comprehensive README in E2E test project with setup and troubleshooting guides
+- **GitHubService E2E Testing Methods**: Added 9 new methods to `IGitHubService` specifically for E2E testing scenarios
+  - **Repository Operations**:
+    - `CreateRepositoryAsync()`: Creates new repositories in the organization
+    - `DeleteRepositoryAsync()`: Deletes repositories by name
+    - `UnarchiveRepositoryAsync()`: Unarchives previously archived repositories
+  - **File Operations**:
+    - `CreateFileAsync()`: Creates new files in repositories
+    - `UpdateFileAsync()`: Updates existing files in repositories
+    - `DeleteFileAsync()`: Two overloads (by repositoryId or repositoryName) for deleting files
+  - **Issue Operations**:
+    - `CloseIssueAsync()`: Closes issues by number
+    - `GetRepositoryIssuesAsync()`: Gets all issues for a repository by name
+  - **Workflow Operations**:
+    - `UpdateWorkflowPermissionsAsync()`: Updates workflow permissions for repositories
+  - All methods use GitHub App authentication and follow existing service patterns
+- **E2E Test Implementation**: Created E2E test suite
+  - `WorkflowTests.cs` with complete policy enforcement workflow test
+  - Tests repository creation, policy compliance checking, scanning, and UI interactions
+  - Integration with Test Mode for seamless authentication
+  - Automatic cleanup of test repositories and database records
+- **Documentation**: Created comprehensive E2E testing documentation
+  - Added `docs/testing-e2e-tests.md` with detailed setup, architecture, and usage guide
+  - Updated `testing-strategy.md` with E2E testing details
+  - Updated `github-integration.md` with new E2E testing methods
+  - Updated README.md with E2E testing section
+
+### Changed
+- **AuthorizationService**: Added Test Mode support to bypass team membership checks
+  - Checks `TestModeOptions.Enabled` before performing team membership verification
+  - Returns `true` immediately when Test Mode is enabled
+  - Logs test mode bypass for debugging purposes
+- **Program.cs**: Enhanced authentication configuration to support Test Mode
+  - Conditionally registers GitHub OAuth authentication only when Test Mode is disabled
+  - Registers `TestModeAuthenticationHandler` when Test Mode is enabled
+  - Adds `TestModeAuthenticationMiddleware` to the request pipeline for authentication bypass
+  - Configures `TestModeOptions` from configuration section
+- **README.md**: Enhanced with comprehensive Test Mode and E2E testing documentation
+  - Added detailed Test Mode configuration section with all options
+  - Added E2E testing section with prerequisites and quick start guide
+  - Updated testing section to include E2E test project information
+
+### Security
+- **Test Mode Warning**: Test Mode completely bypasses authentication and authorization controls
+  - Should NEVER be enabled in production environments
+  - Documented security considerations in README.md and AGENTS.md
+  - Warning messages in code comments and documentation
+
+### Technical Details
+- **New Dependencies**:
+  - Microsoft.Playwright (latest) - Browser automation for E2E tests
+  - Test Mode implemented using ASP.NET Core authentication handlers and middleware
+- **Test Architecture**:
+  - Dual-host approach separates test data creation from UI testing
+  - Test host uses GitHubService for repository management
+  - Web application runs manually for realistic testing environment
+  - Test Mode enables authentication bypass without affecting GitHub App functionality
+
 ## 1.3
 
 ### Added

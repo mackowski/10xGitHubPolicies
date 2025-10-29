@@ -18,6 +18,18 @@ This document outlines the approach to integrating with the GitHub API using the
     - `Task<IReadOnlyList<Issue>> GetOpenIssuesAsync(long repositoryId, string label)`: Retrieves all open issues for a repository filtered by a specific label. Returns an empty list if the repository is not found. Used for duplicate issue prevention.
     - `Task<IReadOnlyList<Organization>> GetUserOrganizationsAsync(string userAccessToken)`: Retrieves all organizations the authenticated user is a member of.
     - `Task<IReadOnlyList<Team>> GetOrganizationTeamsAsync(string userAccessToken, string org)`: Retrieves all teams in an organization.
+    
+    **E2E Testing Methods** (for automated testing and repository management):
+    - `Task<Repository> CreateRepositoryAsync(string name, string description = "", bool isPrivate = false)`: Creates a new repository in the organization.
+    - `Task CreateFileAsync(long repositoryId, string path, string content, string commitMessage = "")`: Creates a new file in a repository.
+    - `Task UpdateFileAsync(long repositoryId, string path, string content, string commitMessage = "")`: Updates an existing file in a repository.
+    - `Task DeleteFileAsync(long repositoryId, string path, string commitMessage = "")`: Deletes a file from a repository by repository ID.
+    - `Task DeleteFileAsync(string repositoryName, string path, string commitMessage = "")`: Deletes a file from a repository by repository name.
+    - `Task UpdateWorkflowPermissionsAsync(long repositoryId, string permissions)`: Updates workflow permissions for a repository ("read" or "write").
+    - `Task UnarchiveRepositoryAsync(long repositoryId)`: Unarchives a previously archived repository.
+    - `Task CloseIssueAsync(long repositoryId, int issueNumber)`: Closes an issue by number.
+    - `Task DeleteRepositoryAsync(string repositoryName)`: Deletes a repository by name.
+    - `Task<IReadOnlyList<Issue>> GetRepositoryIssuesAsync(string repositoryName)`: Gets all issues for a repository by name.
 
 ### `GitHubService`
 - **Purpose**: Implements `IGitHubService` and handles the authentication and caching of the GitHub App installation token.
@@ -201,6 +213,81 @@ public async Task CreateIssueWithDuplicateCheckAsync(long repositoryId, string t
     );
     
     _logger.LogInformation("Created issue: {IssueUrl}", newIssue.HtmlUrl);
+}
+```
+
+### Example: E2E Testing - Creating Test Repositories
+
+```csharp
+public async Task SetupTestRepositoryAsync(string repoName)
+{
+    // Create a test repository
+    var repository = await _gitHubService.CreateRepositoryAsync(
+        repoName,
+        "Test repository for E2E testing",
+        isPrivate: false
+    );
+    
+    // Create required files for compliance
+    await _gitHubService.CreateFileAsync(
+        repository.Id,
+        "AGENTS.md",
+        "# Test Agents File\n\nThis is a test file.",
+        "Add AGENTS.md file"
+    );
+    
+    // Update workflow permissions to read-only
+    await _gitHubService.UpdateWorkflowPermissionsAsync(repository.Id, "read");
+    
+    return repository;
+}
+
+public async Task CleanupTestRepositoryAsync(string repoName)
+{
+    // Get all issues
+    var issues = await _gitHubService.GetRepositoryIssuesAsync(repoName);
+    
+    // Close all open issues
+    foreach (var issue in issues.Where(i => i.State.Value == ItemState.Open))
+    {
+        await _gitHubService.CloseIssueAsync(issue.Repository.Id, issue.Number);
+    }
+    
+    // Delete the repository
+    await _gitHubService.DeleteRepositoryAsync(repoName);
+}
+```
+
+### Example: E2E Testing - Managing Repository Files
+
+```csharp
+public async Task SetupCompliantRepositoryAsync(long repositoryId)
+{
+    // Create AGENTS.md file
+    await _gitHubService.CreateFileAsync(
+        repositoryId,
+        "AGENTS.md",
+        "# AGENTS.md\n\nRepository agents documentation.",
+        "Add AGENTS.md"
+    );
+    
+    // Create catalog-info.yaml file
+    await _gitHubService.CreateFileAsync(
+        repositoryId,
+        "catalog-info.yaml",
+        "apiVersion: backstage.io/v1alpha1\nkind: Component",
+        "Add catalog-info.yaml"
+    );
+}
+
+public async Task MakeRepositoryNonCompliantAsync(long repositoryId)
+{
+    // Delete AGENTS.md to make repository non-compliant
+    await _gitHubService.DeleteFileAsync(
+        repositoryId,
+        "AGENTS.md",
+        "Remove AGENTS.md for testing"
+    );
 }
 ```
 

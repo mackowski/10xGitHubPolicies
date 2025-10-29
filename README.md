@@ -59,7 +59,7 @@ The application uses a dual-authentication strategy:
 | **API Docs**      | Swagger / OpenAPI                        |
 | **Hosting**       | Azure App Service                        |
 | **GitHub API**    | Octokit.net                              |
-| **Testing**       | xUnit, bUnit, NSubstitute, WireMock.Net, Testcontainers, NJsonSchema, Verify.NET |
+| **Testing**       | xUnit, bUnit, NSubstitute, WireMock.Net, Testcontainers, NJsonSchema, Verify.NET, Playwright |
 | **CI/CD**         | GitHub Actions                           |
 
 ---
@@ -135,6 +135,87 @@ The application will be available at:
 ## Configuration
 
 The application is configured via `appsettings.json` and user secrets for sensitive data.
+
+### Test Mode
+
+Test Mode is a special application mode designed for E2E testing and development scenarios. When enabled, it bypasses user authentication and authorization checks, allowing automated testing without requiring real GitHub OAuth tokens or team membership verification.
+
+#### What Test Mode Does
+
+- **Authentication Bypass**: Automatically authenticates users as a fake `mackowski` user
+- **Authorization Bypass**: Skips team membership verification (always returns `true`)
+- **GitHub App Services**: Remain fully functional for repository operations
+- **No Real Tokens**: Eliminates the need for actual GitHub Personal Access Tokens
+
+#### Enabling Test Mode
+
+**Via Configuration File** (Recommended for development):
+
+1. Edit `appsettings.Development.json`:
+   ```json
+   {
+     "TestMode": {
+       "Enabled": true
+     }
+   }
+   ```
+
+2. Restart the application:
+   ```sh
+   dotnet run --launch-profile https
+   ```
+
+**Via Environment Variable** (Useful for CI/CD):
+
+```sh
+export TestMode__Enabled=true
+dotnet run --launch-profile https
+```
+
+**Via Command Line** (Temporary override):
+
+```sh
+dotnet run --launch-profile https --TestMode:Enabled=true
+```
+
+#### Disabling Test Mode
+
+**Via Configuration File**:
+
+1. Edit `appsettings.Development.json`:
+   ```json
+   {
+     "TestMode": {
+       "Enabled": false
+     }
+   }
+   ```
+
+2. Restart the application
+
+**Via Environment Variable**:
+
+```sh
+export TestMode__Enabled=false
+dotnet run --launch-profile https
+```
+
+#### Test Mode Configuration Options
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `TestMode:Enabled` | `bool` | `false` | Enables/disables test mode authentication bypass |
+
+#### When to Use Test Mode
+
+- **E2E Testing**: Automated browser tests that need to bypass authentication
+- **Development**: Local development without GitHub OAuth setup
+- **CI/CD**: Automated testing pipelines
+- **Demo Environments**: Quick demonstrations without authentication setup
+
+#### Security Considerations
+
+⚠️ **Important**: Test Mode should **NEVER** be enabled in production environments. It completely bypasses security controls and should only be used in development, testing, or demo scenarios.
 
 ### GitHub App Settings
 The application uses a dual-authentication strategy requiring both a GitHub App (for backend services) and a GitHub OAuth App (for user authentication).
@@ -262,6 +343,14 @@ The project employs a comprehensive multi-level testing strategy:
    - Coverage: repository, issue, and workflow permissions responses
    - Run: `dotnet test 10xGitHubPolicies.Tests.Contracts/10xGitHubPolicies.Tests.Contracts.csproj --filter "Category=Contract"`
 
+4. **10xGitHubPolicies.Tests.E2E** - End-to-end tests
+   - Browser automation tests using Playwright
+   - Full workflow testing from UI to database
+   - Uses Test Mode for authentication bypass (see [Test Mode](#test-mode) section)
+   - Requires Playwright browsers installation: `pwsh bin/Debug/net8.0/playwright.ps1 install chromium`
+   - **Note**: Web application must be running manually before executing E2E tests
+   - Run: `dotnet test 10xGitHubPolicies.Tests.E2E/10xGitHubPolicies.Tests.E2E.csproj`
+
 ### Running All Tests
 
 ```sh
@@ -285,6 +374,7 @@ Detailed documentation for specific features and integrations:
 - **[Policy Evaluation](./docs/policy-evaluation.md)**: How the policy evaluation engine works and how to add new policies
 - **[Testing Strategy](./docs/testing-strategy.md)**: Comprehensive testing approach, tooling, and best practices
 - **[Contract Testing](./docs/testing-contract-tests.md)**: Detailed guide to contract testing with WireMock, Verify.NET, and JSON Schema
+- **[E2E Testing](./docs/testing-e2e-tests.md)**: Complete guide to End-to-End testing with Playwright
 
 ---
 
@@ -320,12 +410,13 @@ Detailed documentation for specific features and integrations:
 *   Action - PR Blocking
 *   Action - Log only
 *   Action - Slack notification
+*   Action - Fix (update github settings)
 *   Exception policies
 *   Getting team ownership 
 *   Better project structure e.g. FrontEnd/UI 
 *   Remove dups between .ai and /docs
 *   Review test coverage
-*   Add test for Auth and 'open' URLs
+*   E2E tests and scenatios improvements
 
 ---
 

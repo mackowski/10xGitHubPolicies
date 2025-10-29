@@ -10,6 +10,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "10xGitHubPolicies.Tests.Int
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "10xGitHubPolicies.Tests.Contracts", "10xGitHubPolicies.Tests.Contracts\10xGitHubPolicies.Tests.Contracts.csproj", "{2F4AB38D-3D9F-4648-AF11-DCD28D0DEF78}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "10xGitHubPolicies.Tests.E2E", "10xGitHubPolicies.Tests.E2E\10xGitHubPolicies.Tests.E2E.csproj", "{354A2AE9-F929-49FA-98C1-3F98FF9112D4}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -32,6 +34,10 @@ Global
 		{2F4AB38D-3D9F-4648-AF11-DCD28D0DEF78}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{2F4AB38D-3D9F-4648-AF11-DCD28D0DEF78}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{2F4AB38D-3D9F-4648-AF11-DCD28D0DEF78}.Release|Any CPU.Build.0 = Release|Any CPU
+		{354A2AE9-F929-49FA-98C1-3F98FF9112D4}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{354A2AE9-F929-49FA-98C1-3F98FF9112D4}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{354A2AE9-F929-49FA-98C1-3F98FF9112D4}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{354A2AE9-F929-49FA-98C1-3F98FF9112D4}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

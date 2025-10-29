@@ -6,3 +6,5 @@
 # Application settings
 appsettings.Development.json
 **/Properties/launchSettings.json
+
+TestResults/

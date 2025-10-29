@@ -3,6 +3,8 @@ using _10xGitHubPolicies.App.Services.Configuration;
 using _10xGitHubPolicies.App.Services.GitHub;
 using _10xGitHubPolicies.App.Exceptions;
 using Microsoft.AspNetCore.Authentication;
+using _10xGitHubPolicies.App.Options;
+using Microsoft.Extensions.Options;
 
 namespace _10xGitHubPolicies.App.Services.Authorization;
 
@@ -12,23 +14,33 @@ public class AuthorizationService : IAuthorizationService
     private readonly IConfigurationService _configurationService;
     private readonly ILogger<AuthorizationService> _logger;
     private readonly IHttpContextAccessor _httpContextAccessor;
+    private readonly IOptions<TestModeOptions> _testModeOptions;
 
     public AuthorizationService(
         IGitHubService gitHubService,
         IConfigurationService configurationService,
         ILogger<AuthorizationService> logger,
-        IHttpContextAccessor httpContextAccessor)
+        IHttpContextAccessor httpContextAccessor,
+        IOptions<TestModeOptions> testModeOptions)
     {
         _gitHubService = gitHubService;
         _configurationService = configurationService;
         _logger = logger;
         _httpContextAccessor = httpContextAccessor;
+        _testModeOptions = testModeOptions;
     }
 
     public async Task<bool> IsUserAuthorizedAsync(ClaimsPrincipal user)
     {
         try
         {
+            // In test mode, always authorize the user (skip team membership check)
+            if (_testModeOptions.Value.Enabled)
+            {
+                _logger.LogInformation("Test mode enabled - bypassing team membership check");
+                return true;
+            }
+
             // Get the user's access token from authentication properties
             var httpContext = _httpContextAccessor.HttpContext;
             if (httpContext == null)

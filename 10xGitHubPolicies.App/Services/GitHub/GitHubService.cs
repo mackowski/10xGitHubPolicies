@@ -201,6 +201,148 @@ public class GitHubService : IGitHubService
         }
     }
 
+    // E2E Testing Methods
+    public async Task<Repository> CreateRepositoryAsync(string name, string description = "", bool isPrivate = false)
+    {
+        var client = await GetAuthenticatedClient();
+        var newRepo = new NewRepository(name)
+        {
+            Description = description,
+            Private = isPrivate,
+            AutoInit = true
+        };
+        
+        return await client.Repository.Create(_options.OrganizationName, newRepo);
+    }
+
+    public async Task CreateFileAsync(long repositoryId, string path, string content, string commitMessage = "")
+    {
+        var client = await GetAuthenticatedClient();
+        var repository = await client.Repository.Get(repositoryId);
+        
+        var commitMessageText = string.IsNullOrEmpty(commitMessage) ? $"Add {path}" : commitMessage;
+        
+        var fileContent = Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(content));
+        
+        var createFileRequest = new CreateFileRequest(commitMessageText, fileContent)
+        {
+            Branch = repository.DefaultBranch
+        };
+        
+        await client.Repository.Content.CreateFile(repositoryId, path, createFileRequest);
+    }
+
+    public async Task UpdateFileAsync(long repositoryId, string path, string content, string commitMessage = "")
+    {
+        var client = await GetAuthenticatedClient();
+        var repository = await client.Repository.Get(repositoryId);
+        
+        var commitMessageText = string.IsNullOrEmpty(commitMessage) ? $"Update {path}" : commitMessage;
+        
+        // Get the current file to get its SHA
+        var existingFile = await client.Repository.Content.GetAllContents(repositoryId, path);
+        var file = existingFile.FirstOrDefault();
+        
+        if (file == null)
+        {
+            throw new InvalidOperationException($"File {path} not found in repository {repositoryId}");
+        }
+        
+        var fileContent = Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(content));
+        
+        var updateFileRequest = new UpdateFileRequest(commitMessageText, fileContent, file.Sha)
+        {
+            Branch = repository.DefaultBranch
+        };
+        
+        await client.Repository.Content.UpdateFile(repositoryId, path, updateFileRequest);
+    }
+
+    public async Task DeleteFileAsync(long repositoryId, string path, string commitMessage = "")
+    {
+        var client = await GetAuthenticatedClient();
+        var repository = await client.Repository.Get(repositoryId);
+        
+        var commitMessageText = string.IsNullOrEmpty(commitMessage) ? $"Delete {path}" : commitMessage;
+        
+        // Get the current file to get its SHA
+        var existingFile = await client.Repository.Content.GetAllContents(repositoryId, path);
+        var file = existingFile.FirstOrDefault();
+        
+        if (file == null)
+        {
+            throw new InvalidOperationException($"File {path} not found in repository {repositoryId}");
+        }
+        
+        var deleteFileRequest = new DeleteFileRequest(commitMessageText, file.Sha)
+        {
+            Branch = repository.DefaultBranch
+        };
+        
+        await client.Repository.Content.DeleteFile(repositoryId, path, deleteFileRequest);
+    }
+
+    public async Task DeleteFileAsync(string repositoryName, string path, string commitMessage = "")
+    {
+        var client = await GetAuthenticatedClient();
+        var repository = await client.Repository.Get(_options.OrganizationName, repositoryName);
+        
+        var commitMessageText = string.IsNullOrEmpty(commitMessage) ? $"Delete {path}" : commitMessage;
+        
+        // Get the current file to get its SHA
+        var existingFile = await client.Repository.Content.GetAllContents(_options.OrganizationName, repositoryName, path);
+        var file = existingFile.FirstOrDefault();
+        
+        if (file == null)
+        {
+            throw new InvalidOperationException($"File {path} not found in repository {repositoryName}");
+        }
+        
+        var deleteFileRequest = new DeleteFileRequest(commitMessageText, file.Sha)
+        {
+            Branch = repository.DefaultBranch
+        };
+        
+        await client.Repository.Content.DeleteFile(_options.OrganizationName, repositoryName, path, deleteFileRequest);
+    }
+
+    public async Task UpdateWorkflowPermissionsAsync(long repositoryId, string permissions)
+    {
+        var client = await GetAuthenticatedClient();
+        var connection = client.Connection;
+        
+        var endpoint = new Uri($"repositories/{repositoryId}/actions/permissions/workflow", UriKind.Relative);
+        var body = $"{{\"default_workflow_permissions\": \"{permissions}\"}}";
+        
+        await connection.Patch<object>(endpoint, body, "application/vnd.github.v3+json");
+    }
+
+    public async Task UnarchiveRepositoryAsync(long repositoryId)
+    {
+        var client = await GetAuthenticatedClient();
+        await client.Repository.Edit(repositoryId, new RepositoryUpdate { Archived = false });
+    }
+
+    public async Task CloseIssueAsync(long repositoryId, int issueNumber)
+    {
+        var client = await GetAuthenticatedClient();
+        var issueUpdate = new IssueUpdate { State = ItemState.Closed };
+        await client.Issue.Update(repositoryId, issueNumber, issueUpdate);
+    }
+
+    public async Task DeleteRepositoryAsync(string repositoryName)
+    {
+        var client = await GetAuthenticatedClient();
+        await client.Repository.Delete(_options.OrganizationName, repositoryName);
+    }
+
+    public async Task<IReadOnlyList<Issue>> GetRepositoryIssuesAsync(string repositoryName)
+    {
+        var client = await GetAuthenticatedClient();
+        var issues = await client.Issue.GetAllForRepository(_options.OrganizationName, repositoryName);
+        return issues;
+    }
+
     private async Task<GitHubClient> GetAuthenticatedClient()
     {
         var token = await _cache.GetOrCreateAsync(InstallationTokenCacheKey, async entry =>
@@ -219,7 +361,7 @@ public class GitHubService : IGitHubService
             return tokenResponse.Token;
         });
 
-        return _clientFactory.CreateClient(token);
+        return _clientFactory.CreateClient(token ?? string.Empty);
     }
 
     private string GetJwt()

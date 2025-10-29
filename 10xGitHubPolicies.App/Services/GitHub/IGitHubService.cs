@@ -18,4 +18,16 @@ public interface IGitHubService
     Task<IReadOnlyList<Issue>> GetOpenIssuesAsync(long repositoryId, string label);
     Task<IReadOnlyList<Organization>> GetUserOrganizationsAsync(string userAccessToken);
     Task<IReadOnlyList<Team>> GetOrganizationTeamsAsync(string userAccessToken, string org);
+    
+    // E2E Testing Methods
+    Task<Repository> CreateRepositoryAsync(string name, string description = "", bool isPrivate = false);
+    Task CreateFileAsync(long repositoryId, string path, string content, string commitMessage = "");
+    Task UpdateFileAsync(long repositoryId, string path, string content, string commitMessage = "");
+    Task DeleteFileAsync(long repositoryId, string path, string commitMessage = "");
+    Task DeleteFileAsync(string repositoryName, string path, string commitMessage = "");
+    Task UpdateWorkflowPermissionsAsync(long repositoryId, string permissions);
+    Task UnarchiveRepositoryAsync(long repositoryId);
+    Task CloseIssueAsync(long repositoryId, int issueNumber);
+    Task DeleteRepositoryAsync(string repositoryName);
+    Task<IReadOnlyList<Issue>> GetRepositoryIssuesAsync(string repositoryName);
 }

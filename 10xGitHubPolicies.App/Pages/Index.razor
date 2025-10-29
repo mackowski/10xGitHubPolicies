@@ -70,8 +70,8 @@ else
             <FluentSpacer />
             
             <FluentStack Orientation="Orientation.Horizontal" VerticalAlignment="VerticalAlignment.Center">
-                <FluentTextField @bind-Value="_repositoryFilter" Placeholder="Filter by name..." Immediate="true" Style="width: 250px;"/>
-                <FluentButton Id="scan-button" Appearance="Appearance.Accent" OnClick="StartScan" Disabled="@_isScanning" Style="margin-left: 16px;">
+                <FluentTextField @bind-Value="_repositoryFilter" Placeholder="Filter by name..." Immediate="true" Style="width: 250px;" data-testid="repository-filter"/>
+                <FluentButton Id="scan-button" Appearance="Appearance.Accent" OnClick="StartScan" Disabled="@_isScanning" Style="margin-left: 16px;" data-testid="scan-button">
                     @if (_isScanning)
                     {
                         <FluentProgress Ring="true" />
@@ -87,15 +87,15 @@ else
 
         @if (GetFilteredRepositories().Any())
         {
-            <FluentDataGrid Items="@GetFilteredRepositories().AsQueryable()" TGridItem="NonCompliantRepositoryViewModel" Striped="true" Style="margin-top: 16px;">
+            <FluentDataGrid Items="@GetFilteredRepositories().AsQueryable()" TGridItem="NonCompliantRepositoryViewModel" Striped="true" Style="margin-top: 16px;" data-testid="non-compliant-repositories-grid">
                 <TemplateColumn Title="Repository">
-                    <FluentAnchor Href="@context.Url" Target="_blank" Appearance="Appearance.Hypertext">@context.Name</FluentAnchor>
+                    <FluentAnchor Href="@context.Url" Target="_blank" Appearance="Appearance.Hypertext" data-testid="repository-name">@context.Name</FluentAnchor>
                 </TemplateColumn>
                 <TemplateColumn Title="Violations">
-                    <FluentStack Wrap="true">
+                    <FluentStack Wrap="true" data-testid="repository-violations">
                         @foreach (var policy in context.ViolatedPolicies)
                         {
-                            <FluentBadge Appearance="Appearance.Accent" Style="margin: 2px;">@policy</FluentBadge>
+                            <FluentBadge Appearance="Appearance.Accent" Style="margin: 2px;" data-testid="violation-badge">@policy</FluentBadge>
                         }
                     </FluentStack>
                 </TemplateColumn>

@@ -219,28 +219,70 @@ public class DashboardTests : AppTestContext
 
 ### Level 5: End-to-End Tests
 **Purpose**: Validate critical user workflows in a real browser environment  
-**Technology**: Playwright (TypeScript or C#)  
+**Technology**: Playwright (.NET)  
 **Speed**: Very slow (10-60 seconds per test)
+
+> **📖 For a detailed guide**, see **[E2E Testing Documentation](./testing-e2e-tests.md)**
 
 **When to Use** (sparingly):
 - Critical user workflows only (< 10 tests)
-- OAuth authentication flow
-- Cross-browser compatibility
+- Complete policy enforcement workflow validation
+- UI interaction testing with real browser
 - Pre-production smoke tests
 
-**Example**:
-```typescript
-test('complete scan workflow', async ({ page }) => {
-  const dashboardPage = new DashboardPage(page);
-  
-  await dashboardPage.goto();
-  await dashboardPage.triggerScan();
-  await dashboardPage.waitForScanComplete();
-  
-  const count = await dashboardPage.getRepositoryCount();
-  expect(count).toBeGreaterThan(0);
-});
+**Key Features**:
+- **Dual-Host Architecture**: Test host for data creation + manually running web application
+- **Test Mode Integration**: Uses Test Mode for authentication bypass (see [Test Mode](#test-mode) section)
+- **Page Object Model**: `DashboardPage` encapsulates UI interactions
+- **Test Data Management**: `RepositoryHelper` and `DatabaseHelper` for setup/cleanup
+- **Screenshot Capture**: Automatic screenshots for debugging failures
+
+**Architecture**:
+- **Test Host**: Minimal .NET host providing GitHub API services and database access
+- **Web Application**: Manually running application at `https://localhost:7040/` for UI testing
+- **Separation**: Test data creation separate from UI testing for better debugging
+
+**Test Mode Requirement**:
+E2E tests require Test Mode to be enabled in the web application configuration:
+```json
+{
+  "TestMode": {
+    "Enabled": true
+  }
+}
 ```
+
+**Example**:
+```csharp
+[Fact]
+[Trait("Category", "E2E-Workflow")]
+public async Task CompletePolicyEnforcementWorkflow_ShouldWorkEndToEnd()
+{
+    // Arrange - Create test repository via test host
+    var repository = await RepositoryHelper.CreateTestRepositoryAsync("e2e-test-repo");
+    
+    // Act - Test UI via manually running web application
+    var page = await Browser.NewPageAsync();
+    var dashboardPage = new DashboardPage(page);
+    
+    await dashboardPage.GotoAsync();
+    await dashboardPage.TriggerScanAsync();
+    await dashboardPage.WaitForScanCompletionAsync();
+    
+    // Assert - Verify results via database
+    var violations = await DatabaseHelper.GetPolicyViolationsAsync(repository.Id);
+    violations.Should().NotBeEmpty();
+    
+    // Cleanup
+    await RepositoryHelper.DeleteTestRepositoryAsync(repository.Name);
+}
+```
+
+**Setup Requirements**:
+1. Web application must be running manually: `dotnet run --launch-profile https`
+2. Database must be available (Docker Compose)
+3. Test Mode must be enabled in `appsettings.Development.json`
+4. Playwright browsers must be installed: `pwsh bin/Debug/net8.0/playwright.ps1 install chromium`
 
 ## Testing Tools
 
@@ -286,12 +328,16 @@ test('complete scan workflow', async ({ page }) => {
 ├── 10xGitHubPolicies.Tests.Contracts/   # Contract tests
 │   ├── Schemas/
 │   └── Snapshots/
-├── 10xGitHubPolicies.Tests.Components/  # Blazor component tests
+├── 10xGitHubPolicies.Tests.E2E/        # E2E tests (Playwright)
+│   ├── Tests/
+│   │   └── Workflow/
+│   │       └── WorkflowTests.cs
 │   ├── Pages/
-│   └── Shared/
-└── tests/                               # E2E tests (Playwright)
-    ├── e2e/
-    └── pages/
+│   │   └── DashboardPage.cs
+│   ├── Helpers/
+│   │   ├── RepositoryHelper.cs
+│   │   └── DatabaseHelper.cs
+│   └── README.md
 ```
 
 ## Running Tests
@@ -319,8 +365,9 @@ dotnet test --filter Category=Contract
 # Component tests (22 tests, 100% passing)
 dotnet test --filter Category=Component
 
-# E2E tests
-cd tests && npx playwright test
+# E2E tests (requires web application running)
+dotnet test 10xGitHubPolicies.Tests.E2E
+dotnet test --filter Category=E2E-Workflow
 ```
 
 ### By Project
@@ -333,6 +380,9 @@ dotnet test 10xGitHubPolicies.Tests.Integration
 
 # Component tests
 dotnet test 10xGitHubPolicies.Tests.Components
+
+# E2E tests
+dotnet test 10xGitHubPolicies.Tests.E2E
 ```
 
 ## CI/CD Pipeline Order
@@ -361,7 +411,7 @@ dotnet test 10xGitHubPolicies.Tests.Components
 | Integration | All critical paths | Database operations, API calls, workflows | ✅ Implemented (33 tests) |
 | Contract | Critical APIs only | 5-10 endpoints maximum | ✅ Implemented (11 tests) |
 | Component | Key UI components | Dashboard, forms, navigation | ✅ Implemented (22 tests) |
-| E2E | 5-10 critical workflows | Authentication, scan, view results | ⏳ Planned |
+| E2E | 5-10 critical workflows | Authentication, scan, view results | ✅ Implemented (Playwright tests) |
 
 ## Testing Best Practices
 
@@ -425,12 +475,13 @@ The application relies heavily on GitHub API integration. Testing is performed a
 - Catch breaking API changes early
 - Example: Repository metadata structure, issue creation responses
 
-**Level 4: E2E Tests (Real API)**
-- Test organization with controlled test repositories
-- Real GitHub API calls (limited, expensive)
-- Pre-production smoke testing
-- Example: Full scan workflow against test organization
-- **Priority**: LOW - Use sparingly due to rate limits and cost
+**Level 5: E2E Tests (Real API + Browser)**
+- Test complete user workflows in real browser environment
+- Uses Test Mode for authentication bypass
+- Real GitHub API calls via test host for data creation
+- UI testing against manually running web application
+- Example: Complete policy enforcement workflow from UI to database
+- **Priority**: MEDIUM - Use for critical workflows only due to slow execution
 
 ## Quick Decision Tree
 
@@ -483,10 +534,9 @@ reportgenerator -reports:coverage.cobertura.xml  # View report
 dotnet test --filter Category!=E2E               # All except E2E
 dotnet test --logger "trx;LogFileName=results.trx" # CI-friendly output
 
-# E2E
-npx playwright test                              # Run all E2E
-npx playwright test --headed                     # Debug mode
-npx playwright test --ui                         # Interactive UI
+# E2E (requires web application running first)
+dotnet test 10xGitHubPolicies.Tests.E2E         # Run all E2E tests
+dotnet test --filter Category=E2E-Workflow      # Run specific category
 
 # Cleanup
 docker ps -a | grep testcontainers | awk '{print $1}' | xargs docker rm -f

@@ -17,6 +17,87 @@ Alternatively, you can run from the root directory using `dotnet run --project 1
 
 **Important**: Always use the HTTPS profile to ensure OAuth authentication works correctly.
 
+### Test Mode
+
+Test Mode is a special application mode designed for E2E testing and development scenarios. When enabled, it bypasses user authentication and authorization checks, allowing automated testing without requiring real GitHub OAuth tokens or team membership verification.
+
+#### What Test Mode Does
+
+- **Authentication Bypass**: Automatically authenticates users as a fake `mackowski` user
+- **Authorization Bypass**: Skips team membership verification (always returns `true`)
+- **GitHub App Services**: Remain fully functional for repository operations
+- **No Real Tokens**: Eliminates the need for actual GitHub Personal Access Tokens
+
+#### Enabling Test Mode
+
+**Via Configuration File** (Recommended for development):
+
+1. Edit `appsettings.Development.json`:
+   ```json
+   {
+     "TestMode": {
+       "Enabled": true
+     }
+   }
+   ```
+
+2. Restart the application:
+   ```sh
+   dotnet run --launch-profile https
+   ```
+
+**Via Environment Variable** (Useful for CI/CD):
+
+```sh
+export TestMode__Enabled=true
+dotnet run --launch-profile https
+```
+
+**Via Command Line** (Temporary override):
+
+```sh
+dotnet run --launch-profile https --TestMode:Enabled=true
+```
+
+#### Disabling Test Mode
+
+**Via Configuration File**:
+
+1. Edit `appsettings.Development.json`:
+   ```json
+   {
+     "TestMode": {
+       "Enabled": false
+     }
+   }
+   ```
+
+2. Restart the application
+
+**Via Environment Variable**:
+
+```sh
+export TestMode__Enabled=false
+dotnet run --launch-profile https
+```
+
+#### Test Mode Configuration Options
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `TestMode:Enabled` | `bool` | `false` | Enables/disables test mode authentication bypass |
+
+#### When to Use Test Mode
+
+- **E2E Testing**: Automated browser tests that need to bypass authentication
+- **Development**: Local development without GitHub OAuth setup
+- **CI/CD**: Automated testing pipelines
+- **Demo Environments**: Quick demonstrations without authentication setup
+
+#### Security Considerations
+
+⚠️ **Important**: Test Mode should **NEVER** be enabled in production environments. It completely bypasses security controls and should only be used in development, testing, or demo scenarios.
+
 ### OAuth Authentication Troubleshooting
 
 If you encounter OAuth authentication issues:
@@ -109,7 +190,7 @@ You are a senior Blazor and .NET developer and an expert in `C#`, `ASP.NET Core`
   - **Level 2: Integration Tests (WireMock.Net, Testcontainers)**: ✅ **COMPLETED** - 33 tests covering all GitHubService methods. Test the interaction between components using `WireMock.Net` to mock the GitHub API at the HTTP level and `Testcontainers` for ephemeral database instances.
   - **Level 3: Contract Tests (NJsonSchema, Verify.NET)**: ✅ **COMPLETED** - 11 tests validating GitHub API contracts. Use schema validation and snapshot testing to detect breaking changes in the GitHub API contract, preventing production failures.
   - **Level 4: Blazor Component Tests (bUnit)**: ✅ **COMPLETED** - 22 tests covering all major UI components, authentication flows, and user interactions.
-  - **Level 5: E2E Tests (Playwright)**: Reserve for critical user workflows. These tests should be used sparingly due to their slow and costly nature.
+  - **Level 5: E2E Tests (Playwright)**: Reserve for critical user workflows. These tests should be used sparingly due to their slow and costly nature. Uses Test Mode for authentication bypass (see [Test Mode](#test-mode) section). Requires Playwright browser installation: `pwsh bin/Debug/net8.0/playwright.ps1 install chromium`
 - **GitHub API Testing Infrastructure**:
   - Use `IGitHubClientFactory` pattern for dependency injection of GitHubClient creation
   - `GitHubClientFactory` supports custom base URLs for redirecting API calls to WireMock.Net
@@ -117,6 +198,13 @@ You are a senior Blazor and .NET developer and an expert in `C#`, `ASP.NET Core`
   - Note: Octokit prepends `/api/v3/` to all paths when custom BaseUrl is provided (GitHub Enterprise mode)
 - **Blazor Component Testing**: Use `bUnit` for writing unit tests for Blazor components to verify rendering and interactivity. Implementation includes test infrastructure (`AppTestContext`, `TestDataBuilder`) and covers Pages, Shared components, and Integration flows.
 - **Database Testing**: Use `Respawn` to efficiently reset the database state between integration tests, ensuring test isolation.
+- **E2E Testing Setup**: For Playwright E2E tests, install browsers after building the test project and ensure Test Mode is enabled:
+  ```bash
+  cd 10xGitHubPolicies.Tests.E2E
+  dotnet build
+  pwsh bin/Debug/net8.0/playwright.ps1 install chromium
+  ```
+  **Note**: E2E tests require Test Mode to be enabled for authentication bypass. See [Test Mode](#test-mode) section for configuration details.
 
 ### Security
 - Use Authentication and Authorization middleware.

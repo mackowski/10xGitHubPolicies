@@ -94,5 +94,113 @@ public class GitHubApiResponseBuilder
         }
         """;
     }
+    
+    public string BuildRepositoryCreationResponse(long id, string name, bool isPrivate = false, string defaultBranch = "main")
+    {
+        return $$"""
+        {
+          "id": {{id}},
+          "name": "{{name}}",
+          "full_name": "test-org/{{name}}",
+          "private": {{isPrivate.ToString().ToLower()}},
+          "archived": false,
+          "default_branch": "{{defaultBranch}}",
+          "owner": {
+            "login": "test-org",
+            "id": 12345,
+            "type": "Organization"
+          }
+        }
+        """;
+    }
+    
+    public string BuildFileCreationResponse(string content, string path, string sha, string commitMessage)
+    {
+        var base64Content = Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(content));
+        return $$"""
+        {
+          "content": {
+            "name": "{{System.IO.Path.GetFileName(path)}}",
+            "path": "{{path}}",
+            "sha": "{{sha}}",
+            "size": {{content.Length}},
+            "type": "file",
+            "content": "{{base64Content}}",
+            "encoding": "base64"
+          },
+          "commit": {
+            "sha": "{{_faker.Random.Hexadecimal(40, prefix: "")}}",
+            "message": "{{commitMessage}}",
+            "author": {
+              "name": "test-user",
+              "email": "test@example.com",
+              "date": "{{DateTimeOffset.UtcNow:yyyy-MM-ddTHH:mm:ssZ}}"
+            }
+          }
+        }
+        """;
+    }
+    
+    public string BuildFileUpdateResponse(string content, string path, string sha, string commitMessage)
+    {
+        // Same structure as CreateFileResponse
+        return BuildFileCreationResponse(content, path, sha, commitMessage);
+    }
+    
+    public string BuildFileDeleteResponse(string path, string sha, string commitMessage)
+    {
+        return $$"""
+        {
+          "content": null,
+          "commit": {
+            "sha": "{{_faker.Random.Hexadecimal(40, prefix: "")}}",
+            "message": "{{commitMessage}}",
+            "author": {
+              "name": "test-user",
+              "email": "test@example.com",
+              "date": "{{DateTimeOffset.UtcNow:yyyy-MM-ddTHH:mm:ssZ}}"
+            }
+          }
+        }
+        """;
+    }
+    
+    public string BuildClosedIssueResponse(int number, string title)
+    {
+        return $$"""
+        {
+          "id": {{_faker.Random.Int(1000000, 9999999)}},
+          "number": {{number}},
+          "title": "{{title}}",
+          "body": "Test issue body",
+          "state": "closed",
+          "labels": [],
+          "html_url": "https://github.com/test-org/test-repo/issues/{{number}}"
+        }
+        """;
+    }
+    
+    public string BuildRepositoryIssuesResponse(int[] issueNumbers, string[] issueTitles)
+    {
+        var issues = issueNumbers.Zip(issueTitles, (num, title) => $$"""
+          {
+            "id": {{_faker.Random.Int(1000000, 9999999)}},
+            "number": {{num}},
+            "title": "{{title}}",
+            "body": "Test issue body",
+            "state": "open",
+            "labels": [],
+            "html_url": "https://github.com/test-org/test-repo/issues/{{num}}"
+          }
+        """);
+        
+        return $"[{string.Join(",", issues)}]";
+    }
+    
+    public string BuildWorkflowPermissionsUpdateResponse(string permissions)
+    {
+        // Same structure as GetWorkflowPermissionsResponse
+        return BuildWorkflowPermissionsResponse(permissions);
+    }
 }
 

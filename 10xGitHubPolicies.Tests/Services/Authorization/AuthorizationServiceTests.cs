@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using _10xGitHubPolicies.App.Exceptions;
+using _10xGitHubPolicies.App.Options;
 using _10xGitHubPolicies.App.Services.Authorization;
 using _10xGitHubPolicies.App.Services.Configuration;
 using _10xGitHubPolicies.App.Services.Configuration.Models;
@@ -9,6 +10,7 @@ using FluentAssertions;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using NSubstitute;
 using Xunit;
 
@@ -34,12 +36,17 @@ public class AuthorizationServiceTests
         _httpContextAccessor = Substitute.For<IHttpContextAccessor>();
         _faker = new Faker();
 
+        // Create TestModeOptions mock
+        var testModeOptions = Substitute.For<IOptions<TestModeOptions>>();
+        testModeOptions.Value.Returns(new TestModeOptions { Enabled = false });
+
         // Create system under test
         _sut = new AuthorizationService(
             _gitHubService,
             _configService,
             _logger,
-            _httpContextAccessor);
+            _httpContextAccessor,
+            testModeOptions);
     }
 
     #region IsUserAuthorizedAsync Tests

@@ -21,6 +21,7 @@ using Microsoft.AspNetCore.Authentication;
 using System.Security.Claims;
 using Microsoft.AspNetCore.HttpsPolicy;
 using _10xGitHubPolicies.App.Authorization;
+using _10xGitHubPolicies.App.Middleware;
 
 var builder = WebApplication.CreateBuilder(args);
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
@@ -39,42 +40,60 @@ builder.Services.AddHangfire(configuration => configuration
 // Add the processing server as IHostedService
 builder.Services.AddHangfireServer();
 
+// Configure GitHub App options first
+builder.Services.Configure<GitHubAppOptions>(builder.Configuration.GetSection(GitHubAppOptions.GitHubApp));
+
+// Configure Test Mode options
+builder.Services.Configure<TestModeOptions>(builder.Configuration.GetSection(TestModeOptions.TestMode));
+
+// Get Test Mode options to check if test mode is enabled
+var testModeOptions = builder.Configuration.GetSection(TestModeOptions.TestMode).Get<TestModeOptions>() ?? new TestModeOptions();
+
 // Configure data protection for OAuth state handling
 builder.Services.AddDataProtection();
 
-// Add authentication services
-builder.Services.AddAuthentication(options =>
+// Add authentication services only if not in test mode
+if (!testModeOptions.Enabled)
 {
-    options.DefaultAuthenticateScheme = CookieAuthenticationDefaults.AuthenticationScheme;
-    options.DefaultSignInScheme = CookieAuthenticationDefaults.AuthenticationScheme;
-    options.DefaultChallengeScheme = "GitHub";
-})
-.AddCookie(options =>
-{
-    options.LoginPath = "/login";
-    options.LogoutPath = "/logout";
-    options.AccessDeniedPath = "/access-denied";
-    options.ExpireTimeSpan = TimeSpan.FromHours(24);
-    options.SlidingExpiration = false;
-})
-.AddGitHub(options =>
-{
-    options.ClientId = builder.Configuration["GitHub:ClientId"] ?? throw new InvalidOperationException("GitHub:ClientId is not configured");
-    options.ClientSecret = builder.Configuration["GitHub:ClientSecret"] ?? throw new InvalidOperationException("GitHub:ClientSecret is not configured");
-    options.CallbackPath = "/signin-github";
-    options.Scope.Add("read:org");
-    options.SaveTokens = true; // Save access token for team verification
-    
-    // Configure OAuth events to handle failures gracefully
-    options.Events.OnRemoteFailure = context =>
+    builder.Services.AddAuthentication(options =>
     {
-        // Log OAuth failures for debugging
-        var error = context.Failure?.Message ?? "Unknown error";
-        context.Response.Redirect($"/login?error={Uri.EscapeDataString(error)}");
-        context.HandleResponse();
-        return Task.CompletedTask;
-    };
-});
+        options.DefaultAuthenticateScheme = CookieAuthenticationDefaults.AuthenticationScheme;
+        options.DefaultSignInScheme = CookieAuthenticationDefaults.AuthenticationScheme;
+        options.DefaultChallengeScheme = "GitHub";
+    })
+    .AddCookie(options =>
+    {
+        options.LoginPath = "/login";
+        options.LogoutPath = "/logout";
+        options.AccessDeniedPath = "/access-denied";
+        options.ExpireTimeSpan = TimeSpan.FromHours(24);
+        options.SlidingExpiration = false;
+    })
+    .AddGitHub(options =>
+    {
+        options.ClientId = builder.Configuration["GitHub:ClientId"] ?? throw new InvalidOperationException("GitHub:ClientId is not configured");
+        options.ClientSecret = builder.Configuration["GitHub:ClientSecret"] ?? throw new InvalidOperationException("GitHub:ClientSecret is not configured");
+        options.CallbackPath = "/signin-github";
+        options.Scope.Add("read:org");
+        options.SaveTokens = true; // Save access token for team verification
+        
+        // Configure OAuth events to handle failures gracefully
+        options.Events.OnRemoteFailure = context =>
+        {
+            // Log OAuth failures for debugging
+            var error = context.Failure?.Message ?? "Unknown error";
+            context.Response.Redirect($"/login?error={Uri.EscapeDataString(error)}");
+            context.HandleResponse();
+            return Task.CompletedTask;
+        };
+    });
+}
+else
+{
+    // In test mode, add minimal authentication services
+    builder.Services.AddAuthentication("TestMode")
+        .AddScheme<AuthenticationSchemeOptions, TestModeAuthenticationHandler>("TestMode", options => { });
+}
 
 builder.Services.AddAuthorization();
 builder.Services.AddHttpContextAccessor();
@@ -106,9 +125,6 @@ builder.Services.AddScoped<IPolicyEvaluator, CorrectWorkflowPermissionsEvaluator
 builder.Services.AddScoped<IActionService, ActionService>();
 builder.Services.AddScoped<_10xGitHubPolicies.App.Services.Authorization.IAuthorizationService, _10xGitHubPolicies.App.Services.Authorization.AuthorizationService>();
 
-
-builder.Services.Configure<GitHubAppOptions>(builder.Configuration.GetSection(GitHubAppOptions.GitHubApp));
-
 // Configure HTTPS redirection for development
 if (builder.Environment.IsDevelopment())
 {
@@ -136,6 +152,12 @@ app.UseRouting();
 
 app.UseAuthentication();
 app.UseAuthorization();
+
+// Add test mode authentication middleware if in test mode
+if (testModeOptions.Enabled)
+{
+    app.UseTestModeAuthentication();
+}
 
 app.UseHangfireDashboard("/hangfire", new DashboardOptions
 {
