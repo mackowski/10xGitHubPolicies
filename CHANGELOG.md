@@ -2,6 +2,30 @@
 
 All notable changes to this project will be documented in this file.
 
+## 1.8
+
+### Added
+- **Local Workflow Testing Script**: Script to replicate CI/CD pipeline locally
+  - Created `test-workflow-local.sh` to execute the same test sequence as GitHub Actions
+  - Runs linting, unit tests, component tests, integration tests, and contract tests
+  - Outputs test results to `./coverage/` directory as TRX files
+  - Provides faster feedback cycle by catching issues before pushing to GitHub
+  - Same test filters and configuration as CI/CD workflow ensures consistency
+- **Integration Test SSL Certificate Handling**: Enhanced WireMock fixture for HTTPS support
+  - Added SSL certificate validation callback configuration in `GitHubApiFixture`
+  - Handles self-signed certificates from WireMock server
+  - Properly resets certificate validation callback in cleanup to avoid side effects
+  - Enables realistic SSL communication testing without certificate errors
+
+### Changed
+- **CI/CD Workflow**: Enhanced pull request workflow
+  - Improved workflow structure with better job dependencies
+  - Updated status comment job to provide comprehensive test results summary
+- **Documentation Updates**:
+  - Updated `README.md` with local workflow testing script documentation
+  - Enhanced `docs/ci-cd-workflows.md` with local workflow execution guide
+  - Updated `docs/testing-integration-tests.md` with SSL certificate handling details
+
 ## 1.7
 
 ### Added

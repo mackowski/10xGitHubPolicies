@@ -89,6 +89,11 @@ public class GitHubApiFixture : IAsyncLifetime
     
     public async Task InitializeAsync()
     {
+        // Configure .NET to accept self-signed certificates for WireMock
+        // This must be done before creating any HttpClient instances
+        ServicePointManager.ServerCertificateValidationCallback =
+            (sender, certificate, chain, sslPolicyErrors) => true;
+
         MockServer = WireMockServer.Start(new WireMockServerSettings
         {
             UseSSL = true,
@@ -99,6 +104,9 @@ public class GitHubApiFixture : IAsyncLifetime
     
     public async Task DisposeAsync()
     {
+        // Reset certificate validation callback
+        ServicePointManager.ServerCertificateValidationCallback = null;
+
         MockServer?.Stop();
         MockServer?.Dispose();
         await Task.CompletedTask;
@@ -109,8 +117,11 @@ public class GitHubApiFixture : IAsyncLifetime
 **What happens:**
 1. **One WireMock server per test class** - Shared across all tests in the class
 2. **HTTPS enabled** - Tests realistic SSL communication
-3. **Random port** - Avoids port conflicts when running tests in parallel
-4. **Automatic cleanup** - Server stops after all tests complete
+3. **SSL Certificate Handling** - Configures .NET to accept WireMock's self-signed certificates
+4. **Random port** - Avoids port conflicts when running tests in parallel
+5. **Automatic cleanup** - Server stops and certificate validation is reset after all tests complete
+
+**SSL Certificate Note**: WireMock uses self-signed certificates for HTTPS, which .NET rejects by default. The fixture configures `ServicePointManager.ServerCertificateValidationCallback` to accept these certificates. This callback is reset to `null` in `DisposeAsync()` to avoid affecting other tests or production code.
 
 ### Step 2: Test Base Class
 

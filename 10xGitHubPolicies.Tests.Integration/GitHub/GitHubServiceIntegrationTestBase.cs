@@ -9,6 +9,9 @@ using NSubstitute;
 using WireMock.Server;
 using WireMock.RequestBuilders;
 using WireMock.ResponseBuilders;
+using System.Net.Http;
+using System.Net.Security;
+using System.Security.Cryptography.X509Certificates;
 
 namespace _10xGitHubPolicies.Tests.Integration.GitHub;
 

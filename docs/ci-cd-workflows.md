@@ -212,6 +212,77 @@ While not enforced by CI, the project aims for:
 - **Business Logic**: 90%+ line coverage
 - **Services**: 85%+ line coverage
 
+## Local Workflow Execution
+
+### Running the Workflow Locally
+
+To replicate the GitHub Actions pull request workflow locally before pushing changes, use the provided script:
+
+```bash
+./test-workflow-local.sh
+```
+
+This script executes the same sequence as the CI/CD pipeline:
+1. **Linting**: Runs `dotnet format --verify-no-changes`
+2. **Unit Tests**: Executes all tests with `Category=Unit`
+3. **Component Tests**: Executes all tests with `Category=Component`
+4. **Integration Tests**: Executes all tests with `Category=Integration`
+5. **Contract Tests**: Executes all tests with `Category=Contract`
+
+**Output**:
+- Test results are saved to `./coverage/` directory as TRX files
+- Console output shows progress and results for each step
+- Exits with error code if any step fails
+
+**Benefits**:
+- ✅ Catch issues before pushing to GitHub
+- ✅ Faster feedback cycle (no CI queue wait)
+- ✅ Same test filters and configuration as CI/CD
+- ✅ Test result files available for local analysis
+
+**Prerequisites**:
+- .NET 8 SDK installed
+- All project dependencies restored (`dotnet restore`)
+- No database required for integration tests (uses WireMock)
+
+### Manual Workflow Steps
+
+If you prefer to run steps manually or need to debug a specific phase:
+
+```bash
+# 1. Linting
+dotnet restore
+dotnet format --verify-no-changes --verbosity diagnostic
+
+# 2. Unit Tests
+dotnet test \
+  --filter "Category=Unit" \
+  --results-directory ./coverage \
+  --logger "trx;LogFileName=unit-tests.trx" \
+  --logger "console;verbosity=detailed"
+
+# 3. Component Tests
+dotnet test \
+  --filter "Category=Component" \
+  --results-directory ./coverage \
+  --logger "trx;LogFileName=component-tests.trx" \
+  --logger "console;verbosity=detailed"
+
+# 4. Integration Tests
+dotnet test \
+  --filter "Category=Integration" \
+  --results-directory ./coverage \
+  --logger "trx;LogFileName=integration-tests.trx" \
+  --logger "console;verbosity=detailed"
+
+# 5. Contract Tests
+dotnet test \
+  --filter "Category=Contract" \
+  --results-directory ./coverage \
+  --logger "trx;LogFileName=contract-tests.trx" \
+  --logger "console;verbosity=detailed"
+```
+
 ## Troubleshooting
 
 ### Workflow Failures
@@ -229,6 +300,7 @@ dotnet format --verify-no-changes
 - Check test output in GitHub Actions logs
 - Run failing tests locally: `dotnet test --filter "Category=Unit"`
 - Review test artifacts uploaded to workflow examples
+- Use local workflow script: `./test-workflow-local.sh`
 
 **Coverage Report Missing**:
 - Verify coverage files are generated in test jobs
@@ -239,3 +311,8 @@ dotnet format --verify-no-changes
 - Ensure workflow has `pull-requests: write` permission
 - Check that `github.event_name == 'pull_request'` condition is met
 - Review GitHub Script action logs for API errors
+
+**Local Script Issues**:
+- Ensure script has execute permissions: `chmod +x test-workflow-local.sh`
+- Verify .NET SDK is installed: `dotnet --version`
+- Check test project dependencies are restored: `dotnet restore`
