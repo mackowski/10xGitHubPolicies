@@ -228,7 +228,7 @@ dotnet format --verify-no-changes
 **Test Failures**:
 - Check test output in GitHub Actions logs
 - Run failing tests locally: `dotnet test --filter "Category=Unit"`
-- Review test artifacts uploaded to workflow examples
+- Review test artifacts uploaded to workflow artifacts
 
 **Coverage Report Missing**:
 - Verify coverage files are generated in test jobs
