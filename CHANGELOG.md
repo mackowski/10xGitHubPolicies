@@ -2,6 +2,38 @@
 
 All notable changes to this project will be documented in this file.
 
+## 1.7
+
+### Added
+- **CI/CD Workflow**: Comprehensive pull request workflow for automated testing and quality checks
+  - Created `.github/workflows/pull-request.yml` workflow that runs on PRs to `main` and `develop` branches
+  - Multi-level testing pipeline: lint → unit tests → component tests → integration/contract tests → coverage report
+  - Automated code formatting verification using `dotnet format --verify-no-changes`
+  - Parallel test execution for faster feedback (unit and component tests run concurrently)
+  - Comprehensive code coverage collection and reporting with ReportGenerator
+  - Coverage aggregation across all test levels (unit, component, integration, contract)
+  - Codecov integration for coverage tracking with separate flags per test level
+  - Automated PR status comments with test results and coverage percentage
+  - Test result artifacts (TRX files) uploaded for analysis
+  - All GitHub Actions pinned to commit SHAs for security compliance
+  - Minimal workflow permissions following principle of least privilege
+- **CI/CD Documentation**: Comprehensive documentation for workflows
+  - Created `docs/ci-cd-workflows.md` with detailed workflow documentation
+  - Covers job structure, security considerations, coverage reporting, and troubleshooting
+  - Includes local testing guide and workflow best practices
+  - Documents security practices for pinned action versions
+
+### Changed
+- **.gitignore**: Updated to exclude CI/CD artifacts
+  - Added `coverage-report/` directory to gitignore
+  - Ensures generated coverage reports are not committed to repository
+
+### Security
+- **Workflow Security**: All GitHub Actions pinned to commit SHAs (not version tags)
+  - Prevents supply chain accounts from malicious action updates
+  - Requires manual verification when updating action versions
+  - Minimal permissions (`contents: read`, `packages: read`, `pull-requests: write`)
+
 ## 1.6
 
 ### Changed

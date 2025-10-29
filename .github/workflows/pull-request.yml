@@ -1,0 +1,402 @@
+name: Pull Request
+
+# Note: All actions are pinned to full-length commit SHAs for security compliance
+# To verify/update commit SHAs, visit each action's GitHub repository and check the Releases page
+# Example: https://github.com/actions/checkout/releases/tag/v4
+
+on:
+  pull_request:
+    branches:
+      - main
+      - develop
+
+permissions:
+  contents: read
+  packages: read
+  pull-requests: write
+
+env:
+  DOTNET_VERSION: '8.0.x'
+  COVERAGE_OUTPUT_DIR: './coverage'
+
+jobs:
+  lint:
+    name: Lint Code
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Restore dependencies
+        run: dotnet restore
+
+      - name: Format check
+        run: dotnet format --verify-no-changes --verbosity diagnostic
+
+  unit-tests:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    needs: lint
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Restore dependencies
+        run: dotnet restore
+
+      - name: Run unit tests with coverage
+        run: |
+          mkdir -p "${{ env.COVERAGE_OUTPUT_DIR }}/unit"
+          dotnet test \
+            --filter "Category=Unit" \
+            /p:CollectCoverage=true \
+            /p:CoverletOutputFormat=cobertura \
+            /p:CoverletOutput="${{ env.COVERAGE_OUTPUT_DIR }}/unit/coverage.cobertura.xml" \
+            --results-directory ${{ env.COVERAGE_OUTPUT_DIR }} \
+            --logger "trx;LogFileName=unit-tests.trx" \
+            --logger "console;verbosity=detailed"
+
+      - name: Upload unit test results
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: always()
+        with:
+          name: unit-test-results
+          path: |
+            ${{ env.COVERAGE_OUTPUT_DIR }}/**/*.cobertura.xml
+            ${{ env.COVERAGE_OUTPUT_DIR }}/**/*.trx
+
+  component-tests:
+    name: Component Tests
+    runs-on: ubuntu-latest
+    needs: lint
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Restore dependencies
+        run: dotnet restore
+
+      - name: Run component tests
+        run: |
+          mkdir -p "${{ env.COVERAGE_OUTPUT_DIR }}/component"
+          dotnet test \
+            --filter "Category=Component" \
+            /p:CollectCoverage=true \
+            /p:CoverletOutputFormat=cobertura \
+            /p:CoverletOutput="${{ env.COVERAGE_OUTPUT_DIR }}/component/coverage.cobertura.xml" \
+            --results-directory ${{ env.COVERAGE_OUTPUT_DIR }} \
+            --logger "trx;LogFileName=component-tests.trx" \
+            --logger "console;verbosity=detailed"
+
+      - name: Upload component test results
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: always()
+        with:
+          name: component-test-results
+          path: |
+            ${{ env.COVERAGE_OUTPUT_DIR }}/**/*.cobertura.xml
+            ${{ env.COVERAGE_OUTPUT_DIR }}/**/*.trx
+
+  integration-tests:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    needs: [unit-tests, component-tests]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Restore dependencies
+        run: dotnet restore
+
+      - name: Run integration tests
+        run: |
+          mkdir -p "${{ env.COVERAGE_OUTPUT_DIR }}/integration"
+          dotnet test \
+            --filter "Category=Integration" \
+            /p:CollectCoverage=true \
+            /p:CoverletOutputFormat=cobertura \
+            /p:CoverletOutput="${{ env.COVERAGE_OUTPUT_DIR }}/integration/coverage.cobertura.xml" \
+            --results-directory ${{ env.COVERAGE_OUTPUT_DIR }} \
+            --logger "trx;LogFileName=integration-tests.trx" \
+            --logger "console;verbosity=detailed"
+
+      - name: Upload integration test results
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: always()
+        with:
+          name: integration-test-results
+          path: |
+            ${{ env.COVERAGE_OUTPUT_DIR }}/**/*.cobertura.xml
+            ${{ env.COVERAGE_OUTPUT_DIR }}/**/*.trx
+
+  contract-tests:
+    name: Contract Tests
+    runs-on: ubuntu-latest
+    needs: [unit-tests, component-tests]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Restore dependencies
+        run: dotnet restore
+
+      - name: Run contract tests
+        run: |
+          mkdir -p "${{ env.COVERAGE_OUTPUT_DIR }}/contract"
+          dotnet test \
+            --filter "Category=Contract" \
+            /p:CollectCoverage=true \
+            /p:CoverletOutputFormat=cobertura \
+            /p:CoverletOutput="${{ env.COVERAGE_OUTPUT_DIR }}/contract/coverage.cobertura.xml" \
+            --results-directory ${{ env.COVERAGE_OUTPUT_DIR }} \
+            --logger "trx;LogFileName=contract-tests.trx" \
+            --logger "console;verbosity=detailed"
+
+      - name: Upload contract test results
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: always()
+        with:
+          name: contract-test-results
+          path: |
+            ${{ env.COVERAGE_OUTPUT_DIR }}/**/*.cobertura.xml
+            ${{ env.COVERAGE_OUTPUT_DIR }}/**/*.trx
+
+  publish-coverage:
+    name: Publish Coverage Report
+    runs-on: ubuntu-latest
+    needs: [unit-tests, component-tests, integration-tests, contract-tests]
+    if: always()
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4
+
+      - name: Download unit test coverage
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: unit-test-results
+          path: ./coverage/unit
+
+      - name: Download component test coverage
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: component-test-results
+          path: ./coverage/component
+
+      - name: Download integration test coverage
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: integration-test-results
+          path: ./coverage/integration
+
+      - name: Download contract test coverage
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: contract-test-results
+          path: ./coverage/contract
+
+      - name: Install ReportGenerator
+        run: dotnet tool install -g dotnet-reportgenerator-globaltool || true
+
+      - name: Generate coverage report
+        run: |
+          # Find all coverage files (in case they're in subdirectories)
+          COVERAGE_FILES=$(find ./coverage -name "coverage.cobertura.xml" -type f | tr '\n' ';')
+          if [ -z "$COVERAGE_FILES" ]; then
+            echo "Warning: No coverage files found"
+            exit 1
+          fi
+          echo "Found coverage files: $COVERAGE_FILES"
+          reportgenerator \
+            -reports:"$COVERAGE_FILES" \
+            -targetdir:"coverage-report" \
+            -reporttypes:"Html;Badges;JsonSummary;Cobertura" \
+            -classfilters:"-*Tests*;-*TestHelpers*" \
+            -assemblyfilters:"-*Tests*"
+
+      - name: Upload coverage report
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: coverage-report
+          path: coverage-report
+
+      - name: Coverage comment
+        id: coverage
+        run: |
+          if [ -f coverage-report/Summary.json ]; then
+            COVERAGE=$(jq -r '.summary.linecoverage' coverage-report/Summary.json)
+            echo "coverage=$COVERAGE" >> $GITHUB_OUTPUT
+          else
+            echo "coverage=0" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Publish coverage to Codecov
+        uses: codecov/codecov-action@b9fd7d16f6d7d1b5d2bec1a2887e65ceed900238 # v4
+        with:
+          files: ./coverage-report/Cobertura.xml
+          flags: unit,component,integration,contract
+          fail_ci_if_error: false
+
+  status-comment:
+    name: PR Status Comment
+    runs-on: ubuntu-latest
+    needs: [lint, unit-tests, component-tests, integration-tests, contract-tests, publish-coverage]
+    if: always() && github.event_name == 'pull_request'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4
+
+      - name: Download all test results
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        continue-on-error: true
+        with:
+          path: ./test-results
+
+      - name: Download coverage report
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        continue-on-error: true
+        with:
+          name: coverage-report
+          path: ./coverage-report
+
+      - name: Parse test results
+        id: test-results
+        run: |
+          set -e
+          
+          # Initialize counters
+          TOTAL_TESTS=0
+          PASSED_TESTS=0
+          FAILED_TESTS=0
+          
+          # Find and parse all TRX files
+          for trx in $(find ./test-results -name "*.trx" 2>/dev/null || true); do
+            if [ -f "$trx" ]; then
+              TOTAL=$(grep -oP '(?<=total=")[0-9]+' "$trx" || echo "0")
+              PASSED=$(grep -oP '(?<=passed=")[0-9]+' "$trx" || echo "0")
+              FAILED=$(grep -oP '(?<=failed=")[0-9]+' "$trx" || echo "0")
+              TOTAL_TESTS=$((TOTAL_TESTS + TOTAL))
+              PASSED_TESTS=$((PASSED_TESTS + PASSED))
+              FAILED_TESTS=$((FAILED_TESTS + FAILED))
+            fi
+          done
+          
+          echo "total=$TOTAL_TESTS" >> $GITHUB_OUTPUT
+          echo "passed=$PASSED_TESTS" >> $GITHUB_OUTPUT
+          echo "failed=$FAILED_TESTS" >> $GITHUB_OUTPUT
+          
+          # Determine overall status
+          if [ "${{ needs.lint.result }}" == "failure" ]; then
+            echo "status=❌ Linting failed" >> $GITHUB_OUTPUT
+          elif [ "${{ needs.unit-tests.result }}" == "failure" ] || \
+               [ "${{ needs.component-tests.result }}" == "failure" ] || \
+               [ "${{ needs.integration-tests.result }}" == "failure" ] || \
+               [ "${{ needs.contract-tests.result }}" == "failure" ]; then
+            echo "status=❌ Tests failed" >> $GITHUB_OUTPUT
+          else
+            echo "status=✅ All checks passed" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Get coverage percentage
+        id: coverage
+        run: |
+          if [ -f ./coverage-report/Summary.json ]; then
+            COVERAGE=$(jq -r '.summary.linecoverage // 0' ./coverage-report/Summary.json)
+            echo "percentage=$COVERAGE" >> $GITHUB_OUTPUT
+          else
+            echo "percentage=N/A" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create PR comment
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
+        with:
+          script: |
+            const status = '${{ steps.test-results.outputs.status }}';
+            const total = '${{ steps.test-results.outputs.total }}';
+            const passed = '${{ steps.test-results.outputs.passed }}';
+            const failed = '${{ steps.test-results.outputs.failed }}';
+            const coverage = '${{ steps.coverage.outputs.percentage }}';
+            
+            const lintStatus = '${{ needs.lint.result }}' === 'success' ? '✅' : '❌';
+            const unitStatus = '${{ needs.unit-tests.result }}' === 'success' ? '✅' : '❌';
+            const componentStatus = '${{ needs.component-tests.result }}' === 'success' ? '✅' : '❌';
+            const integrationStatus = '${{ needs.integration-tests.result }}' === 'success' ? '✅' : '❌';
+            const contractStatus = '${{ needs.contract-tests.result }}' === 'success' ? '✅' : '❌';
+            
+            const body = `## 🔍 Pull Request CI Status
+            
+            ${status}
+            
+            ### Test Results Summary
+            - **Total Tests:** ${total}
+            - **Passed:** ${passed}
+            - **Failed:** ${failed}
+            
+            ### Job Status
+            | Job | Status |
+            |-----|--------|
+            | Linting | ${lintStatus} |
+            | Unit Tests | ${unitStatus} |
+            | Component Tests | ${componentStatus} |
+            | Integration Tests | ${integrationStatus} |
+            | Contract Tests | ${contractStatus} |
+            
+            ### Code Coverage
+            ${coverage !== 'N/A' ? `**Line Coverage:** ${parseFloat(coverage).toFixed(2)}%` : 'Coverage report not available'}
+            
+            ---
+            *This comment is automatically updated on each workflow run.*
+            `;
+            
+            // Find existing comment
+            const comments = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+            
+            const botComment = comments.data.find(comment => 
+              comment.user.type === 'Bot' && 
+              comment.body.includes('Pull Request CI Status')
+            );
+            
+            if (botComment) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: botComment.id,
+                body: body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: body,
+              });
+            }
+
