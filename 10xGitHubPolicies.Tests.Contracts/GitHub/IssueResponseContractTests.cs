@@ -11,7 +11,7 @@ public class IssueResponseContractTests : GitHubContractTestBase
 {
     // Schema validation tests verify that Octokit objects contain all required fields
     // as defined in the GitHub API JSON schemas
-    
+
     /// <summary>
     /// CreateIssueAsync - Response Schema
     /// Verifies that CreateIssueAsync response matches JSON schema
@@ -21,13 +21,13 @@ public class IssueResponseContractTests : GitHubContractTestBase
     {
         // Arrange
         SetupGitHubAppAuthentication();
-        
+
         var repositoryId = Faker.Random.Long(1, 999999);
         var repoName = Faker.Internet.DomainWord();
         var orgName = Options.OrganizationName;
         var issueNumber = Faker.Random.Int(1, 9999);
         var issueId = Faker.Random.Long(1, 999999);
-        
+
         // Mock issue creation using repositoryId endpoint (NOT owner/repo format)
         var issueResponse = new
         {
@@ -43,7 +43,7 @@ public class IssueResponseContractTests : GitHubContractTestBase
             },
             html_url = $"https://github.com/{orgName}/{repoName}/issues/{issueNumber}"
         };
-        
+
         MockServer
             .Given(Request.Create()
                 .WithPath($"/api/v3/repositories/{repositoryId}/issues")
@@ -52,14 +52,14 @@ public class IssueResponseContractTests : GitHubContractTestBase
                 .WithStatusCode(201)
                 .WithHeader("Content-Type", "application/json")
                 .WithBodyAsJson(issueResponse));
-        
+
         // Act
         var result = await Sut.CreateIssueAsync(
             repositoryId,
             "Test Issue",
             "Test body",
             new[] { "policy-violation", "auto-generated" });
-        
+
         // Assert - Verify key properties match schema requirements
         result.Should().NotBeNull();
         result.Id.Should().Be(issueId, "id is a required integer field");
@@ -69,10 +69,10 @@ public class IssueResponseContractTests : GitHubContractTestBase
         result.State.Value.ToString().ToLower().Should().Be("open", "state must be 'open' or 'closed'");
         result.HtmlUrl.Should().NotBeNull("html_url is a required URI field");
         result.Labels.Should().HaveCount(2, "labels should be an array");
-        result.Labels.Should().OnlyContain(l => l.Id > 0 && !string.IsNullOrEmpty(l.Name), 
+        result.Labels.Should().OnlyContain(l => l.Id > 0 && !string.IsNullOrEmpty(l.Name),
             "each label must have id and name");
     }
-    
+
     /// <summary>
     /// GetOpenIssuesAsync - Response Schema
     /// Verifies that GetOpenIssuesAsync response array matches schema
@@ -82,12 +82,12 @@ public class IssueResponseContractTests : GitHubContractTestBase
     {
         // Arrange
         SetupGitHubAppAuthentication();
-        
+
         var repositoryId = Faker.Random.Long(1, 999999);
         var repoName = Faker.Internet.DomainWord();
         var orgName = Options.OrganizationName;
         var labelName = "policy-violation";
-        
+
         // Mock issues response using repositoryId endpoint
         var issues = Enumerable.Range(1, 3).Select(i => new
         {
@@ -102,7 +102,7 @@ public class IssueResponseContractTests : GitHubContractTestBase
             },
             html_url = $"https://github.com/{orgName}/{repoName}/issues/{i}"
         }).ToList();
-        
+
         MockServer
             .Given(Request.Create()
                 .WithPath($"/api/v3/repositories/{repositoryId}/issues")
@@ -113,14 +113,14 @@ public class IssueResponseContractTests : GitHubContractTestBase
                 .WithStatusCode(200)
                 .WithHeader("Content-Type", "application/json")
                 .WithBodyAsJson(issues));
-        
+
         // Act
         var result = await Sut.GetOpenIssuesAsync(repositoryId, labelName);
-        
+
         // Assert - Verify each issue has required schema fields
         result.Should().NotBeNull();
         result.Should().HaveCount(3, "should return all mocked issues");
-        
+
         foreach (var issue in result)
         {
             issue.Id.Should().BeGreaterThan(0, "id is required");

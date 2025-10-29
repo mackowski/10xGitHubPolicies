@@ -34,7 +34,7 @@ public static class DatabaseHelper
                 .Where(s => s.Status == "Completed")
                 .OrderByDescending(s => s.CompletedAt)
                 .FirstOrDefaultAsync();
-            
+
             if (latestScan != null && latestScan.CompletedAt > DateTime.UtcNow.AddMinutes(-1))
             {
                 // Check if our test repositories have violations in this scan
@@ -43,7 +43,7 @@ public static class DatabaseHelper
                     .Include(v => v.Repository)
                     .Where(v => v.Repository.GitHubRepositoryId == repositoryId)
                     .FirstOrDefaultAsync();
-                
+
                 if (violations != null)
                 {
                     Console.WriteLine($"✅ Scan results stored in database (Scan ID: {latestScan.ScanId}, Found violations for test repo)");
@@ -51,7 +51,7 @@ public static class DatabaseHelper
                     break;
                 }
             }
-            
+
             await Task.Delay(1000);
         }
 
@@ -78,33 +78,33 @@ public static class DatabaseHelper
         var actionMaxWaitTime = TimeSpan.FromSeconds(TestConstants.ActionTimeoutSeconds);
         var actionStartTime = DateTime.UtcNow;
         var actionsCompleted = false;
-        
+
         // Get the repository entity from database
         var repoEntity = await dbContext.Repositories
             .FirstOrDefaultAsync(r => r.GitHubRepositoryId == repositoryId);
-        
+
         if (repoEntity != null)
         {
             while (DateTime.UtcNow - actionStartTime < actionMaxWaitTime && !actionsCompleted)
             {
                 // Check if action log entries exist for our repository
                 var actionLogs = await dbContext.ActionsLogs
-                    .Where(a => a.RepositoryId == repoEntity.RepositoryId && 
+                    .Where(a => a.RepositoryId == repoEntity.RepositoryId &&
                                 a.Status == "Success" &&
                                 a.Timestamp > DateTime.UtcNow.AddMinutes(-1))
                     .CountAsync();
-                
+
                 if (actionLogs > 0)
                 {
                     Console.WriteLine($"✅ Action processing completed ({actionLogs} actions processed)");
                     actionsCompleted = true;
                     break;
                 }
-                
+
                 await Task.Delay(1000);
             }
         }
-        
+
         if (!actionsCompleted)
         {
             Console.WriteLine("⚠️ Warning: Action processing not completed within timeout period");
@@ -138,7 +138,7 @@ public static class DatabaseHelper
                 .Where(s => s.Status == "Completed")
                 .OrderByDescending(s => s.CompletedAt)
                 .FirstOrDefaultAsync();
-            
+
             if (rescanLatestScan != null && rescanLatestScan.ScanId != previousScanId && rescanLatestScan.CompletedAt > DateTime.UtcNow.AddMinutes(-1))
             {
                 // Check if our test repositories have violations in this scan
@@ -147,7 +147,7 @@ public static class DatabaseHelper
                     .Include(v => v.Repository)
                     .Where(v => v.Repository.GitHubRepositoryId == repositoryId)
                     .FirstOrDefaultAsync();
-                
+
                 if (violations != null)
                 {
                     Console.WriteLine($"✅ Re-scan results stored in database (Scan ID: {rescanLatestScan.ScanId}, Found violations for test repo)");
@@ -155,7 +155,7 @@ public static class DatabaseHelper
                     break;
                 }
             }
-            
+
             await Task.Delay(1000);
         }
 

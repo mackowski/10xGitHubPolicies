@@ -13,12 +13,12 @@ namespace _10xGitHubPolicies.Tests.Integration.GitHub;
 public class WorkflowPermissionsTests : GitHubServiceIntegrationTestBase
 {
     private readonly GitHubApiResponseBuilder _responseBuilder;
-    
+
     public WorkflowPermissionsTests(GitHubApiFixture fixture) : base(fixture)
     {
         _responseBuilder = new GitHubApiResponseBuilder();
     }
-    
+
     /// <summary>
     /// TC-GITHUB-004: GetWorkflowPermissionsAsync - Returns "read"
     /// TC-POLICY-003: Verifies workflow permissions policy evaluation for "read" permissions
@@ -28,10 +28,10 @@ public class WorkflowPermissionsTests : GitHubServiceIntegrationTestBase
     {
         // Arrange
         SetupGitHubAppAuthentication();
-        
+
         const long repositoryId = 12345;
         var permissionsJson = _responseBuilder.BuildWorkflowPermissionsResponse("read");
-        
+
         MockServer
             .Given(Request.Create()
                 .WithPath($"/api/v3/repositories/{repositoryId}/actions/permissions/workflow")
@@ -40,15 +40,15 @@ public class WorkflowPermissionsTests : GitHubServiceIntegrationTestBase
                 .WithStatusCode(200)
                 .WithBody(permissionsJson)
                 .WithHeader("Content-Type", "application/json"));
-        
+
         // Act
         var result = await Sut.GetWorkflowPermissionsAsync(repositoryId);
-        
+
         // Assert
         result.Should().NotBeNull();
         result.Should().Be("read");
     }
-    
+
     /// <summary>
     /// GetWorkflowPermissionsAsync - Returns "write"
     /// Verifies that GetWorkflowPermissionsAsync returns "write" for write permissions
@@ -58,10 +58,10 @@ public class WorkflowPermissionsTests : GitHubServiceIntegrationTestBase
     {
         // Arrange
         SetupGitHubAppAuthentication();
-        
+
         const long repositoryId = 12345;
         var permissionsJson = _responseBuilder.BuildWorkflowPermissionsResponse("write");
-        
+
         MockServer
             .Given(Request.Create()
                 .WithPath($"/api/v3/repositories/{repositoryId}/actions/permissions/workflow")
@@ -70,15 +70,15 @@ public class WorkflowPermissionsTests : GitHubServiceIntegrationTestBase
                 .WithStatusCode(200)
                 .WithBody(permissionsJson)
                 .WithHeader("Content-Type", "application/json"));
-        
+
         // Act
         var result = await Sut.GetWorkflowPermissionsAsync(repositoryId);
-        
+
         // Assert
         result.Should().NotBeNull();
         result.Should().Be("write");
     }
-    
+
     /// <summary>
     /// TC-GITHUB-004: GetWorkflowPermissionsAsync - Actions Disabled
     /// Verifies that GetWorkflowPermissionsAsync returns null when GitHub Actions are disabled
@@ -88,9 +88,9 @@ public class WorkflowPermissionsTests : GitHubServiceIntegrationTestBase
     {
         // Arrange
         SetupGitHubAppAuthentication();
-        
+
         const long repositoryId = 12345;
-        
+
         MockServer
             .Given(Request.Create()
                 .WithPath($"/api/v3/repositories/{repositoryId}/actions/permissions/workflow")
@@ -99,13 +99,13 @@ public class WorkflowPermissionsTests : GitHubServiceIntegrationTestBase
                 .WithStatusCode(404)
                 .WithBody("{\"message\": \"Not Found\"}")
                 .WithHeader("Content-Type", "application/json"));
-        
+
         // Act
         var result = await Sut.GetWorkflowPermissionsAsync(repositoryId);
-        
+
         // Assert
         result.Should().BeNull();
-        
+
         // Verify warning was logged
         Logger.Received().Log(
             Microsoft.Extensions.Logging.LogLevel.Warning,
@@ -114,7 +114,7 @@ public class WorkflowPermissionsTests : GitHubServiceIntegrationTestBase
             Arg.Any<Exception>(),
             Arg.Any<Func<object, Exception?, string>>());
     }
-    
+
     /// <summary>
     /// GetWorkflowPermissionsAsync - Repository Not Found
     /// Verifies that GetWorkflowPermissionsAsync returns null when repository doesn't exist
@@ -124,9 +124,9 @@ public class WorkflowPermissionsTests : GitHubServiceIntegrationTestBase
     {
         // Arrange
         SetupGitHubAppAuthentication();
-        
+
         const long invalidRepositoryId = 99999;
-        
+
         MockServer
             .Given(Request.Create()
                 .WithPath($"/repositories/{invalidRepositoryId}/actions/permissions/workflow")
@@ -135,10 +135,10 @@ public class WorkflowPermissionsTests : GitHubServiceIntegrationTestBase
                 .WithStatusCode(404)
                 .WithBody("{\"message\": \"Not Found\"}")
                 .WithHeader("Content-Type", "application/json"));
-        
+
         // Act
         var result = await Sut.GetWorkflowPermissionsAsync(invalidRepositoryId);
-        
+
         // Assert
         result.Should().BeNull();
     }

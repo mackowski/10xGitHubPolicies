@@ -7,7 +7,7 @@ public class GitHubApiFixture : IAsyncLifetime
 {
     public WireMockServer MockServer { get; private set; } = null!;
     public string BaseUrl => MockServer.Url!;
-    
+
     public async Task InitializeAsync()
     {
         MockServer = WireMockServer.Start(new WireMockServerSettings
@@ -17,7 +17,7 @@ public class GitHubApiFixture : IAsyncLifetime
         });
         await Task.CompletedTask;
     }
-    
+
     public async Task DisposeAsync()
     {
         MockServer?.Stop();

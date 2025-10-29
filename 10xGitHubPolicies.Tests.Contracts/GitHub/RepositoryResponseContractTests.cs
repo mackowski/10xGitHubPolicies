@@ -11,7 +11,7 @@ public class RepositoryResponseContractTests : GitHubContractTestBase
 {
     // Schema validation tests verify that Octokit objects contain all required fields
     // as defined in the GitHub API JSON schemas
-    
+
     /// <summary>
     /// TC-CONTRACT-001: GetRepositorySettingsAsync - Response Schema
     /// Verifies that GetRepositorySettingsAsync response matches JSON schema
@@ -21,11 +21,11 @@ public class RepositoryResponseContractTests : GitHubContractTestBase
     {
         // Arrange
         SetupGitHubAppAuthentication();
-        
+
         var repositoryId = Faker.Random.Long(1, 999999);
         var repoName = Faker.Internet.DomainWord();
         var orgName = Options.OrganizationName;
-        
+
         var repositoryResponse = new
         {
             id = repositoryId,
@@ -40,7 +40,7 @@ public class RepositoryResponseContractTests : GitHubContractTestBase
             @private = false,
             archived = false
         };
-        
+
         MockServer
             .Given(Request.Create()
                 .WithPath($"/api/v3/repositories/{repositoryId}")
@@ -49,10 +49,10 @@ public class RepositoryResponseContractTests : GitHubContractTestBase
                 .WithStatusCode(200)
                 .WithHeader("Content-Type", "application/json")
                 .WithBodyAsJson(repositoryResponse));
-        
+
         // Act
         var result = await Sut.GetRepositorySettingsAsync(repositoryId);
-        
+
         // Assert - Verify key properties match schema requirements
         result.Should().NotBeNull();
         result.Id.Should().Be(repositoryId, "id is a required integer field");
@@ -65,7 +65,7 @@ public class RepositoryResponseContractTests : GitHubContractTestBase
         result.Private.Should().BeFalse("private is a required boolean field");
         result.Archived.Should().BeFalse("archived is a required boolean field");
     }
-    
+
     /// <summary>
     /// GetOrganizationRepositoriesAsync - Response Schema
     /// Verifies that GetOrganizationRepositoriesAsync response array matches schema
@@ -75,7 +75,7 @@ public class RepositoryResponseContractTests : GitHubContractTestBase
     {
         // Arrange
         SetupGitHubAppAuthentication();
-        
+
         var orgName = Options.OrganizationName;
         var repositories = Enumerable.Range(1, 3).Select(i => new
         {
@@ -91,7 +91,7 @@ public class RepositoryResponseContractTests : GitHubContractTestBase
             @private = Faker.Random.Bool(),
             archived = Faker.Random.Bool()
         }).ToList();
-        
+
         MockServer
             .Given(Request.Create()
                 .WithPath($"/api/v3/orgs/{orgName}/repos")
@@ -100,14 +100,14 @@ public class RepositoryResponseContractTests : GitHubContractTestBase
                 .WithStatusCode(200)
                 .WithHeader("Content-Type", "application/json")
                 .WithBodyAsJson(repositories));
-        
+
         // Act
         var result = await Sut.GetOrganizationRepositoriesAsync();
-        
+
         // Assert - Verify each repository has required schema fields
         result.Should().NotBeNull();
         result.Should().HaveCount(3, "should return all mocked repositories");
-        
+
         foreach (var repo in result)
         {
             repo.Id.Should().BeGreaterThan(0, "id is required");
@@ -121,7 +121,7 @@ public class RepositoryResponseContractTests : GitHubContractTestBase
             repo.GetType().GetProperty("Archived").Should().NotBeNull();
         }
     }
-    
+
     /// <summary>
     /// Archive Repository - Response Schema
     /// Verifies that ArchiveRepositoryAsync doesn't break response structure
@@ -131,11 +131,11 @@ public class RepositoryResponseContractTests : GitHubContractTestBase
     {
         // Arrange
         SetupGitHubAppAuthentication();
-        
+
         var repositoryId = Faker.Random.Long(1, 999999);
         var repoName = Faker.Internet.DomainWord();
         var orgName = Options.OrganizationName;
-        
+
         var archivedRepositoryResponse = new
         {
             id = repositoryId,
@@ -150,7 +150,7 @@ public class RepositoryResponseContractTests : GitHubContractTestBase
             @private = false,
             archived = true // Should be true after archiving
         };
-        
+
         MockServer
             .Given(Request.Create()
                 .WithPath($"/api/v3/repositories/{repositoryId}")
@@ -159,20 +159,20 @@ public class RepositoryResponseContractTests : GitHubContractTestBase
                 .WithStatusCode(200)
                 .WithHeader("Content-Type", "application/json")
                 .WithBodyAsJson(archivedRepositoryResponse));
-        
+
         // Act
         await Sut.ArchiveRepositoryAsync(repositoryId);
-        
+
         // Assert - Verify the API was called with correct parameters
         var logEntries = MockServer.LogEntries
             .Where(e => e.RequestMessage.Path.Contains($"/repositories/{repositoryId}"))
             .ToList();
-        
+
         logEntries.Should().NotBeEmpty("ArchiveRepositoryAsync should have called the GitHub API");
-        
+
         var patchRequest = logEntries.FirstOrDefault(e => e.RequestMessage.Method == "PATCH");
         patchRequest.Should().NotBeNull("Should have made a PATCH request");
-        
+
         // The mocked response confirms the schema structure matches expectations
         // (id, name, full_name, owner with login/id/type, private, archived fields)
         archivedRepositoryResponse.id.Should().Be(repositoryId);

@@ -12,12 +12,12 @@ namespace _10xGitHubPolicies.Tests.Integration.GitHub;
 public class TeamMembershipTests : GitHubServiceIntegrationTestBase
 {
     private readonly GitHubApiResponseBuilder _responseBuilder;
-    
+
     public TeamMembershipTests(GitHubApiFixture fixture) : base(fixture)
     {
         _responseBuilder = new GitHubApiResponseBuilder();
     }
-    
+
     /// <summary>
     /// TC-AUTH-001: IsUserMemberOfTeamAsync - Active Member
     /// TC-AUTH-003: Verifies team membership checking for active members
@@ -30,7 +30,7 @@ public class TeamMembershipTests : GitHubServiceIntegrationTestBase
         const string org = "test-org";
         const string teamSlug = "developers";
         const int teamId = 12345;
-        
+
         // Mock get team by name
         var teamJson = _responseBuilder.BuildTeamResponse(teamId, teamSlug);
         MockServer
@@ -41,7 +41,7 @@ public class TeamMembershipTests : GitHubServiceIntegrationTestBase
                 .WithStatusCode(200)
                 .WithBody(teamJson)
                 .WithHeader("Content-Type", "application/json"));
-        
+
         // Mock get current user
         MockServer
             .Given(Request.Create()
@@ -51,7 +51,7 @@ public class TeamMembershipTests : GitHubServiceIntegrationTestBase
                 .WithStatusCode(200)
                 .WithBody("{\"login\": \"test-user\", \"id\": 54321}")
                 .WithHeader("Content-Type", "application/json"));
-        
+
         // Mock team membership check
         var membershipJson = _responseBuilder.BuildTeamMembershipResponse("active");
         MockServer
@@ -62,14 +62,14 @@ public class TeamMembershipTests : GitHubServiceIntegrationTestBase
                 .WithStatusCode(200)
                 .WithBody(membershipJson)
                 .WithHeader("Content-Type", "application/json"));
-        
+
         // Act
         var result = await Sut.IsUserMemberOfTeamAsync(userAccessToken, org, teamSlug);
-        
+
         // Assert
         result.Should().BeTrue();
     }
-    
+
     /// <summary>
     /// TC-AUTH-002: IsUserMemberOfTeamAsync - Not Member
     /// Verifies that IsUserMemberOfTeamAsync returns false for non-members
@@ -82,7 +82,7 @@ public class TeamMembershipTests : GitHubServiceIntegrationTestBase
         const string org = "test-org";
         const string teamSlug = "developers";
         const int teamId = 12345;
-        
+
         // Mock get team by name
         var teamJson = _responseBuilder.BuildTeamResponse(teamId, teamSlug);
         MockServer
@@ -93,7 +93,7 @@ public class TeamMembershipTests : GitHubServiceIntegrationTestBase
                 .WithStatusCode(200)
                 .WithBody(teamJson)
                 .WithHeader("Content-Type", "application/json"));
-        
+
         // Mock get current user
         MockServer
             .Given(Request.Create()
@@ -103,7 +103,7 @@ public class TeamMembershipTests : GitHubServiceIntegrationTestBase
                 .WithStatusCode(200)
                 .WithBody("{\"login\": \"test-user\", \"id\": 54321}")
                 .WithHeader("Content-Type", "application/json"));
-        
+
         // Mock team membership check - not a member
         MockServer
             .Given(Request.Create()
@@ -113,14 +113,14 @@ public class TeamMembershipTests : GitHubServiceIntegrationTestBase
                 .WithStatusCode(404)
                 .WithBody("{\"message\": \"Not Found\"}")
                 .WithHeader("Content-Type", "application/json"));
-        
+
         // Act
         var result = await Sut.IsUserMemberOfTeamAsync(userAccessToken, org, teamSlug);
-        
+
         // Assert
         result.Should().BeFalse();
     }
-    
+
     /// <summary>
     /// TC-AUTH-002: IsUserMemberOfTeamAsync - Team Not Found
     /// Verifies that IsUserMemberOfTeamAsync returns false when team doesn't exist
@@ -132,7 +132,7 @@ public class TeamMembershipTests : GitHubServiceIntegrationTestBase
         const string userAccessToken = "test-user-token";
         const string org = "test-org";
         const string invalidTeamSlug = "non-existent-team";
-        
+
         // Mock get team by name - team not found
         MockServer
             .Given(Request.Create()
@@ -142,14 +142,14 @@ public class TeamMembershipTests : GitHubServiceIntegrationTestBase
                 .WithStatusCode(404)
                 .WithBody("{\"message\": \"Not Found\"}")
                 .WithHeader("Content-Type", "application/json"));
-        
+
         // Act
         var result = await Sut.IsUserMemberOfTeamAsync(userAccessToken, org, invalidTeamSlug);
-        
+
         // Assert
         result.Should().BeFalse();
     }
-    
+
     /// <summary>
     /// GetUserOrganizationsAsync - Success
     /// Verifies that GetUserOrganizationsAsync returns list of user's organizations
@@ -159,7 +159,7 @@ public class TeamMembershipTests : GitHubServiceIntegrationTestBase
     {
         // Arrange
         const string userAccessToken = "test-user-token";
-        
+
         var orgsJson = """
         [
           {
@@ -174,7 +174,7 @@ public class TeamMembershipTests : GitHubServiceIntegrationTestBase
           }
         ]
         """;
-        
+
         MockServer
             .Given(Request.Create()
                 .WithPath("/api/v3/user/orgs")
@@ -183,17 +183,17 @@ public class TeamMembershipTests : GitHubServiceIntegrationTestBase
                 .WithStatusCode(200)
                 .WithBody(orgsJson)
                 .WithHeader("Content-Type", "application/json"));
-        
+
         // Act
         var result = await Sut.GetUserOrganizationsAsync(userAccessToken);
-        
+
         // Assert
         result.Should().NotBeNull();
         result.Should().HaveCount(2);
         result[0].Login.Should().Be("test-org-1");
         result[1].Login.Should().Be("test-org-2");
     }
-    
+
     /// <summary>
     /// GetOrganizationTeamsAsync - Success
     /// Verifies that GetOrganizationTeamsAsync returns list of organization's teams
@@ -204,11 +204,11 @@ public class TeamMembershipTests : GitHubServiceIntegrationTestBase
         // Arrange
         const string userAccessToken = "test-user-token";
         const string org = "test-org";
-        
+
         var team1 = _responseBuilder.BuildTeamResponse(12345, "developers");
         var team2 = _responseBuilder.BuildTeamResponse(12346, "admins");
         var teamsJson = $"[{team1},{team2}]";
-        
+
         MockServer
             .Given(Request.Create()
                 .WithPath($"/api/v3/orgs/{org}/teams")
@@ -217,10 +217,10 @@ public class TeamMembershipTests : GitHubServiceIntegrationTestBase
                 .WithStatusCode(200)
                 .WithBody(teamsJson)
                 .WithHeader("Content-Type", "application/json"));
-        
+
         // Act
         var result = await Sut.GetOrganizationTeamsAsync(userAccessToken, org);
-        
+
         // Assert
         result.Should().NotBeNull();
         result.Should().HaveCount(2);

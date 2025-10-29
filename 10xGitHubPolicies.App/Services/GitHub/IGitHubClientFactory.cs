@@ -14,7 +14,7 @@ public interface IGitHubClientFactory
     /// <param name="token">The access token for authentication</param>
     /// <returns>A configured GitHubClient instance</returns>
     GitHubClient CreateClient(string token);
-    
+
     /// <summary>
     /// Creates a GitHubClient authenticated with a GitHub App JWT token.
     /// </summary>
@@ -22,4 +22,3 @@ public interface IGitHubClientFactory
     /// <returns>A configured GitHubClient instance for app-level operations</returns>
     GitHubClient CreateAppClient(string jwt);
 }
-

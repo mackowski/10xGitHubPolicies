@@ -22,7 +22,7 @@ public abstract class NonBrowserTestBase
     protected ApplicationDbContext DbContext => ServiceProvider.GetRequiredService<ApplicationDbContext>();
     protected IGitHubService GitHubService => ServiceProvider.GetRequiredService<IGitHubService>();
     protected string BaseUrl => TestConstants.BaseUrl;
-    
+
     [SetUp]
     public async Task SetupAsync()
     {
@@ -30,10 +30,10 @@ public abstract class NonBrowserTestBase
         // This is separate from the web application you're testing
         Host = E2ETestBase.CreateTestHost();
         await Host.StartAsync();
-        
+
         Console.WriteLine($"🚀 Test services started (separate from web app at {BaseUrl})");
     }
-    
+
     [TearDown]
     public async Task TearDownAsync()
     {

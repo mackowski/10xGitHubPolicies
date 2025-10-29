@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+## 1.6
+
+### Changed
+- **Code Formatting**: Applied `dotnet format` across the entire codebase for consistent code style
+  - Reorganized using statements to follow .NET conventions (system namespaces first, then third-party, then application)
+  - Standardized whitespace and formatting across all files
+  - Improved code readability and maintainability
+  - Affects 42 files with formatting improvements
+
 ## 1.5
 
 ### Added

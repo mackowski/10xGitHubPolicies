@@ -11,7 +11,7 @@ public class FileCrudContractTests : GitHubContractTestBase
 {
     // Schema validation tests verify that the API responses contain required fields
     // as defined in the GitHub API JSON schemas
-    
+
     /// <summary>
     /// CreateFileAsync - Response Schema
     /// Verifies that CreateFileAsync response matches JSON schema
@@ -21,7 +21,7 @@ public class FileCrudContractTests : GitHubContractTestBase
     {
         // Arrange
         SetupGitHubAppAuthentication();
-        
+
         var repositoryId = Faker.Random.Long(1, 999999);
         var repoName = Faker.Internet.DomainWord();
         var filePath = "new-file.md";
@@ -30,7 +30,7 @@ public class FileCrudContractTests : GitHubContractTestBase
         var sha = Faker.Random.Hexadecimal(40, prefix: "");
         var commitSha = Faker.Random.Hexadecimal(40, prefix: "");
         var commitMessage = "Add new-file.md";
-        
+
         // Mock GET repository to get default branch (required by CreateFileAsync)
         var repoResponse = new
         {
@@ -47,7 +47,7 @@ public class FileCrudContractTests : GitHubContractTestBase
             @private = false,
             archived = false
         };
-        
+
         MockServer
             .Given(Request.Create()
                 .WithPath($"/api/v3/repositories/{repositoryId}")
@@ -56,7 +56,7 @@ public class FileCrudContractTests : GitHubContractTestBase
                 .WithStatusCode(200)
                 .WithHeader("Content-Type", "application/json")
                 .WithBodyAsJson(repoResponse));
-        
+
         // Mock file creation response
         var fileCreationResponse = new
         {
@@ -82,7 +82,7 @@ public class FileCrudContractTests : GitHubContractTestBase
                 }
             }
         };
-        
+
         MockServer
             .Given(Request.Create()
                 .WithPath($"/api/v3/repositories/{repositoryId}/contents/{filePath}")
@@ -91,16 +91,16 @@ public class FileCrudContractTests : GitHubContractTestBase
                 .WithStatusCode(200)
                 .WithHeader("Content-Type", "application/json")
                 .WithBodyAsJson(fileCreationResponse));
-        
+
         // Act
         await Sut.CreateFileAsync(repositoryId, filePath, fileContent);
-        
+
         // Assert - Verify the request was made (response structure validates schema)
         var requests = MockServer.LogEntries;
-        requests.Should().ContainSingle(r => 
-            r.RequestMessage.Path.Contains($"/contents/{filePath}") && 
+        requests.Should().ContainSingle(r =>
+            r.RequestMessage.Path.Contains($"/contents/{filePath}") &&
             r.RequestMessage.Method == "PUT");
-        
+
         // Verify response structure matches schema
         fileCreationResponse.content.Should().NotBeNull("content is a required object field");
         fileCreationResponse.content.name.Should().NotBeNullOrEmpty("content.name is a required string field");
@@ -109,13 +109,13 @@ public class FileCrudContractTests : GitHubContractTestBase
         fileCreationResponse.content.size.Should().BeGreaterThan(0, "content.size is a required integer field");
         fileCreationResponse.content.type.Should().Be("file", "content.type should be 'file'");
         fileCreationResponse.content.encoding.Should().Be("base64", "content.encoding should be 'base64'");
-        
+
         fileCreationResponse.commit.Should().NotBeNull("commit is a required object field");
         fileCreationResponse.commit.sha.Should().NotBeNullOrEmpty("commit.sha is a required string field");
         fileCreationResponse.commit.message.Should().Be(commitMessage, "commit.message is a required string field");
         fileCreationResponse.commit.author.Should().NotBeNull("commit.author is a required object field");
     }
-    
+
     /// <summary>
     /// UpdateFileAsync - Response Schema
     /// Verifies that UpdateFileAsync response matches JSON schema
@@ -125,7 +125,7 @@ public class FileCrudContractTests : GitHubContractTestBase
     {
         // Arrange
         SetupGitHubAppAuthentication();
-        
+
         var repositoryId = Faker.Random.Long(1, 999999);
         var repoName = Faker.Internet.DomainWord();
         var filePath = "existing-file.md";
@@ -134,7 +134,7 @@ public class FileCrudContractTests : GitHubContractTestBase
         var sha = Faker.Random.Hexadecimal(40, prefix: "");
         var commitSha = Faker.Random.Hexadecimal(40, prefix: "");
         var commitMessage = "Update existing-file.md";
-        
+
         // Mock GET repository to get default branch (required by UpdateFileAsync)
         var repoResponse = new
         {
@@ -151,7 +151,7 @@ public class FileCrudContractTests : GitHubContractTestBase
             @private = false,
             archived = false
         };
-        
+
         MockServer
             .Given(Request.Create()
                 .WithPath($"/api/v3/repositories/{repositoryId}")
@@ -160,7 +160,7 @@ public class FileCrudContractTests : GitHubContractTestBase
                 .WithStatusCode(200)
                 .WithHeader("Content-Type", "application/json")
                 .WithBodyAsJson(repoResponse));
-        
+
         // Mock GET file to get SHA
         var existingFileResponse = new[]
         {
@@ -171,7 +171,7 @@ public class FileCrudContractTests : GitHubContractTestBase
                 name = System.IO.Path.GetFileName(filePath)
             }
         };
-        
+
         MockServer
             .Given(Request.Create()
                 .WithPath($"/api/v3/repositories/{repositoryId}/contents/{filePath}")
@@ -180,7 +180,7 @@ public class FileCrudContractTests : GitHubContractTestBase
                 .WithStatusCode(200)
                 .WithHeader("Content-Type", "application/json")
                 .WithBodyAsJson(existingFileResponse));
-        
+
         // Mock file update response
         var fileUpdateResponse = new
         {
@@ -206,7 +206,7 @@ public class FileCrudContractTests : GitHubContractTestBase
                 }
             }
         };
-        
+
         MockServer
             .Given(Request.Create()
                 .WithPath($"/api/v3/repositories/{repositoryId}/contents/{filePath}")
@@ -215,23 +215,23 @@ public class FileCrudContractTests : GitHubContractTestBase
                 .WithStatusCode(200)
                 .WithHeader("Content-Type", "application/json")
                 .WithBodyAsJson(fileUpdateResponse));
-        
+
         // Act
         await Sut.UpdateFileAsync(repositoryId, filePath, fileContent);
-        
+
         // Assert - Verify the request was made (response structure validates schema)
         var requests = MockServer.LogEntries;
-        requests.Should().ContainSingle(r => 
-            r.RequestMessage.Path.Contains($"/contents/{filePath}") && 
+        requests.Should().ContainSingle(r =>
+            r.RequestMessage.Path.Contains($"/contents/{filePath}") &&
             r.RequestMessage.Method == "PUT");
-        
+
         // Verify response structure matches schema (same as CreateFileAsync)
         fileUpdateResponse.content.Should().NotBeNull("content is a required object field");
         fileUpdateResponse.content.sha.Should().NotBeNullOrEmpty("content.sha is a required string field");
         fileUpdateResponse.commit.Should().NotBeNull("commit is a required object field");
         fileUpdateResponse.commit.sha.Should().NotBeNullOrEmpty("commit.sha is a required string field");
     }
-    
+
     /// <summary>
     /// DeleteFileAsync - Response Schema
     /// Verifies that DeleteFileAsync response matches JSON schema
@@ -241,14 +241,14 @@ public class FileCrudContractTests : GitHubContractTestBase
     {
         // Arrange
         SetupGitHubAppAuthentication();
-        
+
         var repositoryId = Faker.Random.Long(1, 999999);
         var repoName = Faker.Internet.DomainWord();
         var filePath = "file-to-delete.md";
         var sha = Faker.Random.Hexadecimal(40, prefix: "");
         var commitSha = Faker.Random.Hexadecimal(40, prefix: "");
         var commitMessage = "Delete file-to-delete.md";
-        
+
         // Mock GET repository to get default branch (required by DeleteFileAsync)
         var repoResponse = new
         {
@@ -265,7 +265,7 @@ public class FileCrudContractTests : GitHubContractTestBase
             @private = false,
             archived = false
         };
-        
+
         MockServer
             .Given(Request.Create()
                 .WithPath($"/api/v3/repositories/{repositoryId}")
@@ -274,7 +274,7 @@ public class FileCrudContractTests : GitHubContractTestBase
                 .WithStatusCode(200)
                 .WithHeader("Content-Type", "application/json")
                 .WithBodyAsJson(repoResponse));
-        
+
         // Mock GET file to get SHA
         var existingFileResponse = new[]
         {
@@ -285,7 +285,7 @@ public class FileCrudContractTests : GitHubContractTestBase
                 name = System.IO.Path.GetFileName(filePath)
             }
         };
-        
+
         MockServer
             .Given(Request.Create()
                 .WithPath($"/api/v3/repositories/{repositoryId}/contents/{filePath}")
@@ -294,7 +294,7 @@ public class FileCrudContractTests : GitHubContractTestBase
                 .WithStatusCode(200)
                 .WithHeader("Content-Type", "application/json")
                 .WithBodyAsJson(existingFileResponse));
-        
+
         // Mock file deletion response
         var fileDeleteResponse = new
         {
@@ -311,7 +311,7 @@ public class FileCrudContractTests : GitHubContractTestBase
                 }
             }
         };
-        
+
         MockServer
             .Given(Request.Create()
                 .WithPath($"/api/v3/repositories/{repositoryId}/contents/{filePath}")
@@ -320,16 +320,16 @@ public class FileCrudContractTests : GitHubContractTestBase
                 .WithStatusCode(200)
                 .WithHeader("Content-Type", "application/json")
                 .WithBodyAsJson(fileDeleteResponse));
-        
+
         // Act
         await Sut.DeleteFileAsync(repositoryId, filePath);
-        
+
         // Assert - Verify the request was made (response structure validates schema)
         var requests = MockServer.LogEntries;
-        requests.Should().ContainSingle(r => 
-            r.RequestMessage.Path.Contains($"/contents/{filePath}") && 
+        requests.Should().ContainSingle(r =>
+            r.RequestMessage.Path.Contains($"/contents/{filePath}") &&
             r.RequestMessage.Method == "DELETE");
-        
+
         // Verify response structure matches schema
         fileDeleteResponse.content.Should().BeNull("content should be null after deletion");
         fileDeleteResponse.commit.Should().NotBeNull("commit is a required object field");
