@@ -38,7 +38,7 @@ All notable changes to this project will be documented in this file.
   - Updated `README.md` with local workflow testing script documentation
   - Enhanced `docs/ci-cd-workflows.md` with local workflow execution guide
   - Updated `docs/testing-integration-tests.md` with SSL certificate handling details
-  - Updated `README.md` settlement section with Dependabot dependency management information
+  - Updated `README.md` with Dependabot dependency management information
   - Enhanced `docs/ci-cd-workflows.md` with Dependabot integration details
 
 ## 1.7
