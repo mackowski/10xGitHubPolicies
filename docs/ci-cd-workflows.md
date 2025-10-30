@@ -367,3 +367,17 @@ dotnet format --verify-no-changes
 - Ensure script has execute permissions: `chmod +x test-workflow-local.sh`
 - Verify .NET SDK is installed: `dotnet --version`
 - Check test project dependencies are restored: `dotnet restore`
+
+## Production deployment (OIDC + MSI)
+
+For production delivery using Azure OIDC and secretless SQL via Managed Identity, see:
+
+- **Production guide**: `./production-deployment.md`
+- **Migrations**: use the MSI-enabled console runner in CI
+
+```bash
+# Azure login already done via azure/login (OIDC)
+export ConnectionStrings__DefaultConnection="Server=tcp:<sql-server>.database.windows.net,1433;Database=<db>;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;Authentication=Active Directory Managed Identity"
+export ASPNETCORE_ENVIRONMENT=Production
+dotnet run --project Tools/DbMigrator/DbMigrator.csproj --configuration Release
+```
