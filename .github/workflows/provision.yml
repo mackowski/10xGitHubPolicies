@@ -1,0 +1,86 @@
+name: provision-infra
+on:
+  workflow_dispatch:
+    inputs:
+      baseName:
+        description: "Base name (e.g. 10xghpol)"
+        required: true
+      webAppName:
+        description: "Web App name (globally unique)"
+        required: true
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  RESOURCE_GROUP: rg-10xghpolicies-prod
+  LOCATION: westeurope
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Azure login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Create RG
+        uses: azure/cli@v2
+        with:
+          inlineScript: |
+            az group create -n ${{ env.RESOURCE_GROUP }} -l ${{ env.LOCATION }}
+
+      - name: Deploy Bicep
+        uses: azure/cli@v2
+        with:
+          inlineScript: |
+            az deployment group create \
+              -g ${{ env.RESOURCE_GROUP }} \
+              -f infra/main.bicep \
+              -p baseName='${{ github.event.inputs.baseName }}' \
+                 webAppName='${{ github.event.inputs.webAppName }}' \
+                 sqlAdminLogin='${{ secrets.SQL_ADMIN_LOGIN }}' \
+                 sqlAdminPassword='${{ secrets.SQL_ADMIN_PASSWORD }}' \
+                 orgName='${{ secrets.ORG_NAME }}' \
+                 githubClientId='${{ secrets.GITHUB_CLIENT_ID }}' \
+                 githubClientSecret='${{ secrets.GITHUB_CLIENT_SECRET }}'
+
+      # Optional one-time bootstrap if not already configured:
+      # Set Azure AD admin on SQL server and create MSI DB user matching Web App identity
+      - name: Configure SQL Azure AD admin (one-time)
+        if: ${{ always() }}
+        uses: azure/cli@v2
+        with:
+          inlineScript: |
+            # Enable AAD-only auth and set AAD admin (use your group/user)
+            az sql server ad-only-auth enable -g ${{ env.RESOURCE_GROUP }} -s sql-10xghpolicies-prod
+            az sql server ad-admin create \
+              -g ${{ env.RESOURCE_GROUP }} \
+              -s sql-10xghpolicies-prod \
+              -u "AAD-SQL-Admins" \
+              -i "59437561-fcf4-4557-9d74-f7d5d6f73e0c"
+
+      - name: Create DB user for Web App Managed Identity
+        uses: azure/cli@v2
+        with:
+          inlineScript: |
+            WEBAPP_NAME='${{ github.event.inputs.webAppName }}'
+            # Install sqlcmd
+            sudo ACCEPT_EULA=Y apt-get update && sudo ACCEPT_EULA=Y apt-get install -y mssql-tools unixodbc-dev
+            export PATH="$PATH:/opt/mssql-tools/bin"
+            # Create contained user from EXTERNAL PROVIDER and grant role
+            sqlcmd -S "tcp:sql-10xghpolicies-prod.database.windows.net,1433" -d "sqldb-10xghpolicies" -G -C -l 30 -Q "
+              IF NOT EXISTS (SELECT 1 FROM sys.database_principals WHERE name = '$(WEBAPP_NAME)')
+              BEGIN
+                CREATE USER [$(WEBAPP_NAME)] FROM EXTERNAL PROVIDER;
+                ALTER ROLE db_owner ADD MEMBER [$(WEBAPP_NAME)];
+              END
+            "
+
+
