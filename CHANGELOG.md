@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file.
 
+## 1.9
+
+### Added
+- **MSI DbMigrator console**: `Tools/DbMigrator` to run EF Core migrations using Azure Managed Identity (no SQL secrets in CI)
+  - Reads `ConnectionStrings__DefaultConnection` from environment
+  - Executes `db.Database.MigrateAsync()`
+- **Production deployment guide**: New documentation for Azure OIDC + MSI-based CI/CD
+  - Added `docs/production-deployment.md` (runbook in `/.ai/production-deployment.md`)
+  - References GitHub Environments gating and secretless SQL
+
+### Changed
+- **CI/CD Documentation**: Updated `docs/ci-cd-workflows.md` and `README.md` to include production deployment reference and MSI migration step example
+
 ## 1.8
 
 ### Added

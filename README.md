@@ -19,6 +19,7 @@ A GitHub App to automate the enforcement of organizational policies and security
 - [Testing](#testing)
 - [Dependency Management](#dependency-management)
 - [Documentation](#documentation)
+- [Production Deployment](#production-deployment)
 - [Project Scope](#project-scope)
 - [License](#license)
 
@@ -431,6 +432,19 @@ Detailed documentation for specific features and integrations:
 - **[Contract Testing](./docs/testing-contract-tests.md)**: Detailed guide to contract testing with WireMock, Verify.NET, and JSON Schema
 - **[E2E Testing](./docs/testing-e2e-tests.md)**: Complete guide to End-to-End testing with Playwright
 - **[CI/CD Workflows](./docs/ci-cd-workflows.md)**: GitHub Actions workflows, code coverage, and automated testing pipelines
+
+---
+
+## Production Deployment
+
+For production, use GitHub Actions with Azure OIDC (workload identity federation) and Azure Managed Identity (MSI) for secretless SQL access.
+
+- Guide: **[Production Deployment (Azure OIDC + MSI)](./docs/production-deployment.md)**
+- CI migrations: run EF Core migrations via MSI using the console runner:
+
+```bash
+dotnet run --project Tools/DbMigrator/DbMigrator.csproj --configuration Release
+```
 
 ---
 
