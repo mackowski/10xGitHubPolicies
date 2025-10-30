@@ -49,8 +49,11 @@ jobs:
                  sqlAdminLogin='${{ secrets.SQL_ADMIN_LOGIN }}' \
                  sqlAdminPassword='${{ secrets.SQL_ADMIN_PASSWORD }}' \
                  orgName='${{ secrets.ORG_NAME }}' \
-                 githubClientId='${{ secrets.GITHUB_CLIENT_ID }}' \
-                 githubClientSecret='${{ secrets.GITHUB_CLIENT_SECRET }}'
+                 githubClientId='${{ secrets.OAUTH_CLIENT_ID }}' \
+                 githubClientSecret='${{ secrets.OAUTH_CLIENT_SECRET }}' \
+                 githubAppId='${{ secrets.GH_APP_ID }}' \
+                 githubAppPrivateKey='${{ secrets.GH_APP_PRIVATE_KEY }}' \
+                 githubAppInstallationId='${{ secrets.GH_APP_INSTALLATION_ID }}'
 
       # Optional one-time bootstrap if not already configured:
       # Set Azure AD admin on SQL server and create MSI DB user matching Web App identity
@@ -59,29 +62,53 @@ jobs:
         uses: azure/cli@v2
         with:
           inlineScript: |
-            # Enable AAD-only auth and set AAD admin (use your group/user)
-            az sql server ad-only-auth enable -g ${{ env.RESOURCE_GROUP }} -s sql-10xghpolicies-prod
+            # IMPORTANT: Set AAD admin FIRST, then enable AAD-only auth
             az sql server ad-admin create \
               -g ${{ env.RESOURCE_GROUP }} \
               -s sql-10xghpolicies-prod \
               -u "AAD-SQL-Admins" \
               -i "59437561-fcf4-4557-9d74-f7d5d6f73e0c"
+            
+            # Enable AAD-only auth AFTER setting admin
+            az sql server ad-only-auth enable -g ${{ env.RESOURCE_GROUP }} --name sql-10xghpolicies-prod
 
       - name: Create DB user for Web App Managed Identity
         uses: azure/cli@v2
         with:
           inlineScript: |
             WEBAPP_NAME='${{ github.event.inputs.webAppName }}'
-            # Install sqlcmd
-            sudo ACCEPT_EULA=Y apt-get update && sudo ACCEPT_EULA=Y apt-get install -y mssql-tools unixodbc-dev
+            echo "Creating MSI database user for Web App: $WEBAPP_NAME"
+            
+            # Install sqlcmd (Ubuntu approach that works in GitHub Actions)
+            curl https://packages.microsoft.com/keys/microsoft.asc | sudo apt-key add -
+            curl https://packages.microsoft.com/config/ubuntu/20.04/prod.list | sudo tee /etc/apt/sources.list.d/msprod.list
+            sudo apt-get update
+            sudo ACCEPT_EULA=Y apt-get install -y mssql-tools unixodbc-dev
             export PATH="$PATH:/opt/mssql-tools/bin"
+            
             # Create contained user from EXTERNAL PROVIDER and grant role
+            # Note: This requires AAD authentication, so the runner needs to be logged in with AAD
             sqlcmd -S "tcp:sql-10xghpolicies-prod.database.windows.net,1433" -d "sqldb-10xghpolicies" -G -C -l 30 -Q "
-              IF NOT EXISTS (SELECT 1 FROM sys.database_principals WHERE name = '$(WEBAPP_NAME)')
+              IF NOT EXISTS (SELECT 1 FROM sys.database_principals WHERE name = '$WEBAPP_NAME')
               BEGIN
-                CREATE USER [$(WEBAPP_NAME)] FROM EXTERNAL PROVIDER;
-                ALTER ROLE db_owner ADD MEMBER [$(WEBAPP_NAME)];
+                CREATE USER [$WEBAPP_NAME] FROM EXTERNAL PROVIDER;
+                ALTER ROLE db_owner ADD MEMBER [$WEBAPP_NAME];
+                PRINT 'MSI user created successfully';
               END
-            "
+              ELSE
+              BEGIN
+                PRINT 'MSI user already exists';
+              END
+            " || echo "Warning: MSI user creation failed. You may need to create it manually via Azure Portal Query Editor."
+
+      - name: Update Web App to use MSI connection string
+        uses: azure/cli@v2
+        with:
+          inlineScript: |
+            # Update connection string to use MSI instead of SQL admin credentials
+            az webapp config appsettings set \
+              -g ${{ env.RESOURCE_GROUP }} \
+              -n ${{ github.event.inputs.webAppName }} \
+              --settings ConnectionStrings__DefaultConnection='Server=tcp:sql-10xghpolicies-prod.database.windows.net,1433;Database=sqldb-10xghpolicies;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;Authentication=Active Directory Managed Identity'
 
 

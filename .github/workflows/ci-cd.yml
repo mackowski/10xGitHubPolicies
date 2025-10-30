@@ -109,8 +109,11 @@ jobs:
                 ASPNETCORE_ENVIRONMENT=Production \
                 TestMode__Enabled=false \
                 GitHubApp__OrganizationName='${{ secrets.ORG_NAME }}' \
-                GitHub__ClientId='${{ secrets.GITHUB_CLIENT_ID }}' \
-                GitHub__ClientSecret='${{ secrets.GITHUB_CLIENT_SECRET }}' \
+                GitHubApp__AppId='${{ secrets.GH_APP_ID }}' \
+                GitHubApp__PrivateKey='${{ secrets.GH_APP_PRIVATE_KEY }}' \
+                GitHubApp__InstallationId='${{ secrets.GH_APP_INSTALLATION_ID }}' \
+                GitHub__ClientId='${{ secrets.OAUTH_CLIENT_ID }}' \
+                GitHub__ClientSecret='${{ secrets.OAUTH_CLIENT_SECRET }}' \
                 ConnectionStrings__DefaultConnection='Server=tcp:${{ env.SQL_SERVER }}.database.windows.net,1433;Database=${{ env.SQL_DB }};Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;Authentication=Active Directory Managed Identity'
 
 
