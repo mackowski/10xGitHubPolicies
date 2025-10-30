@@ -28,8 +28,8 @@ Use Azure Cloud Shell or local `az` CLI (logged into the correct subscription):
 
 ```bash
 # Inputs
-SUBSCRIPTION_ID="5ad1ad66-5ad7-4ed5-aeb2-a46b1abfbffd"
-TENANT_ID="8afe73f9-0d93-4821-a898-c5c2dc320953"
+SUBSCRIPTION_ID="ddd61e7a-2a0d-4268-b750-ca869af971c0"
+TENANT_ID="316ceb19-dc5f-4f45-8392-055985cd5f73"
 RESOURCE_GROUP="rg-10xghpolicies-prod"
 AZURE_LOCATION="westeurope"
 APP_DISPLAY_NAME="gha-10xghpolicies-prod"
@@ -140,7 +140,8 @@ resource sql 'Microsoft.Sql/servers@2022-05-01-preview' = {
 }
 
 resource db 'Microsoft.Sql/servers/databases@2022-05-01-preview' = {
-  name: '${sql.name}/sqldb-${baseName}'
+  name: 'sqldb-${baseName}'
+  parent: sql
   location: location
   sku: {
     name: 'GP_S_Gen5' // Serverless
@@ -153,7 +154,8 @@ resource db 'Microsoft.Sql/servers/databases@2022-05-01-preview' = {
 }
 
 resource fwAllowAzure 'Microsoft.Sql/servers/firewallRules@2022-05-01-preview' = {
-  name: '${sql.name}/AllowAzureServices'
+  name: 'AllowAzureServices'
+  parent: sql
   properties: {
     startIpAddress: '0.0.0.0'
     endIpAddress: '0.0.0.0'
@@ -174,7 +176,7 @@ resource webConfig 'Microsoft.Web/sites/config@2023-12-01' = {
     'GitHub__ClientId': githubClientId
     'GitHub__ClientSecret': githubClientSecret
     // Secretless MSI connection string (no username/password)
-    'ConnectionStrings__DefaultConnection': 'Server=tcp:${sql.name}.database.windows.net,1433;Database=${db.name};Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;Authentication=Active Directory Managed Identity'
+    'ConnectionStrings__DefaultConnection': 'Server=tcp:${sql.name}.database.windows.net,1433;Database=sqldb-${baseName};Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;Authentication=Active Directory Managed Identity'
   }
 }
 
