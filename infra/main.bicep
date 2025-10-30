@@ -6,14 +6,14 @@ param baseName string
 @description('Web App name, must be globally unique')
 param webAppName string
 @description('SKU for App Service Plan')
-param appServiceSku string = 'P1v3'
+param appServiceSku string = 'B1'
 
 resource plan 'Microsoft.Web/serverfarms@2023-12-01' = {
   name: 'asp-${baseName}'
   location: location
   sku: {
     name: appServiceSku
-    tier: 'PremiumV3'
+    tier: 'Basic'
     size: appServiceSku
     capacity: 1
   }
