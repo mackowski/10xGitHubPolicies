@@ -17,7 +17,7 @@
     <PackageReference Include="FluentAssertions" Version="6.12.0" />
     
     <!-- Contract Testing -->
-    <PackageReference Include="NJsonSchema" Version="11.0.2" />
+    <PackageReference Include="NJsonSchema" Version="11.5.1" />
     <PackageReference Include="Verify.Xunit" Version="28.5.1" />
     <PackageReference Include="WireMock.Net" Version="1.5.59" />
     
