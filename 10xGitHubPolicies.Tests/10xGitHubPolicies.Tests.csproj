@@ -23,7 +23,7 @@
     <PackageReference Include="xunit" Version="2.5.3" />
     <PackageReference Include="xunit.runner.visualstudio" Version="2.5.3" />
     <PackageReference Include="bUnit" Version="1.28.9" />
-    <PackageReference Include="bUnit.web" Version="1.28.9" />
+    <PackageReference Include="bUnit.web" Version="1.40.0" />
     <PackageReference Include="Microsoft.AspNetCore.Components.Authorization" Version="8.0.21" />
   </ItemGroup>
 
