@@ -2,6 +2,29 @@
 
 All notable changes to this project will be documented in this file.
 
+## 1.10
+
+### Changed
+- **DbMigrator Tool**: Enhanced to support both Azure Managed Identity (MSI) and Azure AD token authentication
+  - Added support for `AZURE_SQL_TOKEN` environment variable for CI/CD scenarios
+  - When `AZURE_SQL_TOKEN` is set, uses token-based authentication instead of Managed Identity
+  - Removes `Authentication` parameter from connection string when using token (AccessToken takes precedence)
+  - Falls back to Managed Identity or SQL Auth when token is not provided
+  - Enables database migrations in CI/CD pipelines where Managed Identity isn't available
+- **Production CI/CD Workflow**: Enhanced database migration step with Azure AD token authentication
+  - Added step to retrieve Azure AD token for SQL Database access
+  - Passes token to DbMigrator via `AZURE_SQL_TOKEN` environment variable
+  - Enables migrations to run in GitHub Actions without requiring Managed Identity
+  - Maintains firewall rule management for temporary SQL access
+- **TestModeAuthenticationHandler**: Updated for .NET 8 compatibility
+  - Removed deprecated `ISystemClock` parameter from constructor (replaced with `TimeProvider` in .NET 8)
+  - Maintains backward compatibility with existing authentication flow
+
+### Fixed
+- **Database Migrations in CI/CD**: Fixed database migration execution in production CI/CD pipeline
+  - Previously migrations could fail in CI/CD due to Managed Identity limitations
+  - Now uses Azure AD token authentication for reliable migration execution
+
 ## 1.9
 
 ### Added

@@ -105,9 +105,20 @@ jobs:
       - name: Checkout code for migrations
         uses: actions/checkout@v4
 
+      - name: Get Azure AD token for SQL Database
+        id: get-token
+        uses: azure/cli@v2
+        with:
+          inlineScript: |
+            TOKEN=$(az account get-access-token --resource https://database.windows.net/ --query accessToken -o tsv)
+            echo "token<<EOF" >> $GITHUB_OUTPUT
+            echo "$TOKEN" >> $GITHUB_OUTPUT
+            echo "EOF" >> $GITHUB_OUTPUT
+
       - name: Run database migrations
         env:
           ConnectionStrings__DefaultConnection: "Server=tcp:sql-10xghpolicies.database.windows.net,1433;Database=sqldb-10xghpolicies;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;Authentication=Active Directory Managed Identity"
+          AZURE_SQL_TOKEN: ${{ steps.get-token.outputs.token }}
           ASPNETCORE_ENVIRONMENT: "Production"
         run: |
           dotnet run --project Tools/DbMigrator/DbMigrator.csproj --configuration Release

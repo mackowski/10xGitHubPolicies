@@ -437,14 +437,20 @@ Detailed documentation for specific features and integrations:
 
 ## Production Deployment
 
-For production, use GitHub Actions with Azure OIDC (workload identity federation) and Azure Managed Identity (MSI) for secretless SQL access.
+For production, use GitHub Actions with Azure OIDC (workload identity federation) and secretless SQL access via Azure Managed Identity (MSI) or Azure AD token authentication.
 
 - Guide: **[Production Deployment (Azure OIDC + MSI)](./docs/production-deployment.md)**
-- CI migrations: run EF Core migrations via MSI using the console runner:
+- Database migrations: The `Tools/DbMigrator` console application supports both:
+  - **Azure AD Token Authentication** (used in CI/CD pipelines)
+  - **Azure Managed Identity** (used in Azure App Service)
+
+The migrations run automatically as part of the production deployment workflow. For manual execution:
 
 ```bash
 dotnet run --project Tools/DbMigrator/DbMigrator.csproj --configuration Release
 ```
+
+See the [Production Deployment guide](./docs/production-deployment.md) for detailed authentication configuration.
 
 ---
 

@@ -34,7 +34,7 @@ build
 
 ### Deploy Job
 
-- **Purpose**: Deploy the application to Azure App Service
+- **Purpose**: Deploy the application to Azure App Service and run database migrations
 - **Depends on**: `build`
 - **Permissions**: 
   - `id-token: write` (for OIDC authentication)
@@ -44,6 +44,10 @@ build
   2. Authenticates to Azure using OIDC
   3. Deploys to Azure Web App (`wa-10xghpolicies-prod`)
   4. Applies app settings (idempotent)
+  5. Creates temporary firewall rule for GitHub Actions runner
+  6. Retrieves Azure AD token for SQL Database access
+  7. Runs database migrations using DbMigrator tool
+  8. Removes temporary firewall rule
 
 ### Required Secrets
 
@@ -78,12 +82,44 @@ The deployment workflow sets the following app settings on Azure App Service:
 - `GitHub__ClientSecret` - OAuth Client Secret
 - `ConnectionStrings__DefaultConnection` - MSI-based SQL connection string
 
+### Database Migrations
+
+The production deployment workflow includes automated database migrations using the `Tools/DbMigrator` console application. The DbMigrator tool supports two authentication methods:
+
+#### Authentication Methods
+
+1. **Azure Managed Identity (MSI)** - Used when running in Azure App Service
+   - Automatically authenticates using the App Service's managed identity
+   - No credentials required in connection string
+   - Used by the deployed application for runtime database access
+
+2. **Azure AD Token Authentication** - Used in CI/CD pipelines
+   - Retrieves Azure AD token for SQL Database access
+   - Passed to DbMigrator via `AZURE_SQL_TOKEN` environment variable
+   - Enables migrations to run in GitHub Actions without requiring Managed Identity
+   - Token is obtained using `az account get-access-token --resource https://database.windows.net/`
+
+#### Migration Process
+
+The workflow performs the following steps for database migrations:
+
+1. **Create Firewall Rule**: Temporarily adds GitHub Actions runner's public IP to SQL Server firewall
+2. **Get Azure AD Token**: Retrieves access token for SQL Database authentication
+3. **Run Migrations**: Executes `DbMigrator` tool with token authentication
+4. **Cleanup**: Removes firewall rule (even if migration fails)
+
+The DbMigrator tool automatically detects which authentication method to use:
+- If `AZURE_SQL_TOKEN` environment variable is set, uses token authentication
+- Otherwise, falls back to Managed Identity or connection string authentication
+
 ### SQL Connection String
 
-The application uses Azure Managed Identity (MSI) for secretless database access:
+The application uses Azure Managed Identity (MSI) for secretless database access at runtime:
 
 ```
 Server=tcp:sql-10xghpolicies.database.windows.net,1433;Database=sqldb-10xghpolicies;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;Authentication=Active Directory Managed Identity
 ```
 
 This eliminates the need for SQL username/password credentials in app settings.
+
+**Note**: During CI/CD migrations, the connection string includes the `Authentication=Active Directory Managed Identity` parameter, but the DbMigrator tool uses the Azure AD token instead (which takes precedence).
