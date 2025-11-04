@@ -11,7 +11,7 @@ on:
 
 jobs:
   build:
-    runs-on: windows-latest
+    runs-on: ubuntu-latest
     permissions:
       contents: read #This is required for actions/checkout
 
@@ -27,16 +27,16 @@ jobs:
         run: dotnet build --configuration Release
 
       - name: dotnet publish
-        run: dotnet publish 10xGitHubPolicies.App/10xGitHubPolicies.App.csproj -c Release -o "${{env.DOTNET_ROOT}}/myapp"
+        run: dotnet publish 10xGitHubPolicies.App/10xGitHubPolicies.App.csproj -c Release -o ./publish
 
       - name: Upload artifact for deployment job
         uses: actions/upload-artifact@v4
         with:
           name: .net-app
-          path: ${{env.DOTNET_ROOT}}/myapp
+          path: ./publish
 
   deploy:
-    runs-on: windows-latest
+    runs-on: ubuntu-latest
     needs: build
     permissions:
       id-token: write #This is required for requesting the JWT
@@ -74,11 +74,11 @@ jobs:
               --settings \
                 ASPNETCORE_ENVIRONMENT=Production \
                 TestMode__Enabled=false \
-                GitHubApp__AppId='${{ secrets.GH_APP_ID }}' \
-                GitHubApp__PrivateKey='${{ secrets.GH_APP_PRIVATE_KEY }}' \
-                GitHubApp__InstallationId='${{ secrets.GH_APP_INSTALLATION_ID }}' \
-                GitHubApp__OrganizationName='${{ secrets.ORG_NAME }}' \
-                GitHub__ClientId='${{ secrets.OAUTH_CLIENT_ID }}' \
-                GitHub__ClientSecret='${{ secrets.OAUTH_CLIENT_SECRET }}' \
-                ConnectionStrings__DefaultConnection='Server=tcp:sql-10xghpolicies.database.windows.net,1433;Database=sqldb-10xghpolicies;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;Authentication=Active Directory Managed Identity'
+                GitHubApp__AppId="${{ secrets.GH_APP_ID }}" \
+                GitHubApp__PrivateKey="${{ secrets.GH_APP_PRIVATE_KEY }}" \
+                GitHubApp__InstallationId="${{ secrets.GH_APP_INSTALLATION_ID }}" \
+                GitHubApp__OrganizationName="${{ secrets.ORG_NAME }}" \
+                GitHub__ClientId="${{ secrets.OAUTH_CLIENT_ID }}" \
+                GitHub__ClientSecret="${{ secrets.OAUTH_CLIENT_SECRET }}" \
+                ConnectionStrings__DefaultConnection="Server=tcp:sql-10xghpolicies.database.windows.net,1433;Database=sqldb-10xghpolicies;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;Authentication=Active Directory Managed Identity"
           
