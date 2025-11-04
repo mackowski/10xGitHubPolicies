@@ -76,9 +76,15 @@ Why environment-bound trust? Azure only accepts OIDC tokens for jobs that target
   - `AZURE_TENANT_ID`
   - `AZURE_SUBSCRIPTION_ID`
 - Repository Secrets (Settings → Secrets → Actions):
-  - `GITHUB_CLIENT_ID` (OAuth app for user login)
-  - `GITHUB_CLIENT_SECRET`
-  - `ORG_NAME` (value for `GitHubApp:OrganizationName`)
+  - **OAuth App (for user login)**:
+    - `GITHUB_CLIENT_ID` (OAuth app Client ID)
+    - `GITHUB_CLIENT_SECRET` (OAuth app Client Secret)
+  - **GitHub App (for backend services)**:
+    - `GH_APP_ID` (GitHub App ID)
+    - `GH_APP_PRIVATE_KEY` (Full PEM private key content)
+    - `GH_APP_INSTALLATION_ID` (Installation ID)
+  - **Organization**:
+    - `ORG_NAME` (value for `GitHubApp:OrganizationName`)
 
 Note: When using Managed Identity for SQL (recommended), SQL admin username/password are not required for application runtime or CI/CD. They are only needed for one-time bootstrap if you have not yet configured SQL Azure AD admin.
 
@@ -391,6 +397,9 @@ jobs:
               --settings \
                 ASPNETCORE_ENVIRONMENT=Production \
                 TestMode__Enabled=false \
+                GitHubApp__AppId='${{ secrets.GH_APP_ID }}' \
+                GitHubApp__PrivateKey='${{ secrets.GH_APP_PRIVATE_KEY }}' \
+                GitHubApp__InstallationId='${{ secrets.GH_APP_INSTALLATION_ID }}' \
                 GitHubApp__OrganizationName='${{ secrets.ORG_NAME }}' \
                 GitHub__ClientId='${{ secrets.GITHUB_CLIENT_ID }}' \
                 GitHub__ClientSecret='${{ secrets.GITHUB_CLIENT_SECRET }}' \

@@ -81,4 +81,45 @@ jobs:
                 GitHub__ClientId="${{ secrets.OAUTH_CLIENT_ID }}" \
                 GitHub__ClientSecret="${{ secrets.OAUTH_CLIENT_SECRET }}" \
                 ConnectionStrings__DefaultConnection="Server=tcp:sql-10xghpolicies.database.windows.net,1433;Database=sqldb-10xghpolicies;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;Authentication=Active Directory Managed Identity"
+
+      - name: Get runner public IP
+        id: ip
+        uses: haythem/public-ip@v1.3
+
+      - name: Add firewall rule for runner
+        uses: azure/cli@v2
+        with:
+          inlineScript: |
+            az sql server firewall-rule create \
+              -g rg-10xghpolicies-prod \
+              -s sql-10xghpolicies \
+              -n "gh-runner-${{ github.run_id }}" \
+              --start-ip-address ${{ steps.ip.outputs.ipv4 }} \
+              --end-ip-address ${{ steps.ip.outputs.ipv4 }}
+
+      - name: Set up .NET Core for migrations
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.x'
+
+      - name: Checkout code for migrations
+        uses: actions/checkout@v4
+
+      - name: Run database migrations
+        env:
+          ConnectionStrings__DefaultConnection: "Server=tcp:sql-10xghpolicies.database.windows.net,1433;Database=sqldb-10xghpolicies;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;Authentication=Active Directory Managed Identity"
+          ASPNETCORE_ENVIRONMENT: "Production"
+        run: |
+          dotnet run --project Tools/DbMigrator/DbMigrator.csproj --configuration Release
+
+      - name: Remove firewall rule
+        if: always()
+        uses: azure/cli@v2
+        with:
+          inlineScript: |
+            az sql server firewall-rule delete \
+              -g rg-10xghpolicies-prod \
+              -s sql-10xghpolicies \
+              -n "gh-runner-${{ github.run_id }}" \
+              --yes
           
