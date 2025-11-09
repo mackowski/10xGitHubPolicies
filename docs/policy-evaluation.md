@@ -117,6 +117,7 @@ After creating your evaluator class, you need to register it with the dependency
 builder.Services.AddScoped<IPolicyEvaluationService, PolicyEvaluationService>();
 builder.Services.AddScoped<IPolicyEvaluator, HasAgentsMdEvaluator>();
 builder.Services.AddScoped<IPolicyEvaluator, HasCatalogInfoYamlEvaluator>();
+builder.Services.AddScoped<IPolicyEvaluator, CatalogInfoHasOwnerEvaluator>();
 builder.Services.AddScoped<IPolicyEvaluator, CorrectWorkflowPermissionsEvaluator>();
 // Add your new evaluator here
 builder.Services.AddScoped<IPolicyEvaluator, YourNewPolicyEvaluator>();
@@ -141,6 +142,15 @@ policies:
       body: 'Details about why this is a violation.'
       labels: ['policy-violation', 'your-label']
 
+  # Example: Catalog Info Owner Policy
+  - name: 'Verify catalog-info.yaml has owner'
+    type: 'catalog_info_has_owner'
+    action: 'create-issue'
+    issue_details:
+      title: 'Compliance: catalog-info.yaml missing owner'
+      body: 'The catalog-info.yaml file exists but does not have an owner assigned in the spec.owner field. Please add an owner to comply with organization standards.'
+      labels: ['policy-violation', 'backstage']
+
   # Example: Workflow Permissions Policy
   - name: 'Verify Workflow Permissions'
     type: 'correct_workflow_permissions'
@@ -152,6 +162,93 @@ policies:
 ```
 
 Once these steps are completed, the `ScanningService` will automatically pick up and execute your new policy evaluator during the next scan.
+
+### Example: CatalogInfoHasOwnerEvaluator
+
+Here's a real-world example of a policy evaluator that validates YAML file content:
+
+```csharp
+using System.Text;
+using _10xGitHubPolicies.App.Data.Entities;
+using _10xGitHubPolicies.App.Services.GitHub;
+using YamlDotNet.Serialization;
+
+namespace _10xGitHubPolicies.App.Services.Policies.Evaluators;
+
+public class CatalogInfoHasOwnerEvaluator : IPolicyEvaluator
+{
+    private readonly IGitHubService _githubService;
+    private readonly ILogger<CatalogInfoHasOwnerEvaluator> _logger;
+
+    public CatalogInfoHasOwnerEvaluator(IGitHubService githubService, ILogger<CatalogInfoHasOwnerEvaluator> logger)
+    {
+        _githubService = githubService;
+        _logger = logger;
+    }
+
+    public string PolicyType => "catalog_info_has_owner";
+
+    public async Task<PolicyViolation?> EvaluateAsync(Octokit.Repository repository)
+    {
+        // Get file content (returns base64-encoded string or null)
+        var base64Content = await _githubService.GetFileContentAsync(repository.Name, "catalog-info.yaml");
+
+        // If file doesn't exist, return null (covered by has_catalog_info_yaml policy)
+        if (string.IsNullOrEmpty(base64Content))
+        {
+            return null;
+        }
+
+        try
+        {
+            // Decode base64 to UTF-8
+            var yamlBytes = Convert.FromBase64String(base64Content);
+            var yamlContent = Encoding.UTF8.GetString(yamlBytes);
+
+            // Parse YAML using dynamic deserialization
+            var deserializer = new DeserializerBuilder().Build();
+            var yamlData = deserializer.Deserialize<Dictionary<string, object>>(yamlContent);
+
+            // Navigate to spec.owner field and validate
+            if (yamlData == null || !yamlData.ContainsKey("spec"))
+            {
+                _logger.LogWarning("catalog-info.yaml in repository {RepoName} is missing 'spec' section", repository.Name);
+                return new PolicyViolation { PolicyType = PolicyType };
+            }
+
+            var spec = yamlData["spec"] as Dictionary<object, object>;
+            if (spec == null || !spec.ContainsKey("owner"))
+            {
+                _logger.LogWarning("catalog-info.yaml in repository {RepoName} is missing 'owner' field", repository.Name);
+                return new PolicyViolation { PolicyType = PolicyType };
+            }
+
+            var owner = spec["owner"]?.ToString();
+            if (string.IsNullOrWhiteSpace(owner))
+            {
+                _logger.LogWarning("catalog-info.yaml in repository {RepoName} has empty 'owner' field", repository.Name);
+                return new PolicyViolation { PolicyType = PolicyType };
+            }
+
+            // Repository is compliant
+            return null;
+        }
+        catch (Exception ex)
+        {
+            // Invalid YAML: Log error and return violation
+            _logger.LogError(ex, "Failed to parse catalog-info.yaml in repository {RepoName}", repository.Name);
+            return new PolicyViolation { PolicyType = PolicyType };
+        }
+    }
+}
+```
+
+**Key Points from this example:**
+- **File Content Retrieval**: Uses `IGitHubService.GetFileContentAsync()` which returns base64-encoded content
+- **YAML Parsing**: Uses `YamlDotNet` to parse and navigate the YAML structure
+- **Error Handling**: Handles invalid YAML gracefully by logging and returning a violation
+- **Edge Cases**: Handles missing file (returns null), missing sections, and empty values
+- **Logging**: Uses structured logging for debugging and observability
 
 ---
 

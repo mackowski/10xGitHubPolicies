@@ -122,6 +122,7 @@ builder.Services.AddScoped<IScanningService, ScanningService>();
 builder.Services.AddScoped<IPolicyEvaluationService, PolicyEvaluationService>();
 builder.Services.AddScoped<IPolicyEvaluator, HasAgentsMdEvaluator>();
 builder.Services.AddScoped<IPolicyEvaluator, HasCatalogInfoYamlEvaluator>();
+builder.Services.AddScoped<IPolicyEvaluator, CatalogInfoHasOwnerEvaluator>();
 builder.Services.AddScoped<IPolicyEvaluator, CorrectWorkflowPermissionsEvaluator>();
 builder.Services.AddScoped<IActionService, ActionService>();
 builder.Services.AddScoped<_10xGitHubPolicies.App.Services.Authorization.IAuthorizationService, _10xGitHubPolicies.App.Services.Authorization.AuthorizationService>();

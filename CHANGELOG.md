@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## 1.14
+
+### Added
+- **Catalog Info Owner Policy Evaluator**: New policy evaluator to verify that `catalog-info.yaml` files contain an assigned owner in the `spec.owner` field
+  - Policy type: `catalog_info_has_owner`
+  - Validates that the `catalog-info.yaml` file exists and contains a non-empty owner field
+  - Handles edge cases: missing spec section, missing owner field, empty/whitespace owner values, and invalid YAML
+  - Returns null if file doesn't exist (covered by `has_catalog_info_yaml` policy)
+  - Comprehensive unit tests covering all scenarios (13 test cases)
+  - Updated PRD documentation to include the new policy requirement
+  - Added example configuration to documentation and configuration templates
+
 ## 1.13
 
 ### Added

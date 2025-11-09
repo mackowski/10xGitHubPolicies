@@ -165,6 +165,14 @@ policies:
       title: 'Compliance: catalog-info.yaml is missing'
       body: 'This repository is missing the catalog-info.yaml file. This file is required for backstage.io service discovery.'
       labels: ['policy-violation', 'backstage']
+
+  - name: 'Verify catalog-info.yaml has owner'
+    type: 'catalog_info_has_owner'
+    action: 'create-issue'
+    issue_details:
+      title: 'Compliance: catalog-info.yaml missing owner'
+      body: 'The catalog-info.yaml file exists but does not have an owner assigned in the spec.owner field. Please add an owner to comply with organization standards.'
+      labels: ['policy-violation', 'backstage']
       
   - name: 'Verify Workflow Permissions'
     type: 'correct_workflow_permissions'
