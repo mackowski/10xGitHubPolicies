@@ -2,6 +2,8 @@
 # Note: All actions are pinned to full-length commit SHAs for security compliance
 
 name: Unit Tests
+permissions:
+  contents: read
 
 on:
   workflow_call:
