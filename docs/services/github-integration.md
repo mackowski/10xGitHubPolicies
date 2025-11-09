@@ -96,7 +96,8 @@ The application includes webhook support for real-time processing of GitHub even
 - **Endpoint**: `POST /api/webhooks/github`
 - **Signature Verification**: Validates webhook payloads using HMAC-SHA256
 - **Event Processing**: Routes events to appropriate handlers
-- **Supported Events**: `pull_request` (opened, synchronize, reopened), `ping`
+- **Action Extraction**: Extracts action from JSON payload (not headers)
+- **Supported Events**: `pull_request` (all actions), `ping`
 
 ### Webhook Services
 
@@ -107,7 +108,8 @@ The application includes webhook support for real-time processing of GitHub even
 **`IPullRequestWebhookHandler`** - Handler for pull request webhook events:
 - Evaluates repository policies for PR repositories
 - Executes PR actions (comments, status checks) based on violations
-- Processes `opened`, `synchronize`, and `reopened` PR actions
+- Processes **all** PR webhook actions (opened, synchronize, reopened, edited, ready_for_review, converted_to_draft, closed, etc.)
+- Re-evaluates policies on any PR change to ensure compliance status is always up-to-date
 
 ### Webhook Configuration
 

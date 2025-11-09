@@ -2,6 +2,35 @@
 
 All notable changes to this project will be documented in this file.
 
+## 1.18
+
+### Fixed
+- **Webhook Action Extraction**: Fixed null action issue in webhook processing
+  - Action is now correctly extracted from JSON payload instead of non-existent header
+  - GitHub doesn't send `X-GitHub-Event-Action` header - action is in the payload JSON
+  - Improved error handling for malformed JSON payloads
+  - Resolves issue where webhook logs showed "Action: (null)"
+
+- **Webhook Performance Optimization**: Optimized request body reading
+  - Removed redundant stream position resets
+  - Body is now read once and reused for signature verification and JSON parsing
+  - Reduced memory allocations and stream operations
+  - Improved webhook endpoint response time
+
+### Changed
+- **Webhook PR Event Processing**: Now processes ALL pull request webhook events
+  - Previously only processed: `opened`, `synchronize`, `reopened`
+  - Now processes all PR events: `opened`, `synchronize`, `reopened`, `edited`, `ready_for_review`, `converted_to_draft`, `closed`, and all other PR actions
+  - Policies are re-evaluated on any PR change to ensure compliance status is always up-to-date
+  - Better coverage for edge cases (e.g., PR edited, converted to draft, made ready for review)
+  - Added unit tests for `edited` and `ready_for_review` actions
+
+### Benefits
+- **Fixed Null Actions**: Webhook logs now correctly show action names instead of "(null)"
+- **Better Coverage**: PRs are re-evaluated on any state change, not just the 3 original events
+- **Improved Performance**: Faster webhook processing with optimized body reading
+- **More Reliable**: Policies are checked whenever PRs change, ensuring compliance status is current
+
 ## 1.17
 
 ### Added
@@ -10,7 +39,7 @@ All notable changes to this project will be documented in this file.
   - `IWebhookService` and `WebhookService` for routing webhook events
   - `IPullRequestWebhookHandler` and `PullRequestWebhookHandler` for processing PR events
   - Webhook endpoint: `POST /api/webhooks/github`
-  - Supports `pull_request` events (opened, synchronize, reopened) and `ping` events
+  - Supports `pull_request` events (all actions) and `ping` events
   - Async processing using Hangfire to avoid blocking webhook responses
   - Comprehensive unit tests (16 tests) covering webhook controller and handler logic
 

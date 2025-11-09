@@ -202,7 +202,7 @@ Check your application logs - you should see:
 
 ### Test Different PR Actions
 
-Test various PR events to ensure they're processed correctly:
+Test various PR events to ensure they're processed correctly. **All PR actions are now processed** to re-evaluate policies on any change:
 
 1. **PR Opened**:
    - Create a new PR
@@ -216,9 +216,21 @@ Test various PR events to ensure they're processed correctly:
    - Close the PR, then reopen it
    - Should see: `Event=pull_request, Action=reopened`
 
-4. **PR Closed**:
+4. **PR Edited**:
+   - Edit the PR title or description
+   - Should see: `Event=pull_request, Action=edited`
+
+5. **PR Ready for Review**:
+   - Convert a draft PR to ready for review
+   - Should see: `Event=pull_request, Action=ready_for_review`
+
+6. **PR Converted to Draft**:
+   - Convert a PR to draft
+   - Should see: `Event=pull_request, Action=converted_to_draft`
+
+7. **PR Closed**:
    - Close the PR
-   - Should see: `Event=pull_request, Action=closed` (may be ignored by handler)
+   - Should see: `Event=pull_request, Action=closed`
 
 ## Step 8: Monitor Webhook Deliveries
 
@@ -418,7 +430,7 @@ This ensures your webhook URL doesn't change between ngrok sessions.
 2. ✅ PR events are received and logged successfully
 3. ✅ Signature validation works (rejects invalid signatures)
 4. ✅ HTTP responses are correct (200 OK for valid, 401 for invalid)
-5. ✅ Different PR event types are recognized (opened, synchronize, reopened)
+5. ✅ Different PR event types are recognized (all PR actions: opened, synchronize, reopened, edited, ready_for_review, etc.)
 6. ✅ Webhook deliveries show as successful in GitHub App settings
 7. ✅ ngrok web interface shows incoming requests
 8. ✅ Application logs show webhook processing

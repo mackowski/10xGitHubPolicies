@@ -344,6 +344,89 @@ public class PullRequestWebhookHandlerTests
             policyConfig);
     }
 
+    [Fact]
+    public async Task HandlePullRequestEventAsync_WhenEditedAction_ProcessesEvent()
+    {
+        // Arrange - Test that "edited" action (and other non-standard actions) are now processed
+        var repositoryId = _faker.Random.Long(1000, 999999);
+        var prNumber = _faker.Random.Int(1, 100);
+        var headSha = _faker.Random.AlphaNumeric(40);
+        var payload = CreatePullRequestWebhookPayload(repositoryId, prNumber, headSha, "edited");
+
+        var repository = CreateMockRepository(repositoryId);
+        _gitHubService.GetRepositorySettingsAsync(repositoryId).Returns(repository);
+
+        var policyConfig = new PolicyConfig
+        {
+            Type = "test-policy",
+            Name = "Test Policy",
+            Actions = new List<string> { "block-prs" }
+        };
+
+        var config = new AppConfig
+        {
+            AccessControl = new AccessControlConfig { AuthorizedTeam = "org/team" },
+            Policies = new List<PolicyConfig> { policyConfig }
+        };
+        _configurationService.GetConfigAsync().Returns(config);
+
+        var violations = new List<PolicyViolation>(); // No violations
+        _policyEvaluationService.EvaluateRepositoryAsync(repository, config.Policies).Returns(violations);
+
+        // Act
+        await _sut.HandlePullRequestEventAsync("pull_request", "edited", payload, "delivery-789");
+
+        // Assert - Should process "edited" action and update status check
+        await _actionService.Received(1).UpdatePullRequestStatusCheckAsync(
+            repositoryId,
+            headSha,
+            Arg.Is<List<PolicyViolation>>(v => v.Count == 0),
+            policyConfig);
+    }
+
+    [Fact]
+    public async Task HandlePullRequestEventAsync_WhenReadyForReviewAction_ProcessesEvent()
+    {
+        // Arrange - Test that "ready_for_review" action is processed
+        var repositoryId = _faker.Random.Long(1000, 999999);
+        var prNumber = _faker.Random.Int(1, 100);
+        var headSha = _faker.Random.AlphaNumeric(40);
+        var payload = CreatePullRequestWebhookPayload(repositoryId, prNumber, headSha, "ready_for_review");
+
+        var repository = CreateMockRepository(repositoryId);
+        _gitHubService.GetRepositorySettingsAsync(repositoryId).Returns(repository);
+
+        var policyConfig = new PolicyConfig
+        {
+            Type = "test-policy",
+            Name = "Test Policy",
+            Actions = new List<string> { "comment-on-prs" }
+        };
+
+        var config = new AppConfig
+        {
+            AccessControl = new AccessControlConfig { AuthorizedTeam = "org/team" },
+            Policies = new List<PolicyConfig> { policyConfig }
+        };
+        _configurationService.GetConfigAsync().Returns(config);
+
+        var violations = new List<PolicyViolation>
+        {
+            new PolicyViolation { PolicyType = "test-policy" }
+        };
+        _policyEvaluationService.EvaluateRepositoryAsync(repository, config.Policies).Returns(violations);
+
+        // Act
+        await _sut.HandlePullRequestEventAsync("pull_request", "ready_for_review", payload, "delivery-999");
+
+        // Assert - Should process "ready_for_review" action and comment
+        await _actionService.Received(1).CommentOnPullRequestAsync(
+            repositoryId,
+            prNumber,
+            policyConfig,
+            Arg.Is<List<PolicyViolation>>(v => v.Count == 1 && v[0].PolicyType == "test-policy"));
+    }
+
     // Helper Methods
 
     private static string CreatePullRequestWebhookPayload(long repositoryId, int prNumber, string headSha, string action)

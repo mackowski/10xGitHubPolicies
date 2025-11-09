@@ -76,17 +76,16 @@ public class PullRequestWebhookHandler : IPullRequestWebhookHandler
             }
 
             _logger.LogInformation(
-                "Processing PR #{PrNumber} in repository {RepositoryId} (SHA: {HeadSha})",
+                "Processing PR #{PrNumber} in repository {RepositoryId} (SHA: {HeadSha}, Action: {Action})",
                 prNumber,
                 repositoryId,
-                headSha);
+                headSha,
+                action ?? "unknown");
 
-            // Only process specific actions
-            if (action is not ("opened" or "synchronize" or "reopened"))
-            {
-                _logger.LogInformation("Skipping PR action '{Action}' - only processing opened, synchronize, and reopened", action);
-                return;
-            }
+            // Process all PR actions to re-evaluate policies on any change
+            // This ensures policies are re-evaluated when PRs are edited, converted to draft,
+            // made ready for review, or any other state change occurs
+            _logger.LogInformation("Processing PR action '{Action}' - re-evaluating policies", action ?? "unknown");
 
             // Get repository object
             var repository = await _gitHubService.GetRepositorySettingsAsync(repositoryId);
