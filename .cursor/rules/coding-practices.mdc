@@ -80,7 +80,7 @@ You are a senior Blazor and .NET developer and an expert in `C#`, `ASP.NET Core`
 - Implement proper CORS policies.
 
 ### Security Best Practices
-- **Secret Management**: Never hard-code secrets (passwords, API keys, connection strings). Use the .NET Secret Manager for local development and a secure vault (like Azure Key Vault or AWS Secrets Manager) for production.
+- **Secret Management**: Never hard-code secrets (passwords, API keys, connection strings). Use the .NET Secret Manager for local development and GitHub Secrets for production deployments via CI/CD pipelines.
 - **Prevent SQL Injection (CWE-89)**: Use Entity Framework Core for all database access. It automatically parameterizes queries, preventing SQL injection vulnerabilities. Prefer LINQ queries or `FromSqlInterpolated`. Do not use `FromSqlRaw` with user-provided values.
 - **Prevent Cross-Site Scripting (XSS, CWE-79)**: Rely on Blazor's automatic output encoding. Avoid manually rendering raw HTML. When you must handle raw HTML or interact with JavaScript, ensure data is properly sanitized and encoded.
 - **Prevent Cross-Site Request Forgery (CSRF, CWE-352)**: Blazor Server includes anti-forgery protection by default. Ensure this is not disabled. For APIs, use `[ValidateAntiForgeryToken]` on state-changing actions.

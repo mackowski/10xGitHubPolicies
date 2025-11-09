@@ -1,0 +1,49 @@
+# Reusable workflow for integration tests
+# Note: All actions are pinned to full-length commit SHAs for security compliance
+
+name: Integration Tests
+
+on:
+  workflow_call:
+    inputs:
+      dotnet_version:
+        required: false
+        type: string
+        default: '8.0.x'
+    outputs:
+      artifact_name:
+        description: "Name of the test results artifact"
+        value: "integration-test-results"
+    secrets: {}
+
+jobs:
+  integration-tests:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@ff7abcd0c3c05ccf6adc123a8cd1fd4fb30fb493 # v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@d4c94342e560b34958eacfc5d055d21461ed1c5d # v4
+        with:
+          dotnet-version: ${{ inputs.dotnet_version }}
+
+      - name: Restore dependencies
+        run: dotnet restore
+
+      - name: Run integration tests
+        run: |
+          dotnet test \
+            --filter "Category=Integration" \
+            --results-directory ./test-results \
+            --logger "trx;LogFileName=integration-tests.trx" \
+            --logger "console;verbosity=detailed"
+
+      - name: Upload integration test results
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: always()
+        with:
+          name: integration-test-results
+          path: ./test-results/**/*.trx
+

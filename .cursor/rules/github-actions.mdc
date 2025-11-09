@@ -1,0 +1,16 @@
+---
+description: "Guidelines for creating and maintaining GitHub Actions workflows."
+alwaysApply: true
+---
+#### GITHUB_ACTIONS
+
+When creating or modifying GitHub Actions workflows:
+
+- **Security**: Pin all actions to full-length commit SHAs (not version tags). Add comment with action URL for verification.
+- **Permissions**: Use minimal required permissions (`contents: read`, `packages: read`, `pull-requests: write`). Add job-level permissions when needed.
+- **Structure**: Organize jobs with clear dependencies. Run jobs in parallel where possible (e.g., unit-tests and component-tests).
+- **Environment**: Use `env` section for shared values (e.g., `DOTNET_VERSION: '8.0.x'`).
+- **Test Execution**: Use category filters (`Category=Unit`, `Category=Integration`, etc.) and generate TRX files with `--logger "trx;LogFileName=name.trx"`.
+- **Naming**: Use descriptive job and step names. Follow pattern: `verb-noun` (e.g., `Run unit tests`, `Upload test results`).
+
+**Quick Checklist**: Security (SHA pins) → Permissions (minimal) → Structure (parallel where possible) → Artifacts (upload results) → Cleanup (if: always()).

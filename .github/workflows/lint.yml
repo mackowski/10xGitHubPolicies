@@ -1,0 +1,33 @@
+# Reusable workflow for code linting
+# Note: All actions are pinned to full-length commit SHAs for security compliance
+
+name: Lint Code
+
+on:
+  workflow_call:
+    inputs:
+      dotnet_version:
+        required: false
+        type: string
+        default: '8.0.x'
+    secrets: {}
+
+jobs:
+  lint:
+    name: Lint Code
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@ff7abcd0c3c05ccf6adc123a8cd1fd4fb30fb493 # v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@d4c94342e560b34958eacfc5d055d21461ed1c5d # v4
+        with:
+          dotnet-version: ${{ inputs.dotnet_version }}
+
+      - name: Restore dependencies
+        run: dotnet restore
+
+      - name: Format check
+        run: dotnet format --verify-no-changes --verbosity diagnostic
+

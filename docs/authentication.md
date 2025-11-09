@@ -197,22 +197,29 @@ All authentication and authorization events are logged with appropriate levels:
 
 ## Production Deployment
 
-### Azure Key Vault Integration
+### GitHub Secrets Configuration
 
-For production deployments, secrets should be stored in Azure Key Vault:
+For production deployments, secrets are stored in GitHub Repository Secrets and applied to Azure App Service during CI/CD:
 
-1. Create Azure Key Vault instance
-2. Store secrets with double-underscore naming:
-   - `GitHub--ClientId`
-   - `GitHub--ClientSecret`
-3. Configure managed identity for the App Service
-4. Grant Key Vault access permissions
+1. **GitHub Repository Secrets** (Settings → Secrets → Actions):
+   - `GH_APP_ID` - GitHub App ID (for backend services)
+   - `GH_APP_PRIVATE_KEY` - GitHub App private key (full PEM content)
+   - `GH_APP_INSTALLATION_ID` - GitHub App Installation ID
+   - `ORG_NAME` - GitHub organization name
+   - `OAUTH_CLIENT_ID` - GitHub OAuth App Client ID (for user login)
+   - `OAUTH_CLIENT_SECRET` - GitHub OAuth App Client Secret
+   - `AZUREAPPSERVICE_CLIENTID_*` - Azure AD App Registration Client ID
+   - `AZUREAPPSERVICE_TENANTID_*` - Azure AD Tenant ID
+   - `AZUREAPPSERVICE_SUBSCRIPTIONID_*` - Azure Subscription ID
+
+2. **App Settings Applied via CI/CD**: The production deployment workflow (`.github/workflows/ci-cd-prod.yml`) automatically applies these secrets as app settings to Azure App Service during deployment.
+
+3. **Secretless SQL Access**: The application uses Azure Managed Identity (MSI) for database access, eliminating the need for SQL credentials in app settings.
 
 ### Environment Configuration
 
-- **Development**: Use .NET Secret Manager
-- **Production**: Use Azure Key Vault with managed identity
-- **Staging**: Use Azure Key Vault with managed identity
+- **Development**: Use .NET Secret Manager (`dotnet user-secrets`)
+- **Production**: Use GitHub Secrets (applied to Azure App Service via CI/CD workflow)
 
 ## API Integration
 

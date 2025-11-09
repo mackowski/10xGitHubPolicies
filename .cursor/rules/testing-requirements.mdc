@@ -1,0 +1,17 @@
+---
+description: "Requirements for adding tests when code is changed."
+alwaysApply: true
+---
+#### TESTING_REQUIREMENTS
+
+When modifying code, add or update tests as needed:
+
+- **Service/Logic Changes**: Add unit tests (`10xGitHubPolicies.Tests/Services/`) using xUnit + NSubstitute
+- **Database/API Integration**: Add integration tests (`10xGitHubPolicies.Tests.Integration/`) using WireMock.Net + Testcontainers
+- **GitHub API Changes**: Add contract tests (`10xGitHubPolicies.Tests.Contracts/`) using NJsonSchema + Verify.NET
+- **Blazor Components**: Add component tests (`10xGitHubPolicies.Tests/Components/`) using bUnit
+- **Critical Workflows**: Add E2E tests (`10xGitHubPolicies.Tests.E2E/`) using Playwright (sparingly)
+
+**Quick Decision**: Business logic → Unit test. Database/API → Integration test. UI component → Component test. Critical workflow → E2E test.
+
+Run tests before committing: `dotnet test --filter Category!=E2E`

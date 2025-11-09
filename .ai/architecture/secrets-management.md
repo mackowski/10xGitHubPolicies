@@ -41,56 +41,45 @@ dotnet user-secrets set "GitHubApp:InstallationId" "YOUR_GITHUB_APP_INSTALLATION
 
 ## 3. Production Deployment (Azure App Service)
 
-For the production environment hosted on Azure App Service, we will use **Azure Key Vault** integrated with the App Service's **Managed Identity**. This is the most secure method as it eliminates the need for any secrets to be stored in the application's configuration files or as environment variables in the App Service.
+For the production environment hosted on Azure App Service, we use **GitHub Secrets** stored in the repository and applied to Azure App Service via the CI/CD pipeline. This approach leverages GitHub's secure secret storage and applies secrets as app settings during deployment.
 
 ### 3.1. Architecture
 
-1.  The Azure App Service is assigned a **System-Assigned Managed Identity**, which is an identity in Azure Active Directory that is managed by Azure.
-2.  This identity is granted specific, limited permissions (get, list) to access secrets within an Azure Key Vault instance.
-3.  The application code uses the `Azure.Identity` library to authenticate with the Key Vault using this managed identity. No connection string or secret is required for the application to connect to the Key Vault.
-4.  The application securely fetches the secrets from Key Vault at startup and uses them for its configuration.
+1.  Secrets are stored in **GitHub Repository Secrets** (Settings → Secrets → Actions).
+2.  The CI/CD workflow (`.github/workflows/ci-cd-prod.yml`) retrieves secrets during deployment.
+3.  Secrets are applied as **App Settings** to Azure App Service using the `az webapp config appsettings set` command.
+4.  The Azure App Service uses these app settings at runtime via the standard ASP.NET Core configuration system.
+5.  **SQL Database Access**: Uses Azure Managed Identity (MSI) for secretless database access - no SQL credentials are stored in app settings.
 
 ### 3.2. Deployment Workflow
 
-1.  **Create Azure Key Vault:** Provision a new Azure Key Vault instance in your Azure subscription.
-2.  **Store Secrets in Key Vault:** Add the application secrets to the Key Vault. The secret names should use a double-underscore `__` to represent the colon `:` used in the `appsettings.json` configuration structure.
-    *   `GitHub--ClientId`
-    *   `GitHub--ClientSecret`
-    *   `GitHubApp--AppId`
-    *   `GitHubApp--PrivateKey`
-    *   `GitHubApp--InstallationId`
-3.  **Enable Managed Identity:** In the Azure portal, navigate to your Azure App Service. Under "Settings," select "Identity" and turn the status of the "System assigned" identity to **On**.
-4.  **Grant Permissions to Key Vault:**
-    *   Navigate to your Azure Key Vault instance.
-    *   Go to "Access policies" and click "Create".
-    *   Under "Secret permissions," grant the `Get` and `List` permissions.
-    *   In the "Principal" selection, search for and select the name of your App Service's managed identity.
-    *   Create the access policy.
-5.  **Configure Application for Key Vault:**
-    *   Add the `Azure.Identity` and `Microsoft.Extensions.Configuration.AzureKeyVault` NuGet packages to the `10xGitHubPolicies.App` project.
-    *   In `Program.cs`, modify the host builder to connect to Azure Key Vault.
+1.  **Store Secrets in GitHub:**
+    *   Navigate to your GitHub repository → Settings → Secrets → Actions
+    *   Add the following secrets:
+        *   `GH_APP_ID` - GitHub App ID (for backend services)
+        *   `GH_APP_PRIVATE_KEY` - GitHub App private key (full PEM content)
+        *   `GH_APP_INSTALLATION_ID` - GitHub App Installation ID
+        *   `ORG_NAME` - GitHub organization name
+        *   `OAUTH_CLIENT_ID` - GitHub OAuth App Client ID (for user login)
+        *   `OAUTH_CLIENT_SECRET` - GitHub OAuth App Client Secret
+        *   `AZUREAPPSERVICE_CLIENTID_*` - Azure AD App Registration Client ID
+        *   `AZUREAPPSERVICE_TENANTID_*` - Azure AD Tenant ID
+        *   `AZUREAPPSERVICE_SUBSCRIPTIONID_*` - Azure Subscription ID
 
-    ```csharp
-    // Example for Program.cs
-    public static IHostBuilder CreateHostBuilder(string[] args) =>
-        Host.CreateDefaultBuilder(args)
-            .ConfigureAppConfiguration((context, config) =>
-            {
-                if (context.HostingEnvironment.IsProduction())
-                {
-                    var builtConfig = config.Build();
-                    var keyVaultEndpoint = builtConfig["AzureKeyVaultEndpoint"];
-    
-                    if (!string.IsNullOrEmpty(keyVaultEndpoint))
-                    {
-                        var credential = new DefaultAzureCredential();
-                        config.AddAzureKeyVault(new Uri(keyVaultEndpoint), credential);
-                    }
-                }
-            })
-            .ConfigureWebHostDefaults(webBuilder =>
-            {
-                webBuilder.UseStartup<Startup>();
-            });
-    ```
-    *   Add an `AzureKeyVaultEndpoint` setting to your `appsettings.Production.json` or as an Application Setting in the Azure App Service configuration. This should contain the URI of your Key Vault (e.g., `https://my-vault-name.vault.azure.net/`).
+2.  **CI/CD Pipeline:**
+    *   The production deployment workflow automatically applies secrets as app settings during deployment.
+    *   Secrets are referenced in the workflow using `${{ secrets.SECRET_NAME }}` syntax.
+    *   The `az webapp config appsettings set` command applies all app settings idempotently.
+
+3.  **Azure Managed Identity for SQL:**
+    *   The Azure App Service is assigned a **System-Assigned Managed Identity**.
+    *   This identity is granted access to the SQL Database (no username/password required).
+    *   The connection string uses `Authentication=Active Directory Managed Identity` parameter.
+
+### 3.3. Security Benefits
+
+- **No Secrets in Code**: Secrets are never committed to source control.
+- **GitHub Secrets Encryption**: GitHub encrypts secrets at rest and in transit.
+- **Least Privilege**: Secrets are only accessible to authorized GitHub Actions workflows.
+- **Secretless SQL**: Database access uses Managed Identity, eliminating SQL credentials.
+- **Audit Trail**: GitHub Actions provides an audit trail of secret usage.
