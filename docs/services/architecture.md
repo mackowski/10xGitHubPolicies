@@ -53,7 +53,7 @@ These services handle real-time GitHub webhook events:
   - Enqueues background jobs for async processing
 
 - **Pull Request Webhook Handler** (`IPullRequestWebhookHandler`)
-  - Processes pull request webhook events (opened, synchronize, reopened)
+  - Processes all pull request webhook events (opened, synchronize, reopened, edited, ready_for_review, etc.)
   - Evaluates policies and executes PR actions (comments, status checks) in real-time
 
 ### Frontend & Data Presentation

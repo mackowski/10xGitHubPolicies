@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.Json;
 
 using _10xGitHubPolicies.App.Services.Webhooks;
 
@@ -52,14 +53,14 @@ public class WebhookController : ControllerBase
             return Unauthorized(new { error = "Missing signature" });
         }
 
-        // Read request body as raw bytes to preserve exact content
+        // Read request body once as raw bytes to preserve exact content for signature verification
+        // EnableBuffering (called above) allows us to read the stream, and we reset position to read from start
         Request.Body.Position = 0;
         using var memoryStream = new MemoryStream();
         await Request.Body.CopyToAsync(memoryStream);
         var bodyBytes = memoryStream.ToArray();
-        Request.Body.Position = 0;
 
-        // Convert to string for processing (using UTF8 encoding)
+        // Convert to string once - will be used for JSON parsing and passed to service
         var body = Encoding.UTF8.GetString(bodyBytes);
 
         // Log signature and secret info for debugging (first 10 chars only for security)
@@ -87,7 +88,21 @@ public class WebhookController : ControllerBase
         // Get event type and metadata
         var eventType = Request.Headers["X-GitHub-Event"].FirstOrDefault();
         var deliveryId = Request.Headers["X-GitHub-Delivery"].FirstOrDefault();
-        var action = Request.Headers["X-GitHub-Event-Action"].FirstOrDefault();
+
+        // Extract action from JSON payload (GitHub doesn't send it in headers)
+        string? action = null;
+        try
+        {
+            using var jsonDoc = JsonDocument.Parse(body);
+            if (jsonDoc.RootElement.TryGetProperty("action", out var actionElement))
+            {
+                action = actionElement.GetString();
+            }
+        }
+        catch (JsonException ex)
+        {
+            _logger.LogWarning(ex, "Failed to parse webhook payload to extract action");
+        }
 
         _logger.LogInformation(
             "✅ Webhook received: Event={EventType}, Delivery={DeliveryId}, Action={Action}",

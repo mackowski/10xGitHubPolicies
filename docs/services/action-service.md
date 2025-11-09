@@ -72,7 +72,7 @@ Creates a GitHub issue in the violating repository with:
 - **Real-time Processing**: Webhook-based processing provides immediate feedback when PRs are opened/updated
 
 **Behavior (Webhook Mode)**:
-1. Triggered when a PR is opened, synchronized, or reopened
+1. Triggered on any PR webhook event (opened, synchronize, reopened, edited, ready_for_review, etc.)
 2. Evaluates repository policies for the PR's repository
 3. If violations exist, adds a comment to the specific PR
 4. Skips if bot already commented with similar message
@@ -98,7 +98,7 @@ Creates a GitHub issue in the violating repository with:
 - **Duplicate Prevention**: Updates existing status check if it exists (same name), doesn't create duplicates
 
 **Behavior (Webhook Mode)**:
-1. Triggered when a PR is opened, synchronized, or reopened
+1. Triggered on any PR webhook event (opened, synchronize, reopened, edited, ready_for_review, etc.)
 2. Evaluates repository policies for the PR's repository
 3. Creates or updates status check on the PR's head SHA:
    - **Failure** if violations exist
