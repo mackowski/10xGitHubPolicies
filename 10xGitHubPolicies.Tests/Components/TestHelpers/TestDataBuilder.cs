@@ -69,7 +69,7 @@ public static class TestDataBuilder
             {
                 Name = "Check for AGENTS.md",
                 Type = "has_agents_md",
-                Action = "create-issue",
+                Actions = new List<string> { "create-issue" },
                 IssueDetails = new IssueDetails
                 {
                     Title = "Missing AGENTS.md",
@@ -81,7 +81,7 @@ public static class TestDataBuilder
             {
                 Name = "Check for catalog-info.yaml",
                 Type = "has_catalog_info_yaml",
-                Action = "create-issue",
+                Actions = new List<string> { "create-issue" },
                 IssueDetails = new IssueDetails
                 {
                     Title = "Missing catalog-info.yaml",

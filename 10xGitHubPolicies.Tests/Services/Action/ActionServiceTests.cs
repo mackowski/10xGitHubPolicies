@@ -339,13 +339,13 @@ public class ActionServiceTests : IAsyncLifetime
         {
             Type = "archive-policy",
             Name = "Archive Policy",
-            Action = "archive-repo"
+            Actions = new List<string> { "archive-repo" }
         };
         var issuePolicyConfig = new PolicyConfig
         {
             Type = "issue-policy",
             Name = "Issue Policy",
-            Action = "create-issue",
+            Actions = new List<string> { "create-issue" },
             IssueDetails = new IssueDetails
             {
                 Title = "Test Issue",
@@ -596,7 +596,7 @@ public class ActionServiceTests : IAsyncLifetime
         {
             Type = "test-policy",
             Name = "Test Policy",
-            Action = "create-issue",
+            Actions = new List<string> { "create-issue" },
             IssueDetails = new IssueDetails
             {
                 Title = "Test Issue",
@@ -698,7 +698,7 @@ public class ActionServiceTests : IAsyncLifetime
         {
             Type = "test-policy",
             Name = "Test Policy",
-            Action = "create-issue",
+            Actions = new List<string> { "create-issue" },
             IssueDetails = new IssueDetails
             {
                 Title = customTitle,
@@ -745,7 +745,7 @@ public class ActionServiceTests : IAsyncLifetime
         {
             Type = "test-policy",
             Name = "Test Policy",
-            Action = "create-issue",
+            Actions = new List<string> { "create-issue" },
             IssueDetails = null // No custom details
         };
 
@@ -811,7 +811,7 @@ public class ActionServiceTests : IAsyncLifetime
         {
             Type = "test-policy",
             Name = "Test Policy",
-            Action = actionType,
+            Actions = new List<string> { actionType },
             IssueDetails = new IssueDetails
             {
                 Title = _faker.Lorem.Sentence(),
@@ -848,6 +848,206 @@ public class ActionServiceTests : IAsyncLifetime
             PolicyId = policyId,
             RepositoryId = repositoryId
         };
+    }
+
+    [Fact]
+    public async Task ProcessActionsForScanAsync_WhenMultipleActions_ExecutesAllActions()
+    {
+        // Arrange
+        var (scanId, violation, _) = await SetupViolationWithActionAsync("create-issue");
+
+        var policyConfig = new PolicyConfig
+        {
+            Type = "test-policy",
+            Name = "Test Policy",
+            Actions = new List<string> { "create-issue", "log-only" },
+            IssueDetails = new IssueDetails
+            {
+                Title = "Test Issue",
+                Body = "Test body",
+                Labels = new List<string> { "test" }
+            }
+        };
+
+        var config = new AppConfig
+        {
+            AccessControl = new AccessControlConfig { AuthorizedTeam = "org/team" },
+            Policies = new List<PolicyConfig> { policyConfig }
+        };
+        _configService.GetConfigAsync().Returns(config);
+
+        _gitHubService.GetOpenIssuesAsync(violation.Repository.GitHubRepositoryId, Arg.Any<string>())
+            .Returns(new List<Issue>());
+        _gitHubService.CreateIssueAsync(
+            violation.Repository.GitHubRepositoryId,
+            Arg.Any<string>(),
+            Arg.Any<string>(),
+            Arg.Any<IEnumerable<string>>())
+            .Returns(CreateMockIssue());
+
+        // Act
+        await _sut.ProcessActionsForScanAsync(scanId);
+
+        // Assert - Both actions should be executed
+        await _gitHubService.Received(1).CreateIssueAsync(
+            violation.Repository.GitHubRepositoryId,
+            Arg.Any<string>(),
+            Arg.Any<string>(),
+            Arg.Any<IEnumerable<string>>());
+
+        // Verify 2 action logs created (one for each action)
+        var actionLogs = await _dbContext.ActionsLogs.ToListAsync();
+        actionLogs.Should().HaveCount(2);
+        actionLogs.Should().Contain(a => a.ActionType == "create-issue" && a.Status == "Success");
+        actionLogs.Should().Contain(a => a.ActionType == "log-only" && a.Status == "Success");
+    }
+
+    [Fact]
+    public async Task ProcessActionsForScanAsync_WhenMultipleActions_OneFails_OthersContinue()
+    {
+        // Arrange
+        var (scanId, violation, _) = await SetupViolationWithActionAsync("create-issue");
+
+        var policyConfig = new PolicyConfig
+        {
+            Type = "test-policy",
+            Name = "Test Policy",
+            Actions = new List<string> { "create-issue", "archive-repo", "log-only" },
+            IssueDetails = new IssueDetails
+            {
+                Title = "Test Issue",
+                Body = "Test body",
+                Labels = new List<string> { "test" }
+            }
+        };
+
+        var config = new AppConfig
+        {
+            AccessControl = new AccessControlConfig { AuthorizedTeam = "org/team" },
+            Policies = new List<PolicyConfig> { policyConfig }
+        };
+        _configService.GetConfigAsync().Returns(config);
+
+        // Mock: create-issue succeeds, archive-repo fails, log-only succeeds
+        _gitHubService.GetOpenIssuesAsync(violation.Repository.GitHubRepositoryId, Arg.Any<string>())
+            .Returns(new List<Issue>());
+        _gitHubService.CreateIssueAsync(
+            violation.Repository.GitHubRepositoryId,
+            Arg.Any<string>(),
+            Arg.Any<string>(),
+            Arg.Any<IEnumerable<string>>())
+            .Returns(CreateMockIssue());
+
+        var mockRepository = CreateMockRepository(archived: false);
+        _gitHubService.GetRepositorySettingsAsync(violation.Repository.GitHubRepositoryId)
+            .Returns(mockRepository);
+        _gitHubService.ArchiveRepositoryAsync(violation.Repository.GitHubRepositoryId)
+            .Throws(new ApiException("Archive failed", System.Net.HttpStatusCode.InternalServerError));
+
+        // Act
+        await _sut.ProcessActionsForScanAsync(scanId);
+
+        // Assert - All 3 actions attempted
+        await _gitHubService.Received(1).CreateIssueAsync(
+            violation.Repository.GitHubRepositoryId,
+            Arg.Any<string>(),
+            Arg.Any<string>(),
+            Arg.Any<IEnumerable<string>>());
+        await _gitHubService.Received(1).ArchiveRepositoryAsync(violation.Repository.GitHubRepositoryId);
+
+        // Verify 3 action logs created (2 Success, 1 Failed)
+        var actionLogs = await _dbContext.ActionsLogs.ToListAsync();
+        actionLogs.Should().HaveCount(3);
+        actionLogs.Should().Contain(a => a.ActionType == "create-issue" && a.Status == "Success");
+        actionLogs.Should().Contain(a => a.ActionType == "archive-repo" && a.Status == "Failed");
+        actionLogs.Should().Contain(a => a.ActionType == "log-only" && a.Status == "Success");
+    }
+
+    [Fact]
+    public async Task ProcessActionsForScanAsync_WhenSingleAction_BackwardCompatible()
+    {
+        // Arrange - Test backward compatibility with single action
+        var (scanId, violation, _) = await SetupViolationWithActionAsync("create-issue");
+
+        var policyConfig = new PolicyConfig
+        {
+            Type = "test-policy",
+            Name = "Test Policy",
+            Actions = new List<string> { "create-issue" }, // Single action in list format
+            IssueDetails = new IssueDetails
+            {
+                Title = "Test Issue",
+                Body = "Test body",
+                Labels = new List<string> { "test" }
+            }
+        };
+
+        var config = new AppConfig
+        {
+            AccessControl = new AccessControlConfig { AuthorizedTeam = "org/team" },
+            Policies = new List<PolicyConfig> { policyConfig }
+        };
+        _configService.GetConfigAsync().Returns(config);
+
+        _gitHubService.GetOpenIssuesAsync(violation.Repository.GitHubRepositoryId, Arg.Any<string>())
+            .Returns(new List<Issue>());
+        _gitHubService.CreateIssueAsync(
+            violation.Repository.GitHubRepositoryId,
+            Arg.Any<string>(),
+            Arg.Any<string>(),
+            Arg.Any<IEnumerable<string>>())
+            .Returns(CreateMockIssue());
+
+        // Act
+        await _sut.ProcessActionsForScanAsync(scanId);
+
+        // Assert - Single action executed successfully
+        await _gitHubService.Received(1).CreateIssueAsync(
+            violation.Repository.GitHubRepositoryId,
+            Arg.Any<string>(),
+            Arg.Any<string>(),
+            Arg.Any<IEnumerable<string>>());
+
+        var actionLogs = await _dbContext.ActionsLogs.ToListAsync();
+        actionLogs.Should().HaveCount(1);
+        actionLogs[0].ActionType.Should().Be("create-issue");
+        actionLogs[0].Status.Should().Be("Success");
+    }
+
+    [Fact]
+    public async Task ProcessActionsForScanAsync_WhenEmptyActionsList_HandlesGracefully()
+    {
+        // Arrange
+        var (scanId, violation, _) = await SetupViolationWithActionAsync("create-issue");
+
+        var policyConfig = new PolicyConfig
+        {
+            Type = "test-policy",
+            Name = "Test Policy",
+            Actions = new List<string>(), // Empty actions list
+            IssueDetails = null
+        };
+
+        var config = new AppConfig
+        {
+            AccessControl = new AccessControlConfig { AuthorizedTeam = "org/team" },
+            Policies = new List<PolicyConfig> { policyConfig }
+        };
+        _configService.GetConfigAsync().Returns(config);
+
+        // Act
+        await _sut.ProcessActionsForScanAsync(scanId);
+
+        // Assert - No actions executed, no errors thrown
+        await _gitHubService.DidNotReceive().CreateIssueAsync(
+            Arg.Any<long>(),
+            Arg.Any<string>(),
+            Arg.Any<string>(),
+            Arg.Any<IEnumerable<string>>());
+        await _gitHubService.DidNotReceive().ArchiveRepositoryAsync(Arg.Any<long>());
+
+        var actionLogs = await _dbContext.ActionsLogs.ToListAsync();
+        actionLogs.Should().BeEmpty();
     }
 
     /// <summary>

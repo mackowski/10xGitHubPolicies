@@ -90,7 +90,7 @@ public class ActionServiceArchiveTests : ActionServiceIntegrationTestBase
         {
             Type = policy.PolicyKey,
             Name = "Test Policy",
-            Action = "archive-repo"
+            Actions = new List<string> { "archive-repo" }
         };
 
         var appConfig = new AppConfig
@@ -161,7 +161,7 @@ public class ActionServiceArchiveTests : ActionServiceIntegrationTestBase
         {
             Type = policy.PolicyKey,
             Name = "Test Policy",
-            Action = "archive-repo"
+            Actions = new List<string> { "archive-repo" }
         };
 
         var appConfig = new AppConfig
@@ -260,7 +260,7 @@ public class ActionServiceArchiveTests : ActionServiceIntegrationTestBase
         {
             Type = policy.PolicyKey,
             Name = "Test Policy",
-            Action = "archive-repo"
+            Actions = new List<string> { "archive-repo" }
         };
 
         var appConfig = new AppConfig
@@ -396,7 +396,7 @@ public class ActionServiceArchiveTests : ActionServiceIntegrationTestBase
         {
             Type = policy.PolicyKey,
             Name = "Test Policy",
-            Action = "archive-repo"
+            Actions = new List<string> { "archive-repo" }
         };
 
         var appConfig = new AppConfig
@@ -427,6 +427,247 @@ public class ActionServiceArchiveTests : ActionServiceIntegrationTestBase
         actionLogs[0].Status.Should().Be("Failed");
         actionLogs[0].Details.Should().Contain("Insufficient permissions");
         actionLogs[1].Status.Should().Be("Success");
+    }
+}
+
+/// <summary>
+/// Integration tests for multiple actions per policy feature
+/// </summary>
+[Collection("ActionService Integration Tests")]
+[Trait("Category", "Integration")]
+[Trait("Service", "ActionService")]
+[Trait("Feature", "MultipleActions")]
+public class ActionServiceMultipleActionsTests : ActionServiceIntegrationTestBase
+{
+    private readonly GitHubApiResponseBuilder _responseBuilder;
+
+    public ActionServiceMultipleActionsTests(GitHubApiFixture gitHubApiFixture, DatabaseFixture databaseFixture)
+        : base(gitHubApiFixture, databaseFixture)
+    {
+        _responseBuilder = new GitHubApiResponseBuilder();
+    }
+
+    /// <summary>
+    /// ProcessActionsForScanAsync - Multiple Actions Per Policy
+    /// Verifies that all actions in a policy are executed and logged separately
+    /// </summary>
+    [Fact]
+    public async Task ProcessActionsForScanAsync_WhenMultipleActions_ExecutesAllActions()
+    {
+        // Arrange
+        SetupGitHubAppAuthentication();
+
+        var scan = await CreateScanAsync();
+        var policy = await CreatePolicyAsync("test-policy", "create-issue");
+        var repository = await CreateRepositoryAsync("test-repo", 12345);
+        var violation = await CreateViolationAsync(scan.ScanId, policy.PolicyId, repository.RepositoryId);
+
+        // Mock issue creation endpoints - Octokit uses repository ID when BaseUrl is set
+        var issueJson = _responseBuilder.BuildIssueResponse(1, "Test Issue", "test");
+        MockServer
+            .Given(Request.Create()
+                .WithPath($"/repositories/{repository.GitHubRepositoryId}/issues")
+                .UsingPost())
+            .RespondWith(Response.Create()
+                .WithStatusCode(201)
+                .WithBody(issueJson)
+                .WithHeader("Content-Type", "application/json"));
+
+        // Also mock with /api/v3/ prefix
+        MockServer
+            .Given(Request.Create()
+                .WithPath($"/api/v3/repositories/{repository.GitHubRepositoryId}/issues")
+                .UsingPost())
+            .RespondWith(Response.Create()
+                .WithStatusCode(201)
+                .WithBody(issueJson)
+                .WithHeader("Content-Type", "application/json"));
+
+        // Mock get open issues (no duplicates) - Octokit uses repository ID
+        MockServer
+            .Given(Request.Create()
+                .WithPath($"/repositories/{repository.GitHubRepositoryId}/issues")
+                .UsingGet())
+            .RespondWith(Response.Create()
+                .WithStatusCode(200)
+                .WithBody("[]")
+                .WithHeader("Content-Type", "application/json"));
+
+        // Also mock with /api/v3/ prefix
+        MockServer
+            .Given(Request.Create()
+                .WithPath($"/api/v3/repositories/{repository.GitHubRepositoryId}/issues")
+                .UsingGet())
+            .RespondWith(Response.Create()
+                .WithStatusCode(200)
+                .WithBody("[]")
+                .WithHeader("Content-Type", "application/json"));
+
+        var policyConfig = new PolicyConfig
+        {
+            Type = policy.PolicyKey,
+            Name = "Test Policy",
+            Actions = new List<string> { "create-issue", "log-only" },
+            IssueDetails = new IssueDetails
+            {
+                Title = "Test Issue",
+                Body = "Test body",
+                Labels = new List<string> { "test" }
+            }
+        };
+
+        var appConfig = new AppConfig
+        {
+            AccessControl = new AccessControlConfig { AuthorizedTeam = "org/team" },
+            Policies = new List<PolicyConfig> { policyConfig }
+        };
+
+        ConfigurationService.GetConfigAsync().Returns(appConfig);
+
+        // Act
+        await Sut.ProcessActionsForScanAsync(scan.ScanId);
+
+        // Assert - Verify both actions were executed
+        var actionLogs = await DbContext.ActionsLogs
+            .Where(a => a.RepositoryId == repository.RepositoryId && a.PolicyId == policy.PolicyId)
+            .ToListAsync();
+
+        actionLogs.Should().HaveCount(2);
+        actionLogs.Should().Contain(a => a.ActionType == "create-issue" && a.Status == "Success");
+        actionLogs.Should().Contain(a => a.ActionType == "log-only" && a.Status == "Success");
+    }
+
+    /// <summary>
+    /// ProcessActionsForScanAsync - Multiple Actions with One Failure
+    /// Verifies that one action failure doesn't block other actions
+    /// </summary>
+    [Fact]
+    public async Task ProcessActionsForScanAsync_WhenMultipleActions_OneFails_OthersContinue()
+    {
+        // Arrange
+        SetupGitHubAppAuthentication();
+
+        var scan = await CreateScanAsync();
+        var policy = await CreatePolicyAsync("test-policy", "create-issue");
+        var repository = await CreateRepositoryAsync("test-repo", 12345);
+        var violation = await CreateViolationAsync(scan.ScanId, policy.PolicyId, repository.RepositoryId);
+
+        // Mock repository settings (not archived)
+        var repoSettingsJson = _responseBuilder.BuildRepositoryResponse(repository.GitHubRepositoryId, repository.Name, archived: false);
+        MockServer
+            .Given(Request.Create()
+                .WithPath($"/repositories/{repository.GitHubRepositoryId}")
+                .UsingGet())
+            .RespondWith(Response.Create()
+                .WithStatusCode(200)
+                .WithBody(repoSettingsJson)
+                .WithHeader("Content-Type", "application/json"));
+
+        // Also mock with /api/v3/ prefix
+        MockServer
+            .Given(Request.Create()
+                .WithPath($"/api/v3/repositories/{repository.GitHubRepositoryId}")
+                .UsingGet())
+            .RespondWith(Response.Create()
+                .WithStatusCode(200)
+                .WithBody(repoSettingsJson)
+                .WithHeader("Content-Type", "application/json"));
+
+        // Mock archive failure (Forbidden)
+        MockServer
+            .Given(Request.Create()
+                .WithPath($"/repositories/{repository.GitHubRepositoryId}")
+                .UsingPatch())
+            .RespondWith(Response.Create()
+                .WithStatusCode(403)
+                .WithBody("{\"message\": \"Insufficient permissions\"}")
+                .WithHeader("Content-Type", "application/json"));
+
+        // Also mock with /api/v3/ prefix
+        MockServer
+            .Given(Request.Create()
+                .WithPath($"/api/v3/repositories/{repository.GitHubRepositoryId}")
+                .UsingPatch())
+            .RespondWith(Response.Create()
+                .WithStatusCode(403)
+                .WithBody("{\"message\": \"Insufficient permissions\"}")
+                .WithHeader("Content-Type", "application/json"));
+
+        // Mock issue creation success - Octokit uses repository ID when BaseUrl is set
+        var issueJson = _responseBuilder.BuildIssueResponse(1, "Test Issue", "test");
+        MockServer
+            .Given(Request.Create()
+                .WithPath($"/repositories/{repository.GitHubRepositoryId}/issues")
+                .UsingPost())
+            .RespondWith(Response.Create()
+                .WithStatusCode(201)
+                .WithBody(issueJson)
+                .WithHeader("Content-Type", "application/json"));
+
+        // Also mock with /api/v3/ prefix
+        MockServer
+            .Given(Request.Create()
+                .WithPath($"/api/v3/repositories/{repository.GitHubRepositoryId}/issues")
+                .UsingPost())
+            .RespondWith(Response.Create()
+                .WithStatusCode(201)
+                .WithBody(issueJson)
+                .WithHeader("Content-Type", "application/json"));
+
+        // Mock get open issues (no duplicates) - Octokit uses repository ID
+        MockServer
+            .Given(Request.Create()
+                .WithPath($"/repositories/{repository.GitHubRepositoryId}/issues")
+                .UsingGet())
+            .RespondWith(Response.Create()
+                .WithStatusCode(200)
+                .WithBody("[]")
+                .WithHeader("Content-Type", "application/json"));
+
+        // Also mock with /api/v3/ prefix
+        MockServer
+            .Given(Request.Create()
+                .WithPath($"/api/v3/repositories/{repository.GitHubRepositoryId}/issues")
+                .UsingGet())
+            .RespondWith(Response.Create()
+                .WithStatusCode(200)
+                .WithBody("[]")
+                .WithHeader("Content-Type", "application/json"));
+
+        var policyConfig = new PolicyConfig
+        {
+            Type = policy.PolicyKey,
+            Name = "Test Policy",
+            Actions = new List<string> { "create-issue", "archive-repo", "log-only" },
+            IssueDetails = new IssueDetails
+            {
+                Title = "Test Issue",
+                Body = "Test body",
+                Labels = new List<string> { "test" }
+            }
+        };
+
+        var appConfig = new AppConfig
+        {
+            AccessControl = new AccessControlConfig { AuthorizedTeam = "org/team" },
+            Policies = new List<PolicyConfig> { policyConfig }
+        };
+
+        ConfigurationService.GetConfigAsync().Returns(appConfig);
+
+        // Act
+        await Sut.ProcessActionsForScanAsync(scan.ScanId);
+
+        // Assert - Verify all 3 actions were attempted
+        var actionLogs = await DbContext.ActionsLogs
+            .Where(a => a.RepositoryId == repository.RepositoryId && a.PolicyId == policy.PolicyId)
+            .OrderBy(a => a.ActionType)
+            .ToListAsync();
+
+        actionLogs.Should().HaveCount(3);
+        actionLogs.Should().Contain(a => a.ActionType == "create-issue" && a.Status == "Success");
+        actionLogs.Should().Contain(a => a.ActionType == "archive-repo" && a.Status == "Failed");
+        actionLogs.Should().Contain(a => a.ActionType == "log-only" && a.Status == "Success");
     }
 }
 

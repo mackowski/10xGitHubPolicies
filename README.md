@@ -294,6 +294,13 @@ The policy configuration is managed via a `config.yaml` file located in the root
 - `archive_repo`: 🔒 **Archives the repository** - Makes it read-only to enforce compliance (with duplicate prevention)
 - `log_only`: Logs the violation without taking automated action
 
+**Multiple Actions Per Policy:**
+Policies can be configured with multiple actions that execute in sequence. Use either:
+- Single action (backward compatible): `action: 'create-issue'`
+- Multiple actions: `action: ['create-issue', 'archive-repo']`
+
+When multiple actions are configured, each action executes independently - one failure doesn't block others, and each action creates a separate log entry.
+
 Here is an example configuration:
 
 ```yaml
@@ -307,7 +314,7 @@ authorized_team: 'my-org/security-team'
 policies:
   - name: 'Check for AGENTS.md'
     type: 'has_agents_md'
-    action: 'create_issue' # 'create_issue', 'archive_repo', or 'log_only'
+    action: 'create-issue'  # Single action (backward compatible)
     issue_details:
       title: 'Compliance: AGENTS.md file is missing'
       body: 'This repository is missing the AGENTS.md file in its root directory. Please add this file to comply with organization standards.'
@@ -315,15 +322,23 @@ policies:
 
   - name: 'Check for catalog-info.yaml'
     type: 'has_catalog_info_yaml'
-    action: 'create_issue'
+    action: 'create-issue'  # Single action
     issue_details:
       title: 'Compliance: catalog-info.yaml is missing'
       body: 'This repository is missing the catalog-info.yaml file. This file is required for backstage.io service discovery.'
       labels: ['policy-violation', 'backstage']
       
+  - name: 'Critical Security Policy'
+    type: 'has_agents_md'
+    action: ['create-issue', 'archive-repo']  # Multiple actions
+    issue_details:
+      title: 'Critical: Security policy violation'
+      body: 'This repository violates critical security policies and has been archived.'
+      labels: ['policy-violation', 'security', 'critical']
+      
   - name: 'Verify Workflow Permissions'
     type: 'correct_workflow_permissions'
-    action: 'archive_repo'  # Archive repositories with incorrect workflow permissions
+    action: 'archive-repo'  # Single action - Archive repositories with incorrect workflow permissions
 ```
 
 ---

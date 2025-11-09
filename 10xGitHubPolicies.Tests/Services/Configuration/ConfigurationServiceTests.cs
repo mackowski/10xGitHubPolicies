@@ -79,7 +79,7 @@ public class ConfigurationServiceTests : IAsyncLifetime
             because: "should have one policy configured");
         result.Policies[0].Type.Should().Be("has_agents_md",
             because: "policy type should be parsed correctly");
-        result.Policies[0].Action.Should().Be("create-issue",
+        result.Policies[0].Actions.Should().Equal(new List<string> { "create-issue" },
             because: "policy action should be parsed correctly");
 
         // Verify GitHub service was called
@@ -449,16 +449,16 @@ public class ConfigurationServiceTests : IAsyncLifetime
         result.Policies.Should().HaveCount(3, because: "all three policies should be parsed");
 
         result.Policies[0].Type.Should().Be("has_agents_md");
-        result.Policies[0].Action.Should().Be("create-issue");
+        result.Policies[0].Actions.Should().Equal(new List<string> { "create-issue" });
         result.Policies[0].IssueDetails.Should().NotBeNull();
         result.Policies[0].IssueDetails!.Title.Should().Be("Missing AGENTS.md");
         result.Policies[0].IssueDetails!.Labels.Should().Contain("compliance");
 
         result.Policies[1].Type.Should().Be("has_catalog_info_yaml");
-        result.Policies[1].Action.Should().Be("log-only");
+        result.Policies[1].Actions.Should().Equal(new List<string> { "log-only" });
 
         result.Policies[2].Type.Should().Be("correct_workflow_permissions");
-        result.Policies[2].Action.Should().Be("archive-repo");
+        result.Policies[2].Actions.Should().Equal(new List<string> { "archive-repo" });
     }
 
     [Fact]
@@ -479,6 +479,62 @@ public class ConfigurationServiceTests : IAsyncLifetime
         await act.Should()
             .ThrowAsync<Exception>()
             .WithMessage("GitHub API error");
+    }
+
+    [Fact]
+    [Trait("Category", "Unit")]
+    [Trait("Feature", "Configuration")]
+    public async Task GetConfigAsync_WhenActionIsString_ParsesAsSingleItemList()
+    {
+        // Arrange - Test backward compatibility with single string action
+        var yamlWithStringAction = """
+            access_control:
+              authorized_team: "test-org/test-team"
+            policies:
+              - type: "has_agents_md"
+                action: "create-issue"
+            """;
+
+        var base64Content = ToBase64(yamlWithStringAction);
+
+        _githubService.GetFileContentAsync(".github", "config.yaml")
+            .Returns(base64Content);
+
+        // Act
+        var result = await _sut.GetConfigAsync();
+
+        // Assert
+        result.Policies.Should().HaveCount(1);
+        result.Policies[0].Actions.Should().Equal(new List<string> { "create-issue" },
+            because: "single string action should be normalized to list");
+    }
+
+    [Fact]
+    [Trait("Category", "Unit")]
+    [Trait("Feature", "Configuration")]
+    public async Task GetConfigAsync_WhenActionIsList_ParsesCorrectly()
+    {
+        // Arrange - Test new list format
+        var yamlWithListAction = """
+            access_control:
+              authorized_team: "test-org/test-team"
+            policies:
+              - type: "has_agents_md"
+                action: ["create-issue", "archive-repo"]
+            """;
+
+        var base64Content = ToBase64(yamlWithListAction);
+
+        _githubService.GetFileContentAsync(".github", "config.yaml")
+            .Returns(base64Content);
+
+        // Act
+        var result = await _sut.GetConfigAsync();
+
+        // Assert
+        result.Policies.Should().HaveCount(1);
+        result.Policies[0].Actions.Should().Equal(new List<string> { "create-issue", "archive-repo" },
+            because: "list action should be parsed correctly");
     }
 
     // Helper method for Base64 encoding

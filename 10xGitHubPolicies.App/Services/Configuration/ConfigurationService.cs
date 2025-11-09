@@ -72,7 +72,17 @@ public class ConfigurationService : IConfigurationService
             AppConfig appConfig;
             try
             {
+                // Deserialize to AppConfig (ActionRaw will be set as object to handle both string and list)
                 appConfig = deserializer.Deserialize<AppConfig>(yamlContent);
+
+                // Normalize actions for each policy (handle both single string and list formats)
+                if (appConfig.Policies != null)
+                {
+                    foreach (var policy in appConfig.Policies)
+                    {
+                        policy.NormalizeActions();
+                    }
+                }
             }
             catch (YamlException ex)
             {

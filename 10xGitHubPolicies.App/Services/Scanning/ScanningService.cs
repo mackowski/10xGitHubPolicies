@@ -1,3 +1,5 @@
+using System.Text.Json;
+
 using _10xGitHubPolicies.App.Data;
 using _10xGitHubPolicies.App.Data.Entities;
 using _10xGitHubPolicies.App.Services.Action;
@@ -102,11 +104,14 @@ public class ScanningService : IScanningService
         {
             if (!policyMap.ContainsKey(policyConfig.Type))
             {
+                // Serialize actions list to JSON string for database storage
+                var actionsJson = JsonSerializer.Serialize(policyConfig.Actions ?? new List<string>());
+
                 var newPolicy = new Policy
                 {
                     PolicyKey = policyConfig.Type,
                     Description = $"Policy for {policyConfig.Type}", // Placeholder description
-                    Action = policyConfig.Action
+                    Action = actionsJson
                 };
                 _dbContext.Policies.Add(newPolicy);
                 policyMap[newPolicy.PolicyKey] = newPolicy;

@@ -35,7 +35,7 @@ The service uses strongly-typed models to represent the configuration:
 
 - **`AppConfig`**: Root configuration containing access control and policies
 - **`AccessControlConfig`**: Defines the authorized team for dashboard access (format: `org/team-slug`)
-- **`PolicyConfig`**: Defines a single policy with `Name`, `Type`, `Action`, and optional `IssueDetails`
+- **`PolicyConfig`**: Defines a single policy with `Name`, `Type`, `Actions` (list of actions), and optional `IssueDetails`
 - **`IssueDetails`**: Contains `Title`, `Body`, and `Labels` for issue creation actions
 
 ## Configuration File Format
@@ -51,15 +51,23 @@ access_control:
 policies:
   - name: 'Check for AGENTS.md'
     type: 'has_agents_md'
-    action: 'create-issue'
+    action: 'create-issue'  # Single action (backward compatible)
     issue_details:
       title: 'Compliance: AGENTS.md file is missing'
       body: 'This repository is missing the AGENTS.md file...'
       labels: ['policy-violation', 'documentation']
       
+  - name: 'Critical Security Policy'
+    type: 'has_agents_md'
+    action: ['create-issue', 'archive-repo']  # Multiple actions (new format)
+    issue_details:
+      title: 'Critical: Security policy violation'
+      body: 'This repository violates critical security policies...'
+      labels: ['policy-violation', 'security', 'critical']
+      
   - name: 'Verify Workflow Permissions'
     type: 'correct_workflow_permissions'
-    action: 'archive-repo'
+    action: 'archive-repo'  # Single action
 ```
 
 ## Caching Strategy

@@ -2,6 +2,33 @@
 
 All notable changes to this project will be documented in this file.
 
+## 1.16
+
+### Added
+- **Multiple Actions Per Policy**: Policies can now be configured with multiple actions that execute in sequence for each violation
+  - Support for both single action format (backward compatible): `action: 'create-issue'`
+  - Support for multiple actions format (new): `action: ['create-issue', 'archive-repo']`
+  - All actions execute independently - one failure doesn't block others
+  - Each action creates a separate `ActionLog` entry for tracking
+  - Actions are processed sequentially in the order specified
+  - Updated `PolicyConfig` model to use `Actions` list instead of single `Action` string
+  - Updated `ConfigurationService` to handle both YAML formats (string and list) with automatic normalization
+  - Updated `ActionService` to iterate over multiple actions per policy
+  - Updated `ScanningService` to serialize actions list as JSON for database storage
+  - Comprehensive unit tests (4 new tests) covering multiple actions execution, isolation, and backward compatibility
+  - Integration tests (2 new tests) verifying multiple actions workflow with real database and mocked GitHub API
+  - Updated documentation (`configuration-service.md`, `action-service.md`, `README.md`) with examples and usage instructions
+
+### Changed
+- **Backward Compatibility**: Single action format (`action: 'create-issue'`) continues to work without changes
+- **Database Storage**: Actions are now stored as JSON array in `Policy.Action` column (e.g., `["create-issue", "archive-repo"]`)
+
+### Benefits
+- **Enhanced Flexibility**: Configure multiple enforcement actions per policy (e.g., create issue AND archive repository)
+- **Better Enforcement**: Critical policies can now trigger multiple actions for stronger compliance enforcement
+- **Action Isolation**: Failures in one action don't prevent other actions from executing
+- **Backward Compatible**: Existing single-action configurations continue to work without modification
+
 ## 1.15
 
 ### Changed

@@ -63,25 +63,40 @@ public class ActionService : IActionService
                 continue;
             }
 
-            // 4. Execute action based on configuration
-            if (policyConfig.Action == "create-issue" || policyConfig.Action == "create_issue")
+            // 4. Execute all actions based on configuration
+            // Process each action independently - one failure doesn't block others
+            foreach (var action in policyConfig.Actions)
             {
-                await CreateIssueForViolationAsync(violation, policyConfig);
-            }
-            else if (policyConfig.Action == "archive-repo" || policyConfig.Action == "archive_repo")
-            {
-                await ArchiveRepositoryForViolationAsync(violation, policyConfig);
-            }
-            else if (policyConfig.Action == "log-only" || policyConfig.Action == "log_only")
-            {
-                _logger.LogInformation("Log-only action for violation ID: {ViolationId} in repository {RepositoryName}",
-                    violation.ViolationId, violation.Repository.Name);
-                await LogActionAsync(violation, "log-only", "Success", "Violation logged as configured");
-            }
-            else
-            {
-                _logger.LogWarning("Unknown action type: {ActionType} for violation ID: {ViolationId}",
-                    policyConfig.Action, violation.ViolationId);
+                try
+                {
+                    var normalizedAction = NormalizeActionName(action);
+                    switch (normalizedAction)
+                    {
+                        case "create-issue":
+                            await CreateIssueForViolationAsync(violation, policyConfig);
+                            break;
+                        case "archive-repo":
+                            await ArchiveRepositoryForViolationAsync(violation, policyConfig);
+                            break;
+                        case "log-only":
+                            _logger.LogInformation("Log-only action for violation ID: {ViolationId} in repository {RepositoryName}",
+                                violation.ViolationId, violation.Repository.Name);
+                            await LogActionAsync(violation, "log-only", "Success", "Violation logged as configured");
+                            break;
+                        default:
+                            _logger.LogWarning("Unknown action type: {ActionType} for violation ID: {ViolationId}",
+                                action, violation.ViolationId);
+                            await LogActionAsync(violation, action, "Failed", $"Unknown action type: {action}");
+                            break;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    // Log error but continue processing other actions
+                    _logger.LogError(ex, "Error processing action {ActionType} for violation ID: {ViolationId}. Continuing with other actions.",
+                        action, violation.ViolationId);
+                    await LogActionAsync(violation, action, "Failed", $"Exception: {ex.Message}");
+                }
             }
         }
 
@@ -188,5 +203,13 @@ public class ActionService : IActionService
 
         _dbContext.ActionsLogs.Add(actionLog);
         await _dbContext.SaveChangesAsync();
+    }
+
+    /// <summary>
+    /// Normalizes action names to handle both hyphenated and underscored formats.
+    /// </summary>
+    private static string NormalizeActionName(string action)
+    {
+        return action?.Replace("_", "-", StringComparison.Ordinal) ?? string.Empty;
     }
 }

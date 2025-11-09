@@ -65,8 +65,21 @@ Logs the violation without taking any automated action.
 ## Configuration Models
 
 The service uses `PolicyConfig` from the configuration service, which includes:
-- `Action`: The action type (`create-issue`, `archive-repo`, or `log-only`)
+- `Actions`: A list of action types (`create-issue`, `archive-repo`, or `log-only`). Supports both single action (backward compatible) and multiple actions per policy.
 - `IssueDetails`: Optional details for issue creation (title, body, labels)
+
+## Multiple Actions Per Policy
+
+Policies can be configured with multiple actions that will be executed in sequence for each violation:
+
+- **Single Action Format** (backward compatible): `action: 'create-issue'`
+- **Multiple Actions Format** (new): `action: ['create-issue', 'archive-repo']`
+
+When multiple actions are configured:
+- All actions are executed in the order specified
+- Each action executes independently - one failure doesn't block others
+- Each action creates a separate `ActionLog` entry
+- Actions are processed sequentially for each violation
 
 ## Action Logging
 
@@ -99,7 +112,8 @@ The service implements duplicate prevention for both issue creation and reposito
 
 The service implements comprehensive error handling:
 
-- **Individual Action Failures**: If one action fails, other actions continue processing
+- **Individual Action Failures**: If one action fails, other actions continue processing (both within a single policy's action list and across different violations)
+- **Action Isolation**: When multiple actions are configured per policy, each action is wrapped in try-catch to ensure failures don't block subsequent actions
 - **Exception Logging**: All exceptions are logged with detailed error information
 - **Action Status Tracking**: Each action is logged with its status (Success, Failed, or Skipped)
 - **Graceful Degradation**: Service continues processing even if some actions fail
@@ -123,15 +137,23 @@ _backgroundJobClient.Enqueue<IActionService>(service =>
 policies:
   - name: 'Check for AGENTS.md'
     type: 'has_agents_md'
-    action: 'create-issue'
+    action: 'create-issue'  # Single action
     issue_details:
       title: 'Compliance: AGENTS.md file is missing'
       body: 'This repository is missing the AGENTS.md file...'
       labels: ['policy-violation', 'documentation']
       
+  - name: 'Critical Security Policy'
+    type: 'has_agents_md'
+    action: ['create-issue', 'archive-repo']  # Multiple actions
+    issue_details:
+      title: 'Critical: Security policy violation'
+      body: 'This repository violates critical security policies...'
+      labels: ['policy-violation', 'security', 'critical']
+      
   - name: 'Verify Workflow Permissions'
     type: 'correct_workflow_permissions'
-    action: 'archive-repo'
+    action: 'archive-repo'  # Single action
 ```
 
 ## Service Registration

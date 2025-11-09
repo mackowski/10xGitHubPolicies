@@ -63,8 +63,8 @@ public class ScanningServiceTests : IAsyncLifetime
     {
         // Arrange
         var config = CreateTestConfig(
-            new PolicyConfig { Type = "has_agents_md", Action = "create-issue" },
-            new PolicyConfig { Type = "has_catalog_info_yaml", Action = "log-only" }
+            new PolicyConfig { Type = "has_agents_md", Actions = new List<string> { "create-issue" } },
+            new PolicyConfig { Type = "has_catalog_info_yaml", Actions = new List<string> { "log-only" } }
         );
 
         var repos = new List<Octokit.Repository>
@@ -112,8 +112,8 @@ public class ScanningServiceTests : IAsyncLifetime
     {
         // Arrange
         var config = CreateTestConfig(
-            new PolicyConfig { Type = "has_agents_md", Action = "create-issue" },
-            new PolicyConfig { Type = "has_catalog_info_yaml", Action = "create-issue" }
+            new PolicyConfig { Type = "has_agents_md", Actions = new List<string> { "create-issue" } },
+            new PolicyConfig { Type = "has_catalog_info_yaml", Actions = new List<string> { "create-issue" } }
         );
 
         var repo1 = CreateTestRepository(1, "repo1");
@@ -201,7 +201,7 @@ public class ScanningServiceTests : IAsyncLifetime
     {
         // Arrange
         var config = CreateTestConfig(
-            new PolicyConfig { Type = "has_agents_md", Action = "create-issue" }
+            new PolicyConfig { Type = "has_agents_md", Actions = new List<string> { "create-issue" } }
         );
 
         var expectedException = new Exception("GitHub API error");
@@ -228,7 +228,7 @@ public class ScanningServiceTests : IAsyncLifetime
     {
         // Arrange
         var config = CreateTestConfig(
-            new PolicyConfig { Type = "has_agents_md", Action = "create-issue" }
+            new PolicyConfig { Type = "has_agents_md", Actions = new List<string> { "create-issue" } }
         );
 
         var repos = new List<Octokit.Repository>
@@ -289,8 +289,8 @@ public class ScanningServiceTests : IAsyncLifetime
     {
         // Arrange
         var config = CreateTestConfig(
-            new PolicyConfig { Type = "has_agents_md", Action = "create-issue" },
-            new PolicyConfig { Type = "has_catalog_info_yaml", Action = "log-only" }
+            new PolicyConfig { Type = "has_agents_md", Actions = new List<string> { "create-issue" } },
+            new PolicyConfig { Type = "has_catalog_info_yaml", Actions = new List<string> { "log-only" } }
         );
 
         var repos = new List<Octokit.Repository> { CreateTestRepository(1, "repo1") };
@@ -310,11 +310,11 @@ public class ScanningServiceTests : IAsyncLifetime
         policies.Should().HaveCount(2, because: "both policies should be added");
 
         var agentsPolicy = policies.Single(p => p.PolicyKey == "has_agents_md");
-        agentsPolicy.Action.Should().Be("create-issue");
+        agentsPolicy.Action.Should().Be("[\"create-issue\"]"); // JSON serialized
         agentsPolicy.Description.Should().Contain("has_agents_md");
 
         var catalogPolicy = policies.Single(p => p.PolicyKey == "has_catalog_info_yaml");
-        catalogPolicy.Action.Should().Be("log-only");
+        catalogPolicy.Action.Should().Be("[\"log-only\"]"); // JSON serialized
         catalogPolicy.Description.Should().Contain("has_catalog_info_yaml");
     }
 
@@ -334,7 +334,7 @@ public class ScanningServiceTests : IAsyncLifetime
         await _dbContext.SaveChangesAsync();
 
         var config = CreateTestConfig(
-            new PolicyConfig { Type = "has_agents_md", Action = "create-issue" }
+            new PolicyConfig { Type = "has_agents_md", Actions = new List<string> { "create-issue" } }
         );
 
         var repos = new List<Octokit.Repository> { CreateTestRepository(1, "repo1") };
@@ -362,7 +362,7 @@ public class ScanningServiceTests : IAsyncLifetime
     {
         // Arrange
         var config = CreateTestConfig(
-            new PolicyConfig { Type = "has_agents_md", Action = "create-issue" }
+            new PolicyConfig { Type = "has_agents_md", Actions = new List<string> { "create-issue" } }
         );
 
         var repos = new List<Octokit.Repository>
@@ -419,7 +419,7 @@ public class ScanningServiceTests : IAsyncLifetime
         await _dbContext.SaveChangesAsync();
 
         var config = CreateTestConfig(
-            new PolicyConfig { Type = "has_agents_md", Action = "create-issue" }
+            new PolicyConfig { Type = "has_agents_md", Actions = new List<string> { "create-issue" } }
         );
 
         var repos = new List<Octokit.Repository>
@@ -529,7 +529,7 @@ public class ScanningServiceTests : IAsyncLifetime
         await _dbContext.SaveChangesAsync();
 
         var config = CreateTestConfig(
-            new PolicyConfig { Type = "has_agents_md", Action = "create-issue" }
+            new PolicyConfig { Type = "has_agents_md", Actions = new List<string> { "create-issue" } }
         );
 
         // Only repo1 exists in GitHub now (repo2 and repo3 were deleted/archived)
@@ -582,7 +582,7 @@ public class ScanningServiceTests : IAsyncLifetime
         await _dbContext.SaveChangesAsync();
 
         var config = CreateTestConfig(
-            new PolicyConfig { Type = "has_agents_md", Action = "create-issue" }
+            new PolicyConfig { Type = "has_agents_md", Actions = new List<string> { "create-issue" } }
         );
 
         // Repository was renamed in GitHub
@@ -614,7 +614,7 @@ public class ScanningServiceTests : IAsyncLifetime
     {
         // Arrange
         var config = CreateTestConfig(
-            new PolicyConfig { Type = "has_agents_md", Action = "create-issue" }
+            new PolicyConfig { Type = "has_agents_md", Actions = new List<string> { "create-issue" } }
         );
 
         var repo = CreateTestRepository(1, "test-repo");
@@ -654,7 +654,7 @@ public class ScanningServiceTests : IAsyncLifetime
     {
         // Arrange
         var config = CreateTestConfig(
-            new PolicyConfig { Type = "has_agents_md", Action = "create-issue" }
+            new PolicyConfig { Type = "has_agents_md", Actions = new List<string> { "create-issue" } }
         );
 
         var repos = new List<Octokit.Repository> { CreateTestRepository(1, "repo1") };
@@ -712,11 +712,46 @@ public class ScanningServiceTests : IAsyncLifetime
     [Fact]
     [Trait("Category", "Unit")]
     [Trait("Feature", "Scanning")]
+    public async Task PerformScanAsync_WhenMultipleActions_StoresAsJson()
+    {
+        // Arrange
+        var config = CreateTestConfig(
+            new PolicyConfig
+            {
+                Type = "has_agents_md",
+                Actions = new List<string> { "create-issue", "archive-repo" }
+            }
+        );
+
+        var repos = new List<Octokit.Repository> { CreateTestRepository(1, "repo1") };
+
+        _configurationService.GetConfigAsync(Arg.Any<bool>()).Returns(config);
+        _githubService.GetOrganizationRepositoriesAsync().Returns(repos);
+        _policyEvaluationService.EvaluateRepositoryAsync(
+            Arg.Any<Octokit.Repository>(),
+            Arg.Any<IEnumerable<PolicyConfig>>()
+        ).Returns(Task.FromResult<IEnumerable<PolicyViolation>>(new List<PolicyViolation>()));
+
+        // Act
+        await _sut.PerformScanAsync();
+
+        // Assert
+        var policies = await _dbContext.Policies.ToListAsync();
+        policies.Should().HaveCount(1);
+
+        var policy = policies.Single(p => p.PolicyKey == "has_agents_md");
+        // Actions should be stored as JSON array
+        policy.Action.Should().Be("[\"create-issue\",\"archive-repo\"]");
+    }
+
+    [Fact]
+    [Trait("Category", "Unit")]
+    [Trait("Feature", "Scanning")]
     public async Task PerformScanAsync_WhenNoRepositories_HandlesEmptyOrganization()
     {
         // Arrange
         var config = CreateTestConfig(
-            new PolicyConfig { Type = "has_agents_md", Action = "create-issue" }
+            new PolicyConfig { Type = "has_agents_md", Actions = new List<string> { "create-issue" } }
         );
 
         var repos = new List<Octokit.Repository>(); // Empty organization
