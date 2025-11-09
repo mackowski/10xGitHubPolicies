@@ -96,13 +96,13 @@ You are a senior Blazor and .NET developer and an expert in `C#`, `ASP.NET Core`
 - The `GitHubService` handles authentication, token caching, and error handling internally.
 - Be mindful of API rate limits. Cache responses where appropriate.
 - Use asynchronous methods to avoid blocking threads.
-- Refer to `/docs/github-integration.md` for detailed usage examples and best practices.
+- Refer to `/docs/services/github-integration.md` for detailed usage examples and best practices.
 
 ### Policy Evaluation Engine
 - Use `IPolicyEvaluationService` to evaluate repositories against configured policies.
 - Individual policy checks are implemented as `IPolicyEvaluator` strategies.
 - To add a new policy, create a new `IPolicyEvaluator` implementation and register it in `Program.cs`.
-- Refer to `/docs/policy-evaluation.md` for a detailed guide on creating new evaluators.
+- Refer to `/docs/services/policy-evaluation.md` for a detailed guide on creating new evaluators.
 
 ### Configuration Service
 - Use `IConfigurationService` to retrieve the centralized policy configuration from `.github/config.yaml`.
@@ -110,7 +110,7 @@ You are a senior Blazor and .NET developer and an expert in `C#`, `ASP.NET Core`
 - Configuration is cached for 15 minutes with sliding expiration.
 - Handle `ConfigurationNotFoundException` and `InvalidConfigurationException` appropriately.
 - Use `forceRefresh: true` parameter sparingly to avoid unnecessary GitHub API calls.
-- Refer to `/docs/configuration-service.md` for detailed usage examples and configuration format.
+- Refer to `/docs/services/configuration-service.md` for detailed usage examples and configuration format.
 
 ### Background Jobs (Hangfire)
 - Enqueue background jobs using `IBackgroundJobClient`.
@@ -125,6 +125,6 @@ You are a senior Blazor and .NET developer and an expert in `C#`, `ASP.NET Core`
 - All actions are logged to the `ActionLog` table with status tracking.
 - Duplicate issue prevention is built-in for `create-issue` actions.
 - Individual action failures don't block processing of other violations.
-- Refer to `/docs/action-service.md` for detailed usage examples and configuration.
+- Refer to `/docs/services/action-service.md` for detailed usage examples and configuration.
 
 Follow the official Microsoft documentation and `ASP.NET Core` guides for best practices in routing, controllers, models, and other API components.

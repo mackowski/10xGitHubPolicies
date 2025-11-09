@@ -2,6 +2,39 @@
 
 All notable changes to this project will be documented in this file.
 
+## 1.15
+
+### Changed
+- **Documentation Reorganization**: Reorganized service documentation into a dedicated `docs/services/` subdirectory for better organization and discoverability
+  - Moved service documentation files from `docs/` root to `docs/services/`:
+    - `docs/action-service.md` → `docs/services/action-service.md`
+    - `docs/configuration-service.md` → `docs/services/configuration-service.md`
+    - `docs/github-integration.md` → `docs/services/github-integration.md`
+    - `docs/policy-evaluation.md` → `docs/services/policy-evaluation.md`
+  - Added new `docs/services/architecture.md` - Overview of all services and their relationships
+  - Added new `docs/services/scanning-service.md` - Documentation for repository scanning service
+  - Added new `docs/services/dashboard-service.md` - Documentation for dashboard data aggregation service
+  - Updated all documentation references across the codebase:
+    - Updated `README.md` documentation links section with new service documentation structure
+    - Updated `AGENTS.md` with corrected documentation paths
+    - Updated `.cursor/rules/coding-practices.mdc` with corrected documentation paths
+    - Updated `docs/authentication.md` with corrected service documentation links
+    - Updated `docs/ci-cd-workflows.md` with corrected service documentation links
+    - Updated `docs/testing/e2e-tests.md` with corrected service documentation links
+    - Updated `docs/testing/integration-tests.md` with corrected service documentation links
+- **CI/CD Workflow Simplification**: Removed coverage aggregation and reporting from pull request workflow
+  - Removed `publish-coverage` job that aggregated coverage reports
+  - Removed coverage percentage from PR status comments
+  - Coverage is still collected by individual test jobs but not aggregated or published
+  - Updated `docs/ci-cd-workflows.md` to reflect simplified workflow structure
+  - Updated GitHub Actions SHA pins to latest versions
+
+### Benefits
+- **Better Organization**: Service documentation is now grouped together in a dedicated subdirectory
+- **Improved Discoverability**: New architecture overview document helps understand service relationships
+- **Cleaner Workflow**: Simplified CI/CD workflow focuses on test execution without coverage aggregation overhead
+- **Consistency**: All documentation references updated to reflect new structure
+
 ## 1.14
 
 ### Added
