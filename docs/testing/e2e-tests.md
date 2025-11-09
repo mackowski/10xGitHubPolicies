@@ -45,10 +45,7 @@ cd 10xGitHubPolicies.App
 dotnet run --launch-profile https
 ```
 
-Wait for the application to show:
-```
-Now listening on: https://localhost:7040
-```
+Wait for: `Now listening on: https://localhost:7040`
 
 ### 2. Database Available
 
@@ -77,6 +74,8 @@ The web application **must have Test Mode enabled** for authentication bypass:
 - Makes tests deterministic and fast
 - Enables CI/CD automation
 
+⚠️ **CRITICAL**: Test Mode should **NEVER** be enabled in production environments.
+
 ### 5. Playwright Browsers Installed
 
 After building the test project, install Playwright browsers:
@@ -103,37 +102,11 @@ Create `appsettings.json` in the `10xGitHubPolicies.Tests.E2E` project directory
 {
   "ConnectionStrings": {
     "DefaultConnection": "Server=localhost,1433;Database=10xGitHubPolicies;User Id=sa;Password=yourStrong(!)Password;TrustServerCertificate=True"
-  },
-  "Logging": {
-    "LogLevel": {
-      "Default": "Information",
-      "Microsoft": "Warning",
-      "Microsoft.Hosting.Lifetime": "Information"
-    }
   }
 }
 ```
 
-**Note**: The `appsettings.json` file is automatically copied to the output directory during build. The test infrastructure automatically locates it relative to the test assembly location, handling scenarios where tests run from `bin/Debug/net8.0/` or other output directories.
-
-#### Using Environment Variables
-
-Set the connection string via environment variable:
-
-```bash
-export ConnectionStrings__DefaultConnection="Server=localhost,1433;Database=10xGitHubPolicies;User Id=sa;Password=yourStrong(!)Password;TrustServerCertificate=True"
-```
-
-#### Using User Secrets
-
-Configure via .NET User Secrets:
-
-```bash
-cd 10xGitHubPolicies.Tests.E2E
-dotnet user-secrets set "ConnectionStrings:DefaultConnection" "Server=localhost,1433;Database=10xGitHubPolicies;User Id=sa;Password=yourStrong(!)Password;TrustServerCertificate=True"
-```
-
-**Configuration Loading**: The `E2ETestBase` class automatically locates and loads configuration from `appsettings.json` relative to the test assembly location. If the file is not found, it falls back to environment variables and user secrets. If no connection string is configured, tests will fail with a clear error message.
+**Note**: The `appsettings.json` file is automatically copied to the output directory during build. The test infrastructure automatically locates it relative to the test assembly location.
 
 ## Quick Start
 
@@ -154,15 +127,6 @@ dotnet run --launch-profile https
 dotnet test 10xGitHubPolicies.Tests.E2E --logger "console;verbosity=detailed"
 ```
 
-Or use the test runner scripts (if available):
-
-```bash
-cd 10xGitHubPolicies.Tests.E2E
-./run-e2e-tests.sh  # Linux/macOS
-# OR
-pwsh run-e2e-tests.ps1  # Windows PowerShell
-```
-
 ## Test Structure
 
 ### Base Test Class: `E2ETestBase`
@@ -170,21 +134,14 @@ pwsh run-e2e-tests.ps1  # Windows PowerShell
 All E2E tests inherit from `E2ETestBase` which provides:
 
 - **Test Host Creation**: Minimal .NET host with GitHub services
-- **Configuration Loading**: Automatic discovery and loading of `appsettings.json` relative to test assembly
-- **Connection String Validation**: Validates that database connection string is configured before tests run
+- **Configuration Loading**: Automatic discovery and loading of `appsettings.json`
+- **Connection String Validation**: Validates that database connection string is configured
 - **Browser Management**: Playwright browser instance
 - **Web Application Connectivity**: Verification that app is running
 - **Screenshot Capture**: Automatic screenshots for debugging
 - **Cleanup**: Automatic resource disposal
 
-**Configuration Resolution**: The test base class automatically locates `appsettings.json` by:
-1. Checking the test assembly directory
-2. Checking parent directories (handles `bin/Debug/net8.0/` scenarios)
-3. Falling back to environment variables and user secrets if file not found
-4. Validating connection string is present before proceeding
-
-Example:
-
+**Example**:
 ```csharp
 public class WorkflowTests : E2ETestBase
 {
@@ -206,11 +163,6 @@ public class DashboardPage
 {
     private readonly IPage _page;
     
-    public DashboardPage(IPage page)
-    {
-        _page = page;
-    }
-    
     public async Task GotoAsync()
     {
         await _page.GotoAsync("https://localhost:7040/");
@@ -220,8 +172,6 @@ public class DashboardPage
     {
         await _page.Locator("button:has-text('Scan Now')").ClickAsync();
     }
-    
-    // More methods...
 }
 ```
 
@@ -233,48 +183,10 @@ public class DashboardPage
 
 ### Test Helpers
 
-#### `RepositoryHelper`
+- **RepositoryHelper**: Manages test repository creation and cleanup
+- **DatabaseHelper**: Manages database operations for verification
 
-Manages test repository creation and cleanup:
-
-```csharp
-public static class RepositoryHelper
-{
-    public static async Task<Repository> CreateTestRepositoryAsync(string name)
-    {
-        // Create repository via GitHubService
-        // Add required files for compliance
-        // Return repository object
-    }
-    
-    public static async Task DeleteTestRepositoryAsync(string name)
-    {
-        // Clean up repository
-        // Handle errors gracefully
-    }
-}
-```
-
-#### `DatabaseHelper`
-
-Manages database operations for verification:
-
-```csharp
-public static class DatabaseHelper
-{
-    public static async Task<List<PolicyViolation>> GetPolicyViolationsAsync(long repositoryId)
-    {
-        // Query database for violations
-        // Return results
-    }
-    
-    public static async Task CleanupTestDataAsync(string repositoryName)
-    {
-        // Remove test data from database
-        // Handle cleanup failures
-    }
-}
-```
+**Example**: See `Tests.E2E/Tests/Workflow/WorkflowTests.cs` for complete examples.
 
 ## Writing E2E Tests
 
@@ -304,7 +216,6 @@ public async Task CompletePolicyEnforcementWorkflow_ShouldWorkEndToEnd()
         // Assert
         var violations = await DatabaseHelper.GetPolicyViolationsAsync(repository.Id);
         violations.Should().NotBeEmpty();
-        violations.Should().Contain(v => v.PolicyType == "has_agents_md");
     }
     finally
     {
@@ -324,18 +235,6 @@ public async Task CompletePolicyEnforcementWorkflow_ShouldWorkEndToEnd()
 5. **Handle Failures Gracefully**: Cleanup should handle failures
 6. **Test Mode Required**: Always ensure Test Mode is enabled
 7. **Verify Web App Running**: Check connectivity before tests
-
-### Screenshot Capture
-
-Screenshots are automatically captured at key points:
-
-```csharp
-await ScreenshotHelper.CaptureScreenshotAsync(page, "initial-dashboard");
-await dashboardPage.TriggerScanAsync();
-await ScreenshotHelper.CaptureScreenshotAsync(page, "after-scan");
-```
-
-Screenshots are saved to `test-results/screenshots/` for debugging.
 
 ## Common Issues and Solutions
 
@@ -372,14 +271,7 @@ dotnet run --launch-profile https
 **Problem**: Tests fail with authentication errors
 
 **Solution**: 
-1. Verify Test Mode is enabled in `appsettings.Development.json`:
-   ```json
-   {
-     "TestMode": {
-       "Enabled": true
-     }
-   }
-   ```
+1. Verify Test Mode is enabled in `appsettings.Development.json`
 2. Restart the web application after enabling Test Mode
 3. Check web application logs for authentication errors
 
@@ -408,7 +300,6 @@ Test Mode is a special application configuration that enables:
 ### Enabling Test Mode
 
 **Via Configuration File** (Recommended):
-
 ```json
 // appsettings.Development.json
 {
@@ -419,14 +310,12 @@ Test Mode is a special application configuration that enables:
 ```
 
 **Via Environment Variable**:
-
 ```bash
 export TestMode__Enabled=true
 dotnet run --launch-profile https
 ```
 
 **Via Command Line**:
-
 ```bash
 dotnet run --launch-profile https --TestMode:Enabled=true
 ```
@@ -438,28 +327,26 @@ dotnet run --launch-profile https --TestMode:Enabled=true
 ## Running Tests
 
 ### Run All E2E Tests
-
 ```bash
 dotnet test 10xGitHubPolicies.Tests.E2E
 ```
 
 ### Run Specific Test Category
-
 ```bash
 dotnet test --filter "Category=E2E-Workflow"
 ```
 
 ### Run with Verbose Output
-
 ```bash
 dotnet test 10xGitHubPolicies.Tests.E2E --logger "console;verbosity=detailed"
 ```
 
 ### Run Single Test
-
 ```bash
 dotnet test --filter "FullyQualifiedName~CompletePolicyEnforcementWorkflow"
 ```
+
+For more commands, see the [Quick Reference](./quick-reference.md).
 
 ## Debugging
 
@@ -471,13 +358,11 @@ dotnet test --filter "FullyQualifiedName~CompletePolicyEnforcementWorkflow"
 4. Test scan functionality manually
 
 ### Check Web Application Status
-
 ```bash
 curl -k https://localhost:7040/
 ```
 
 ### Check Database Connection
-
 ```bash
 cd 10xGitHubPolicies.App
 dotnet ef database update
@@ -529,10 +414,11 @@ For CI/CD pipelines:
 9. ✅ **Check logs** when tests fail
 10. ✅ **Never enable Test Mode in production**
 
-## References
+## Related Documentation
 
 - [Testing Strategy](./testing-strategy.md) - Overview of all testing levels
-- [GitHub Integration](./github-integration.md) - GitHubService API documentation
-- [Test Mode Documentation](../README.md#test-mode) - Detailed Test Mode guide
+- [Quick Reference](./quick-reference.md) - Common commands and patterns
+- [GitHub Integration](../github-integration.md) - GitHubService API documentation
+- [Test Mode Documentation](../../README.md#test-mode) - Detailed Test Mode guide
 - [Playwright Documentation](https://playwright.dev/dotnet/) - Official Playwright.NET docs
 

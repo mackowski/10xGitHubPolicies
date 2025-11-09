@@ -4,7 +4,9 @@ This document describes the `IActionService` and how it handles automated action
 
 ## Overview
 
-The Action Service is responsible for executing configured actions when policy violations are detected during repository scans. It processes violations based on the policy configuration and performs actions like creating issues or archiving repositories.
+The Action Service is responsible for executing configured actions when policy violations are detected during repository scans. It processes violations based on the policy configuration and performs actions like creating issues or **archiving repositories** to enforce compliance.
+
+> **🔒 Archive Repository Action**: The archive repository action is a powerful enforcement mechanism that automatically makes non-compliant repositories read-only. This is particularly useful for enforcing critical security policies or compliance requirements where immediate action is required.
 
 ## Services
 
@@ -35,9 +37,24 @@ Creates a GitHub issue in the violating repository with:
 - **Labels**: Configurable via `IssueDetails.Labels` or default labels
 - **Duplicate Prevention**: Checks for existing open issues with the same title and label
 
-### 2. Archive Repository (`archive-repo` or `archive_repo`)
+### 2. Archive Repository (`archive-repo` or `archive_repo`) 🔒
 
-Archives the violating repository using the GitHub API.
+**Powerful Enforcement Action**: Archives the violating repository using the GitHub API, making it read-only to enforce compliance.
+
+**Features**:
+- **Duplicate Prevention**: Checks if the repository is already archived before attempting to archive
+- **Error Handling**: Handles specific GitHub API exceptions:
+  - `NotFoundException`: Logs warning when repository is not found
+  - `ApiException` with `Forbidden` status: Logs warning for insufficient permissions
+  - Other exceptions: Logs error with full exception details
+- **Structured Logging**: Includes repository name, policy name, and violation ID in log messages
+- **Action Logging**: All archive actions are logged to the database with status tracking
+
+**Behavior**:
+1. Checks repository archived status using `GetRepositorySettingsAsync()`
+2. If already archived, logs action as "Skipped" and returns early
+3. If not archived, calls `ArchiveRepositoryAsync()` to archive the repository
+4. Logs success or failure with appropriate status and details
 
 ### 3. Log Only (`log-only` or `log_only`)
 
@@ -90,11 +107,19 @@ All actions are logged to the `ActionLog` database table with the following info
 
 ## Duplicate Prevention
 
-The service implements duplicate prevention for issue creation (US-010 requirement):
+The service implements duplicate prevention for both issue creation and repository archiving:
+
+### Issue Creation (US-010 requirement)
 
 1. **Label Filtering**: Retrieves open issues filtered by the primary label
 2. **Title Matching**: Checks if an issue with the same title already exists
 3. **Skip Creation**: If a duplicate is found, logs the action as "Skipped" and provides the existing issue URL
+
+### Repository Archiving
+
+1. **Status Check**: Retrieves repository settings to check current archived status
+2. **Skip Archive**: If repository is already archived, logs the action as "Skipped" and returns early
+3. **Efficiency**: Prevents unnecessary API calls and improves performance
 
 ## Error Handling
 
@@ -104,6 +129,10 @@ The service implements comprehensive error handling:
 - **Exception Logging**: All exceptions are logged with detailed error information
 - **Action Status Tracking**: Each action is logged with its status (Success, Failed, or Skipped)
 - **Graceful Degradation**: Service continues processing even if some actions fail
+- **Specific Exception Handling**: 
+  - `NotFoundException`: Handled gracefully with warning-level logging
+  - `ApiException` with `Forbidden`: Handled with warning-level logging for permission issues
+  - Other exceptions: Logged at error level with full exception details
 
 ## Usage
 
