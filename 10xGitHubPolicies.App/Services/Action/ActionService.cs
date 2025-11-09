@@ -5,6 +5,8 @@ using _10xGitHubPolicies.App.Services.GitHub;
 
 using Microsoft.EntityFrameworkCore;
 
+using Octokit;
+
 namespace _10xGitHubPolicies.App.Services.Action;
 
 public class ActionService : IActionService
@@ -134,17 +136,40 @@ public class ActionService : IActionService
     {
         try
         {
+            // Check if repository is already archived (duplicate prevention)
+            var repositorySettings = await _gitHubService.GetRepositorySettingsAsync(violation.Repository.GitHubRepositoryId);
+
+            if (repositorySettings.Archived)
+            {
+                _logger.LogInformation("Repository {RepositoryName} (ID: {RepositoryId}) is already archived. Skipping archive action for violation ID: {ViolationId}",
+                    violation.Repository.Name, violation.Repository.GitHubRepositoryId, violation.ViolationId);
+                await LogActionAsync(violation, "archive-repo", "Skipped", $"Repository is already archived");
+                return;
+            }
+
             await _gitHubService.ArchiveRepositoryAsync(violation.Repository.GitHubRepositoryId);
 
-            _logger.LogInformation("Successfully archived repository {RepositoryName} (ID: {RepositoryId}) due to policy violation",
-                violation.Repository.Name, violation.Repository.GitHubRepositoryId);
+            _logger.LogInformation("Successfully archived repository {RepositoryName} (ID: {RepositoryId}) due to policy violation {PolicyName} (Violation ID: {ViolationId})",
+                violation.Repository.Name, violation.Repository.GitHubRepositoryId, policyConfig.Name, violation.ViolationId);
 
             await LogActionAsync(violation, "archive-repo", "Success", $"Repository archived due to {policyConfig.Name} policy violation");
         }
+        catch (NotFoundException ex)
+        {
+            _logger.LogWarning(ex, "Repository {RepositoryName} (ID: {RepositoryId}) not found when attempting to archive for violation ID: {ViolationId}",
+                violation.Repository.Name, violation.Repository.GitHubRepositoryId, violation.ViolationId);
+            await LogActionAsync(violation, "archive-repo", "Failed", $"Repository not found: {ex.Message}");
+        }
+        catch (ApiException ex) when (ex.StatusCode == System.Net.HttpStatusCode.Forbidden)
+        {
+            _logger.LogWarning(ex, "Insufficient permissions to archive repository {RepositoryName} (ID: {RepositoryId}) for violation ID: {ViolationId}",
+                violation.Repository.Name, violation.Repository.GitHubRepositoryId, violation.ViolationId);
+            await LogActionAsync(violation, "archive-repo", "Failed", $"Insufficient permissions: {ex.Message}");
+        }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to archive repository {RepositoryName} (ID: {RepositoryId}) for violation ID: {ViolationId}",
-                violation.Repository.Name, violation.Repository.GitHubRepositoryId, violation.ViolationId);
+            _logger.LogError(ex, "Failed to archive repository {RepositoryName} (ID: {RepositoryId}) for violation ID: {ViolationId} due to policy {PolicyName}",
+                violation.Repository.Name, violation.Repository.GitHubRepositoryId, violation.ViolationId, policyConfig.Name);
             await LogActionAsync(violation, "archive-repo", "Failed", $"Exception: {ex.Message}");
         }
     }

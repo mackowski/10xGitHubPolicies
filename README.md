@@ -29,7 +29,7 @@ A GitHub App to automate the enforcement of organizational policies and security
 
 The 10x GitHub Policy Enforcer is a GitHub App with an accompanying web UI designed to automate the enforcement of organizational policies and security best practices across all repositories within a GitHub organization.
 
-It uses a flexible policy evaluation engine to scan repositories for compliance with a centrally managed configuration file. When violations are found, it can automatically perform actions like creating issues in the repository or archiving it. The web dashboard provides a clear overview of your organization's compliance posture.
+It uses a flexible policy evaluation engine to scan repositories for compliance with a centrally managed configuration file. When violations are found, it can automatically perform actions like creating issues in the repository or **archiving non-compliant repositories** to enforce security policies. The web dashboard provides a clear overview of your organization's compliance posture.
 
 The application uses a dual-authentication strategy:
 - **GitHub App**: For backend services to perform automated scans and actions
@@ -42,11 +42,14 @@ The application uses a dual-authentication strategy:
 *   **Automated Scans:** Performs daily (via scheduled jobs) and on-demand scans of all active repositories.
 *   **Centralized Configuration:** All policies are defined in a single `.github/config.yaml` file for easy management.
 *   **Extensible Policy Engine:** The application uses a strategy pattern to make it easy to add new policy evaluators.
-*   **Automated Actions:** Creates issues or archives repositories that violate policies with duplicate prevention and comprehensive action logging.
+*   **Automated Actions:** 
+    *   **Create Issues:** Automatically creates GitHub issues in non-compliant repositories with duplicate prevention
+    *   **Archive Repositories:** 🔒 **Automatically archives repositories** that violate critical policies, making them read-only to enforce compliance
+    *   **Log-Only Mode:** Monitor violations without taking automated action
+    *   All actions include comprehensive logging with status tracking and detailed audit trails
 *   **Compliance Dashboard:** A Blazor-based web UI to view non-compliant repositories, violation details, and overall compliance metrics.
 *   **Background Job Processing:** Uses Hangfire for reliable background processing of scans and actions, ensuring the UI remains responsive.
 *   **Action Logging:** All automated actions are logged to the database with status tracking and detailed information.
-*   **API Documentation:** Provides Swagger/OpenAPI documentation for any exposed API endpoints.
 
 ---
 
@@ -58,7 +61,6 @@ The application uses a dual-authentication strategy:
 | **Frontend**      | Blazor Server with Microsoft Fluent UI   |
 | **Database**      | Azure SQL Database (or local SQL Server) |
 | **Background Jobs** | Hangfire                                 |
-| **API Docs**      | Swagger / OpenAPI                        |
 | **Hosting**       | Azure App Service                        |
 | **GitHub API**    | Octokit.net                              |
 | **Testing**       | xUnit, bUnit, NSubstitute, WireMock.Net, Testcontainers, NJsonSchema, Verify.NET, Playwright |
@@ -287,6 +289,11 @@ For user authentication, you need to create a GitHub OAuth App:
 ### Policy Configuration
 The policy configuration is managed via a `config.yaml` file located in the root of your organization's `.github` repository.
 
+**Available Actions:**
+- `create_issue`: Creates a GitHub issue in the non-compliant repository (with duplicate prevention)
+- `archive_repo`: 🔒 **Archives the repository** - Makes it read-only to enforce compliance (with duplicate prevention)
+- `log_only`: Logs the violation without taking automated action
+
 Here is an example configuration:
 
 ```yaml
@@ -316,7 +323,7 @@ policies:
       
   - name: 'Verify Workflow Permissions'
     type: 'correct_workflow_permissions'
-    action: 'log_only'
+    action: 'archive_repo'  # Archive repositories with incorrect workflow permissions
 ```
 
 ---
@@ -417,7 +424,7 @@ This script automatically:
 - .NET 8 SDK installed
 - Playwright browsers installed (for E2E tests): `pwsh bin/Debug/net8.0/playwright.ps1 install chromium`
 
-For more details, see **[Testing Strategy](./docs/testing-strategy.md)** and **[CI/CD Workflows](./docs/ci-cd-workflows.md)**.
+For more details, see **[Testing Strategy](./docs/testing/testing-strategy.md)** and **[CI/CD Workflows](./docs/ci-cd-workflows.md)**.
 
 ---
 
@@ -461,15 +468,16 @@ You can review and merge these updates through the standard pull request process
 Detailed documentation for specific features and integrations:
 
 - **[Authentication](./docs/authentication.md)**: User authentication and authorization system
-- **[GitHub Integration](./docs/github-integration.md)**: How to use the GitHub API service for repository management
-- **[GitHub Client Factory](./docs/github-client-factory.md)**: Factory pattern for testable GitHub API integration
+- **[GitHub Integration](./docs/github-integration.md)**: GitHub API integration architecture and factory pattern for testability
 - **[Configuration Service](./docs/configuration-service.md)**: Managing centralized policy configuration from `.github/config.yaml`
 - **[Action Service](./docs/action-service.md)**: Automated action processing for policy violations
 - **[Hangfire Integration](./docs/hangfire-integration.md)**: Background job processing and scheduling
 - **[Policy Evaluation](./docs/policy-evaluation.md)**: How the policy evaluation engine works and how to add new policies
-- **[Testing Strategy](./docs/testing-strategy.md)**: Comprehensive testing approach, tooling, and best practices
-- **[Contract Testing](./docs/testing-contract-tests.md)**: Detailed guide to contract testing with WireMock, Verify.NET, and JSON Schema
-- **[E2E Testing](./docs/testing-e2e-tests.md)**: Complete guide to End-to-End testing with Playwright
+- **[Testing Strategy](./docs/testing/testing-strategy.md)**: Comprehensive testing approach, tooling, and best practices
+- **[Testing Guide](./docs/testing/README.md)**: Entry point for all testing documentation
+- **[Contract Testing](./docs/testing/contract-tests.md)**: Detailed guide to contract testing with WireMock, Verify.NET, and JSON Schema
+- **[E2E Testing](./docs/testing/e2e-tests.md)**: Complete guide to End-to-End testing with Playwright
+- **[Integration Testing](./docs/testing/integration-tests.md)**: Detailed guide to integration testing with WireMock and Testcontainers
 - **[CI/CD Workflows](./docs/ci-cd-workflows.md)**: GitHub Actions workflows, code coverage, and automated testing pipelines
 
 ---

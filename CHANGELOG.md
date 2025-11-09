@@ -2,6 +2,48 @@
 
 All notable changes to this project will be documented in this file.
 
+## 1.13
+
+### Added
+- **Archive Repository Action Enhancements**: Improved archive repository action with duplicate prevention and enhanced error handling
+  - Added duplicate prevention: Checks if repository is already archived before attempting to archive
+  - Enhanced error handling with specific exception types:
+    - `NotFoundException`: Handled gracefully with warning-level logging
+    - `ApiException` with `Forbidden` status: Handled with warning-level logging for permission issues
+  - Improved structured logging with repository name, policy name, and violation ID
+  - Prevents unnecessary API calls when repository is already archived
+- **Integration Tests for Archive Action**: Comprehensive integration tests for archive repository functionality
+  - Created `ActionServiceIntegrationTestBase` class combining database (Testcontainers) and GitHub API mocking (WireMock)
+  - Added `DatabaseFixture` for ephemeral SQL Server database using Testcontainers
+  - Added 4 integration tests covering:
+    - Successful archive action with database persistence
+    - Duplicate prevention (already archived scenario)
+    - Multiple violations processing
+    - Failure handling and action isolation
+  - Uses Respawn for database cleanup between tests
+- **Contract Tests for Archive Action**: Added contract tests for archived repository response validation
+  - Added snapshot test for archived repository response structure stability
+  - Validates that archived repository responses maintain consistent structure
+
+### Changed
+- **ArchiveRepositoryForViolationAsync Method**: Enhanced with duplicate prevention and improved error handling
+  - Now checks repository archived status before attempting to archive
+  - Improved exception handling with specific catch blocks for different error types
+  - Enhanced logging with more context (repository name, policy name, violation ID)
+- **Documentation Enhancements**: Improved visibility and prominence of archive repository feature
+  - Enhanced README.md Features section with dedicated bullet point highlighting archive repository as a key enforcement mechanism
+  - Updated README.md About section to emphasize archive repository capability
+  - Added "Available Actions" section in Policy Configuration with clear descriptions of all action types
+  - Updated policy configuration example to demonstrate `archive_repo` action usage
+  - Enhanced `docs/action-service.md` with callout box and emphasis on archive repository as powerful enforcement action
+  - Added lock icon (🔒) indicators throughout documentation to highlight security/compliance features
+
+### Benefits
+- **Efficiency**: Prevents unnecessary API calls when repositories are already archived
+- **Better Error Handling**: More specific error messages for different failure scenarios
+- **Improved Observability**: Enhanced logging provides better traceability
+- **Comprehensive Testing**: Full test coverage from unit to integration to contract tests
+
 ## 1.12
 
 ### Added
@@ -117,7 +159,7 @@ All notable changes to this project will be documented in this file.
   - Reads `ConnectionStrings__DefaultConnection` from environment
   - Executes `db.Database.MigrateAsync()`
 - **Production deployment guide**: New documentation for Azure OIDC + MSI-based CI/CD
-  - Added `docs/production-deployment.md` (runbook in `/.ai/production-deployment.md`)
+  - Added `docs/production-deployment.md`
   - References GitHub Environments gating and secretless SQL
 
 ### Changed
@@ -158,7 +200,7 @@ All notable changes to this project will be documented in this file.
 - **Documentation Updates**:
   - Updated `README.md` with local workflow testing script documentation
   - Enhanced `docs/ci-cd-workflows.md` with local workflow execution guide
-  - Updated `docs/testing-integration-tests.md` with SSL certificate handling details
+  - Updated `docs/testing/integration-tests.md` with SSL certificate handling details
   - Updated `README.md` with Dependabot dependency management information
   - Enhanced `docs/ci-cd-workflows.md` with Dependabot integration details
 
@@ -269,8 +311,8 @@ All notable changes to this project will be documented in this file.
   - Integration with Test Mode for seamless authentication
   - Automatic cleanup of test repositories and database records
 - **Documentation**: Created comprehensive E2E testing documentation
-  - Added `docs/testing-e2e-tests.md` with detailed setup, architecture, and usage guide
-  - Updated `testing-strategy.md` with E2E testing details
+  - Added `docs/testing/e2e-tests.md` with detailed setup, architecture, and usage guide
+  - Updated `docs/testing/testing-strategy.md` with E2E testing details
   - Updated `github-integration.md` with new E2E testing methods
   - Updated README.md with E2E testing section
 
@@ -329,10 +371,10 @@ All notable changes to this project will be documented in this file.
   - Created `GitHubContractTestBase` with shared test infrastructure
   - Response builders (`GitHubApiResponseBuilder`) for consistent test data generation
 - **Documentation**: Created comprehensive contract testing guide
-  - Added `docs/testing-contract-tests.md` with detailed step-by-step explanation
+  - Added `docs/testing/contract-tests.md` with detailed step-by-step explanation
   - Covers WireMock.Net, Verify.NET, and NJsonSchema usage
   - Includes test organization, best practices, and debugging tips
-  - Added references in README.md and testing-strategy.md
+  - Added references in README.md and docs/testing/testing-strategy.md
 
 ### Changed
 - **GitHubService**: Refactored to accept optional `IGitHubClientFactory` parameter
@@ -396,14 +438,14 @@ All notable changes to this project will be documented in this file.
   - **Contract Testing**: NJsonSchema + Verify.NET for detecting GitHub API breaking changes with schema validation and snapshot testing
   - **✅ Blazor Component Testing**: bUnit for testing UI component rendering and user interactions - **COMPLETED** (22 tests, 100% pass rate)
   - **End-to-End Testing**: Playwright for critical user workflow validation (used sparingly)
-- **Testing Documentation**: Created comprehensive testing strategy documentation at `/docs/testing-strategy.md`
+- **Testing Documentation**: Created comprehensive testing strategy documentation at `/docs/testing/testing-strategy.md`
   - Detailed testing pyramid with coverage targets for each level
   - Testing tool rationale and version requirements
   - Project structure and naming conventions
   - Development workflow and CI/CD pipeline guidance
   - Quick decision tree for choosing the right test type
   - Common commands cheat sheet
-- **Test Plan**: Added comprehensive test plan document at `.ai/test-plan.md` with 50+ detailed test scenarios
+- **Test Plan**: Added comprehensive test plan document with 50+ detailed test scenarios
   - Authentication and authorization test cases
   - Configuration management test cases
   - Policy evaluation test cases
@@ -429,7 +471,7 @@ All notable changes to this project will be documented in this file.
   - **Known Limitations**: Complex Fluent UI interactions and logout functionality deferred to E2E tests
 
 ### Changed
-- **Tech Stack Documentation**: Updated `.ai/tech-stack.md` with comprehensive testing stack section
+- **Tech Stack Documentation**: Updated `docs/tech-stack.md` with comprehensive testing stack section
   - Added rationale for each testing tool selection
   - Explained how each tool supports the project's testing needs
 - **Coding Practices**: Updated `AGENTS.md` with multi-level testing strategy

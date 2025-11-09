@@ -12,6 +12,7 @@ using NSubstitute;
 using NSubstitute.ExceptionExtensions;
 using Octokit;
 using Xunit;
+using OctokitRepository = Octokit.Repository;
 
 namespace _10xGitHubPolicies.Tests.Services.Action;
 
@@ -166,6 +167,9 @@ public class ActionServiceTests : IAsyncLifetime
         // Arrange
         var (scanId, violation, policyConfig) = await SetupViolationWithActionAsync("archive-repo");
 
+        var mockRepository = CreateMockRepository(archived: false);
+        _gitHubService.GetRepositorySettingsAsync(violation.Repository.GitHubRepositoryId)
+            .Returns(mockRepository);
         _gitHubService.ArchiveRepositoryAsync(violation.Repository.GitHubRepositoryId)
             .Returns(Task.CompletedTask);
 
@@ -180,6 +184,7 @@ public class ActionServiceTests : IAsyncLifetime
         await _sut.ProcessActionsForScanAsync(scanId);
 
         // Assert
+        await _gitHubService.Received(1).GetRepositorySettingsAsync(violation.Repository.GitHubRepositoryId);
         await _gitHubService.Received(1).ArchiveRepositoryAsync(violation.Repository.GitHubRepositoryId);
 
         // Verify action log
@@ -187,6 +192,199 @@ public class ActionServiceTests : IAsyncLifetime
         actionLog.Should().NotBeNull();
         actionLog!.ActionType.Should().Be("archive-repo");
         actionLog.Status.Should().Be("Success");
+        actionLog.Details.Should().Contain(policyConfig.Name);
+    }
+
+    [Fact]
+    public async Task ProcessActionsForScanAsync_WhenRepositoryAlreadyArchived_SkipsArchive()
+    {
+        // Arrange
+        var (scanId, violation, policyConfig) = await SetupViolationWithActionAsync("archive-repo");
+
+        var mockRepository = CreateMockRepository(archived: true);
+        _gitHubService.GetRepositorySettingsAsync(violation.Repository.GitHubRepositoryId)
+            .Returns(mockRepository);
+
+        var config = new AppConfig
+        {
+            AccessControl = new AccessControlConfig { AuthorizedTeam = "org/team" },
+            Policies = new List<PolicyConfig> { policyConfig }
+        };
+        _configService.GetConfigAsync().Returns(config);
+
+        // Act
+        await _sut.ProcessActionsForScanAsync(scanId);
+
+        // Assert - GetRepositorySettingsAsync called, but ArchiveRepositoryAsync should not be called
+        await _gitHubService.Received(1).GetRepositorySettingsAsync(violation.Repository.GitHubRepositoryId);
+        await _gitHubService.DidNotReceive().ArchiveRepositoryAsync(Arg.Any<long>());
+
+        // Verify action logged as "Skipped"
+        var actionLog = await _dbContext.ActionsLogs.FirstOrDefaultAsync();
+        actionLog.Should().NotBeNull();
+        actionLog!.ActionType.Should().Be("archive-repo");
+        actionLog.Status.Should().Be("Skipped");
+        actionLog.Details.Should().Contain("already archived");
+    }
+
+    [Fact]
+    public async Task ProcessActionsForScanAsync_WhenArchiveFailsWithNotFoundException_LogsErrorAndContinues()
+    {
+        // Arrange
+        var (scanId, violation, policyConfig) = await SetupViolationWithActionAsync("archive-repo");
+
+        _gitHubService.GetRepositorySettingsAsync(violation.Repository.GitHubRepositoryId)
+            .Throws(new NotFoundException("Repository not found", System.Net.HttpStatusCode.NotFound));
+
+        var config = new AppConfig
+        {
+            AccessControl = new AccessControlConfig { AuthorizedTeam = "org/team" },
+            Policies = new List<PolicyConfig> { policyConfig }
+        };
+        _configService.GetConfigAsync().Returns(config);
+
+        // Act
+        var act = async () => await _sut.ProcessActionsForScanAsync(scanId);
+
+        // Assert
+        await act.Should().NotThrowAsync(because: "NotFoundException should be handled gracefully");
+
+        // Verify warning was logged
+        _logger.ReceivedWithAnyArgs().LogWarning(
+            default(Exception),
+            default(string),
+            default,
+            default,
+            default);
+
+        // Verify action logged as "Failed"
+        var actionLog = await _dbContext.ActionsLogs.FirstOrDefaultAsync();
+        actionLog.Should().NotBeNull();
+        actionLog!.Status.Should().Be("Failed");
+        actionLog.Details.Should().Contain("Repository not found");
+    }
+
+    [Fact]
+    public async Task ProcessActionsForScanAsync_WhenArchiveFailsWithForbidden_LogsErrorAndContinues()
+    {
+        // Arrange
+        var (scanId, violation, policyConfig) = await SetupViolationWithActionAsync("archive-repo");
+
+        var mockRepository = CreateMockRepository(archived: false);
+        _gitHubService.GetRepositorySettingsAsync(violation.Repository.GitHubRepositoryId)
+            .Returns(mockRepository);
+        _gitHubService.ArchiveRepositoryAsync(violation.Repository.GitHubRepositoryId)
+            .Throws(new ApiException("Insufficient permissions", System.Net.HttpStatusCode.Forbidden));
+
+        var config = new AppConfig
+        {
+            AccessControl = new AccessControlConfig { AuthorizedTeam = "org/team" },
+            Policies = new List<PolicyConfig> { policyConfig }
+        };
+        _configService.GetConfigAsync().Returns(config);
+
+        // Act
+        var act = async () => await _sut.ProcessActionsForScanAsync(scanId);
+
+        // Assert
+        await act.Should().NotThrowAsync(because: "Forbidden exception should be handled gracefully");
+
+        // Verify warning was logged
+        _logger.ReceivedWithAnyArgs().LogWarning(
+            default(Exception),
+            default(string),
+            default,
+            default,
+            default);
+
+        // Verify action logged as "Failed"
+        var actionLog = await _dbContext.ActionsLogs.FirstOrDefaultAsync();
+        actionLog.Should().NotBeNull();
+        actionLog!.Status.Should().Be("Failed");
+        actionLog.Details.Should().Contain("Insufficient permissions");
+    }
+
+    [Fact]
+    public async Task ProcessActionsForScanAsync_WhenArchiveActionFails_OtherActionsStillProcess()
+    {
+        // Arrange - Create 2 violations: one archive (fails), one create-issue (succeeds)
+        var scanId = _faker.Random.Int(1, 1000);
+        var scan = new Scan { ScanId = scanId, StartedAt = DateTime.UtcNow, Status = "InProgress" };
+        await _dbContext.Scans.AddAsync(scan);
+
+        var archivePolicy = new Policy
+        {
+            PolicyKey = "archive-policy",
+            Description = "Archive Policy",
+            Action = "archive-repo"
+        };
+        var issuePolicy = new Policy
+        {
+            PolicyKey = "issue-policy",
+            Description = "Issue Policy",
+            Action = "create-issue"
+        };
+        await _dbContext.Policies.AddRangeAsync(archivePolicy, issuePolicy);
+
+        var repo1 = CreateRepository();
+        var repo2 = CreateRepository();
+        await _dbContext.Repositories.AddRangeAsync(repo1, repo2);
+
+        var violation1 = CreateViolation(scanId, archivePolicy.PolicyId, repo1.RepositoryId);
+        var violation2 = CreateViolation(scanId, issuePolicy.PolicyId, repo2.RepositoryId);
+        await _dbContext.PolicyViolations.AddRangeAsync(violation1, violation2);
+        await _dbContext.SaveChangesAsync();
+
+        var archivePolicyConfig = new PolicyConfig
+        {
+            Type = "archive-policy",
+            Name = "Archive Policy",
+            Action = "archive-repo"
+        };
+        var issuePolicyConfig = new PolicyConfig
+        {
+            Type = "issue-policy",
+            Name = "Issue Policy",
+            Action = "create-issue",
+            IssueDetails = new IssueDetails
+            {
+                Title = "Test Issue",
+                Body = "Test body",
+                Labels = new List<string> { "test" }
+            }
+        };
+
+        var config = new AppConfig
+        {
+            AccessControl = new AccessControlConfig { AuthorizedTeam = "org/team" },
+            Policies = new List<PolicyConfig> { archivePolicyConfig, issuePolicyConfig }
+        };
+        _configService.GetConfigAsync().Returns(config);
+
+        // Mock: Archive fails, issue succeeds
+        var mockRepository = CreateMockRepository(archived: false);
+        _gitHubService.GetRepositorySettingsAsync(repo1.GitHubRepositoryId)
+            .Returns(mockRepository);
+        _gitHubService.ArchiveRepositoryAsync(repo1.GitHubRepositoryId)
+            .Throws(new ApiException("Archive failed", System.Net.HttpStatusCode.InternalServerError));
+
+        _gitHubService.GetOpenIssuesAsync(repo2.GitHubRepositoryId, Arg.Any<string>())
+            .Returns(new List<Issue>());
+        _gitHubService.CreateIssueAsync(repo2.GitHubRepositoryId, Arg.Any<string>(), Arg.Any<string>(), Arg.Any<IEnumerable<string>>())
+            .Returns(CreateMockIssue());
+
+        // Act
+        await _sut.ProcessActionsForScanAsync(scanId);
+
+        // Assert - Both actions attempted
+        await _gitHubService.Received(1).ArchiveRepositoryAsync(repo1.GitHubRepositoryId);
+        await _gitHubService.Received(1).CreateIssueAsync(repo2.GitHubRepositoryId, Arg.Any<string>(), Arg.Any<string>(), Arg.Any<IEnumerable<string>>());
+
+        // Verify 2 action logs created (1 Failed, 1 Success)
+        var actionLogs = await _dbContext.ActionsLogs.ToListAsync();
+        actionLogs.Should().HaveCount(2);
+        actionLogs.Count(a => a.Status == "Failed").Should().Be(1);
+        actionLogs.Count(a => a.Status == "Success").Should().Be(1);
     }
 
     [Fact]
@@ -333,6 +531,9 @@ public class ActionServiceTests : IAsyncLifetime
         // Arrange
         var (scanId, violation, policyConfig) = await SetupViolationWithActionAsync("archive-repo");
 
+        var mockRepository = CreateMockRepository(archived: false);
+        _gitHubService.GetRepositorySettingsAsync(violation.Repository.GitHubRepositoryId)
+            .Returns(mockRepository);
         _gitHubService.ArchiveRepositoryAsync(Arg.Any<long>())
             .Throws(new ApiException("Insufficient permissions", System.Net.HttpStatusCode.Forbidden));
 
@@ -349,8 +550,8 @@ public class ActionServiceTests : IAsyncLifetime
         // Assert
         await act.Should().NotThrowAsync(because: "individual action failures should be isolated");
 
-        // Verify error logged - we can't verify exact exception match, just that LogError was called
-        _logger.ReceivedWithAnyArgs().LogError(
+        // Verify warning logged (Forbidden exceptions are logged as warnings, not errors)
+        _logger.ReceivedWithAnyArgs().LogWarning(
             default(Exception),
             default(string),
             default,
@@ -361,7 +562,7 @@ public class ActionServiceTests : IAsyncLifetime
         var actionLog = await _dbContext.ActionsLogs.FirstOrDefaultAsync();
         actionLog.Should().NotBeNull();
         actionLog!.Status.Should().Be("Failed");
-        actionLog.Details.Should().Contain("Exception");
+        actionLog.Details.Should().Contain("Insufficient permissions");
     }
 
     [Fact]
@@ -460,6 +661,9 @@ public class ActionServiceTests : IAsyncLifetime
         }
         else if (actionType.StartsWith("archive"))
         {
+            var mockRepository = CreateMockRepository(archived: false);
+            _gitHubService.GetRepositorySettingsAsync(Arg.Any<long>())
+                .Returns(mockRepository);
             _gitHubService.ArchiveRepositoryAsync(Arg.Any<long>())
                 .Returns(Task.CompletedTask);
         }
@@ -680,6 +884,86 @@ public class ActionServiceTests : IAsyncLifetime
             stateReason: null);
 
         return issue;
+    }
+
+    /// <summary>
+    /// Creates a mock Octokit.Repository for testing
+    /// </summary>
+    private OctokitRepository CreateMockRepository(long id = 12345, string name = "test-repo", bool archived = false)
+    {
+        // Create Repository via JSON deserialization (the way Octokit does it internally)
+        var json = $$"""
+        {
+            "id": {{id}},
+            "node_id": "R_{{id}}",
+            "name": "{{name}}",
+            "full_name": "owner/{{name}}",
+            "private": false,
+            "archived": {{archived.ToString().ToLower()}},
+            "owner": {
+                "login": "owner",
+                "id": 1,
+                "node_id": "U_1",
+                "avatar_url": "",
+                "url": "https://api.github.com/users/owner",
+                "html_url": "https://github.com/owner",
+                "type": "User"
+            },
+            "html_url": "https://github.com/owner/{{name}}",
+            "description": "Test repository",
+            "fork": false,
+            "url": "https://api.github.com/repos/owner/{{name}}",
+            "created_at": "2024-01-01T00:00:00Z",
+            "updated_at": "2024-01-01T00:00:00Z",
+            "pushed_at": "2024-01-01T00:00:00Z",
+            "size": 100,
+            "stargazers_count": 0,
+            "watchers_count": 0,
+            "language": "C#",
+            "forks_count": 0,
+            "open_issues_count": 0,
+            "default_branch": "main",
+            "visibility": "public"
+        }
+        """;
+
+        var repository = Newtonsoft.Json.JsonConvert.DeserializeObject<OctokitRepository>(json)!;
+
+        // Use reflection to set the Id property if deserialization didn't work
+        if (repository.Id == 0 && id != 0)
+        {
+            var idProperty = typeof(OctokitRepository).GetProperty("Id");
+            if (idProperty != null && idProperty.CanWrite)
+            {
+                idProperty.SetValue(repository, id);
+            }
+            else
+            {
+                // If property is not writable, use backing field
+                var idField = typeof(OctokitRepository).GetField("<Id>k__BackingField",
+                    System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+                idField?.SetValue(repository, id);
+            }
+        }
+
+        // Use reflection to ensure Archived property is set correctly
+        if (repository.Archived != archived)
+        {
+            var archivedProperty = typeof(OctokitRepository).GetProperty("Archived");
+            if (archivedProperty != null && archivedProperty.CanWrite)
+            {
+                archivedProperty.SetValue(repository, archived);
+            }
+            else
+            {
+                // If property is not writable, use backing field
+                var archivedField = typeof(OctokitRepository).GetField("<Archived>k__BackingField",
+                    System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+                archivedField?.SetValue(repository, archived);
+            }
+        }
+
+        return repository;
     }
 }
 

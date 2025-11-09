@@ -63,6 +63,59 @@ public class GitHubApiSnapshotTests : GitHubContractTestBase
     }
 
     /// <summary>
+    /// TC-CONTRACT-003: Archived Repository Response Structure Stability
+    /// Uses Verify.NET to capture and compare archived repository response structure
+    /// Verifies that archived repositories maintain consistent response structure
+    /// </summary>
+    [Fact]
+    public async Task GetRepositorySettingsAsync_ArchivedRepository_StructureRemainsStable()
+    {
+        // Arrange
+        SetupGitHubAppAuthentication();
+
+        var repositoryId = 123457L; // Fixed for snapshot stability
+        var repoName = "archived-repo";
+        var orgName = Options.OrganizationName;
+
+        var archivedRepositoryResponse = new
+        {
+            id = repositoryId,
+            name = repoName,
+            full_name = $"{orgName}/{repoName}",
+            owner = new
+            {
+                login = orgName,
+                id = 789L,
+                type = "Organization"
+            },
+            @private = false,
+            archived = true, // Repository is archived
+            description = "Archived test repository",
+            html_url = $"https://github.com/{orgName}/{repoName}",
+            created_at = "2024-01-01T00:00:00Z",
+            updated_at = "2024-01-02T00:00:00Z"
+        };
+
+        MockServer
+            .Given(Request.Create()
+                .WithPath($"/api/v3/repositories/{repositoryId}")
+                .UsingGet())
+            .RespondWith(Response.Create()
+                .WithStatusCode(200)
+                .WithHeader("Content-Type", "application/json")
+                .WithBodyAsJson(archivedRepositoryResponse));
+
+        // Act
+        var result = await Sut.GetRepositorySettingsAsync(repositoryId);
+
+        // Assert - Snapshot test for archived repository
+        await Verify(result)
+            .UseDirectory("Snapshots")
+            .UseMethodName("ArchivedRepositoryResponse")
+            .ScrubMembers("CreatedAt", "UpdatedAt", "PushedAt"); // Scrub dynamic date values
+    }
+
+    /// <summary>
     /// File Content Response Structure
     /// Verifies that GetFileContentAsync response structure remains stable
     /// </summary>
