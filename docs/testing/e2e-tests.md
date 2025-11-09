@@ -418,7 +418,7 @@ For CI/CD pipelines:
 
 - [Testing Strategy](./testing-strategy.md) - Overview of all testing levels
 - [Quick Reference](./quick-reference.md) - Common commands and patterns
-- [GitHub Integration](../github-integration.md) - GitHubService API documentation
+- [GitHub Integration](../services/github-integration.md) - GitHubService API documentation
 - [Test Mode Documentation](../../README.md#test-mode) - Detailed Test Mode guide
 - [Playwright Documentation](https://playwright.dev/dotnet/) - Official Playwright.NET docs
 

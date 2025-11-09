@@ -440,7 +440,7 @@ For more commands, see the [Quick Reference](./quick-reference.md).
 
 - [Testing Strategy](./testing-strategy.md) - Multi-level testing approach overview
 - [Contract Tests](./contract-tests.md) - Level 3: API contract validation
-- [GitHub Integration](../github-integration.md) - GitHub integration architecture and factory pattern
+- [GitHub Integration](../services/github-integration.md) - GitHub integration architecture and factory pattern
 - [Quick Reference](./quick-reference.md) - Common commands and patterns
 
 ## Summary

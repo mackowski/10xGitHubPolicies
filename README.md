@@ -468,11 +468,14 @@ You can review and merge these updates through the standard pull request process
 Detailed documentation for specific features and integrations:
 
 - **[Authentication](./docs/authentication.md)**: User authentication and authorization system
-- **[GitHub Integration](./docs/github-integration.md)**: GitHub API integration architecture and factory pattern for testability
-- **[Configuration Service](./docs/configuration-service.md)**: Managing centralized policy configuration from `.github/config.yaml`
-- **[Action Service](./docs/action-service.md)**: Automated action processing for policy violations
+- **[Services Architecture](./docs/services/architecture.md)**: Overview of all services and their relationships
+- **[GitHub Integration](./docs/services/github-integration.md)**: GitHub API integration architecture and factory pattern for testability
+- **[Configuration Service](./docs/services/configuration-service.md)**: Managing centralized policy configuration from `.github/config.yaml`
+- **[Scanning Service](./docs/services/scanning-service.md)**: Repository scanning and synchronization
+- **[Policy Evaluation](./docs/services/policy-evaluation.md)**: How the policy evaluation engine works and how to add new policies
+- **[Action Service](./docs/services/action-service.md)**: Automated action processing for policy violations
+- **[Dashboard Service](./docs/services/dashboard-service.md)**: Dashboard data aggregation and metrics
 - **[Hangfire Integration](./docs/hangfire-integration.md)**: Background job processing and scheduling
-- **[Policy Evaluation](./docs/policy-evaluation.md)**: How the policy evaluation engine works and how to add new policies
 - **[Testing Strategy](./docs/testing/testing-strategy.md)**: Comprehensive testing approach, tooling, and best practices
 - **[Testing Guide](./docs/testing/README.md)**: Entry point for all testing documentation
 - **[Contract Testing](./docs/testing/contract-tests.md)**: Detailed guide to contract testing with WireMock, Verify.NET, and JSON Schema

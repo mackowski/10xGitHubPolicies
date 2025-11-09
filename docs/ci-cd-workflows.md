@@ -8,7 +8,7 @@ In addition to the pull request workflow, the project uses [Dependabot](https://
 
 ## Pull Request Workflow
 
-The **Pull Request** workflow (`.github/workflows/pull-request.yml`) is triggered automatically on pull requests to `main` or `develop` branches. It performs checks including code linting, multi-level testing, code coverage reporting, and automatic PR status comments.
+The **Pull Request** workflow (`.github/workflows/pull-request.yml`) is triggered automatically on pull requests to `main` or `develop` branches. It performs checks including code linting, multi-level testing, code coverage collection, and automatic PR status comments.
 
 ### Workflow Structure
 
@@ -20,9 +20,8 @@ lint (reusable)
  ├── component-tests (reusable) ──┐
  │                              ├── integration-tests (reusable) ──┐
  │                              ├── contract-tests (reusable) ──┐  │
- │                              │                                │  ├── publish-coverage ──┐
- │                              │                                │  │                       │
- │                              │                                │  └── status-comment ─────┘
+ │                              │                                │  │
+ │                              │                                └── status-comment
 ```
 
 ### Reusable Workflows
@@ -117,43 +116,20 @@ Performs:
 
 **Coverage**: GitHub API response contracts, schema validation
 
-#### 6. Publish Coverage Job
-**Purpose**: Generates and publishes comprehensive code coverage reports  
-**Depends on**: All test jobs  
-**Runs on**: After all tests complete (regardless of pass/fail with `if: always()`)  
-
-Performs:
-- Downloads all test coverage artifacts from previous jobs
-- Installs ReportGenerator .NET tool
-- Aggregates coverage data from all test levels
-- Generates HTML, JSON, Badges, and Cobertura format reports
-- Filters out test projects from coverage calculations
-- Uploads comprehensive coverage report artifact
-- Extracts coverage percentage for PR comments
-- Publishes coverage to Codecov with multiple flags (unit, component, integration, contract)
-
-**Output Artifacts**:
-- `coverage-report/index.html` - Interactive HTML coverage report
-- `coverage-report/Summary.json` - Coverage summary in JSON format
-- `coverage-report/Cobertura.xml` - Cobertura format for external tools
-- `coverage-report/badges/` - Coverage badge images
-
-#### 7. Status Comment Job
+#### 6. Status Comment Job
 **Purpose**: Provides PR authors with clear feedback on CI status  
-**Depends on**: All jobs (lint, tests, coverage)  
+**Depends on**: All test jobs (lint, unit-tests, component-tests, integration-tests, contract-tests)  
 **Runs on**: After all jobs complete (regardless of pass/fail with `if: always()`)  
 **Only on**: Pull requests (not on direct pushes)  
 
 Performs:
 - Downloads all test result artifacts
 - Parses TRX files to extract test statistics (total, passed, failed)
-- Reads coverage percentage from coverage report
 - Determines overall status based on job results
 - Creates or updates PR comment with:
   - Overall status (✅ All checks passed / ❌ Tests failed / ❌ Linting failed)
   - Test results summary (total, passed, failed)
   - Job status table with emoji indicators
-  - Code coverage percentage
 - Updates existing bot comment if one exists (prevents comment spam)
 
 **Comment Format**:
@@ -176,9 +152,6 @@ Performs:
 | Integration Tests | ✅ |
 | Contract Tests | ✅ |
 
-### Code Coverage
-**Line Coverage:** 87.45%
-
 ---
 *This comment is automatically updated on each workflow run.*
 ```
@@ -190,12 +163,11 @@ Performs:
 All GitHub Actions used in workflows are **pinned to full-length commit SHAs** rather than version tags for security compliance. This prevents supply chain attacks from malicious updates to action versions.
 
 **Pinned Actions**:
-- `actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11` (v4)
-- `actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9` (v4)
+- `actions/checkout@ff7abcd0c3c05ccf6adc123a8cd1fd4fb30fb493` (v4)
+- `actions/setup-dotnet@d4c94342e560b34958eacfc5d055d21461ed1c5d` (v4)
 - `actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02` (v4)
 - `actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093` (v4)
-- `codecov/codecov-action@b9fd7d16f6d7d1b5d2bec1a2887e65ceed900238` (v4)
-- `actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b` (v7)
+- `actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd` (v7)
 
 **Updating Action SHAs**:
 1. Visit the action's GitHub repository Releases page (e.g., https://github.com/actions/checkout/releases/tag/v4)
@@ -216,19 +188,13 @@ Following the principle of least privilege reduces the attack surface if a workf
 
 ### Coverage Collection
 
-Coverage is collected at multiple levels using Coverlet:
+Coverage is collected at multiple levels using Coverlet in the test jobs:
 - **Unit Tests**: Coverage of business logic and services
 - **Component Tests**: Coverage of Blazor components
 - **Integration Tests**: Coverage of integration points
 - **Contract Tests**: Coverage of contract validation logic
 
-### Coverage Reporting
-
-The aggregated coverage report:
-- **Excludes**: Test projects (`*Tests*`, `*TestHelpers*`)
-- **Formats**: HTML, JSON Summary, Cobertura XML, Badges
-- **Publishes**: To Codecov with separate flags for each test level
-- **Filters**: Test helpers and test infrastructure from coverage calculations
+Coverage artifacts are generated by each test job and uploaded as artifacts. While coverage is collected, it is not currently aggregated or published in the pull request workflow.
 
 ### Coverage Targets
 
@@ -376,11 +342,6 @@ dotnet format --verify-no-changes
 - Review test artifacts uploaded to workflow examples
 - Use local workflow script: `./test-workflow-local.sh`
 
-**Coverage Report Missing**:
-- Verify coverage files are generated in test jobs
-- Check artifact upload/download steps succeeded
-- Review ReportGenerator installation step
-
 **PR Comment Not Appearing**:
 - Ensure workflow has `pull-requests: write` permission
 - Check that `github.event_name == 'pull_request'` condition is met
@@ -442,7 +403,7 @@ All tests must pass before the build job executes.
 
 **Purpose**: Deploy the application to Azure App Service  
 **Runs on**: `ubuntu-latest`  
-**Depends on**: `build`  
+**Depends on**: `build`, `integration-tests`, `contract-tests`  
 **Permissions**: 
 - `id-token: write` (required for OIDC authentication)
 - `contents: read`

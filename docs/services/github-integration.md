@@ -1,5 +1,7 @@
 # GitHub Integration Architecture
 
+> **Note**: This document is part of the [Services Architecture](./architecture.md) documentation.
+
 ## Overview
 
 The GitHub integration provides a testable, maintainable abstraction over the GitHub API using Octokit.net. The architecture follows a factory pattern to enable HTTP-level mocking for testing while maintaining clean production code.
@@ -42,17 +44,9 @@ The GitHub integration provides a testable, maintainable abstraction over the Gi
 
 ### Configuration
 
-**`GitHubAppOptions`** - Configuration model:
-- `AppId` - GitHub App ID
-- `PrivateKey` - GitHub App private key (PEM format)
-- `InstallationId` - Installation ID for the organization
-- `OrganizationName` - Organization slug
-- `BaseUrl` - Optional custom base URL (primarily for testing, defaults to `https://api.github.com`)
+**`GitHubAppOptions`** - Configuration model containing App ID, Private Key, Installation ID, Organization Name, and optional BaseUrl (for testing).
 
-**Dependency Injection** (in `Program.cs`):
-- `IGitHubClientFactory` registered as singleton with optional `BaseUrl` from configuration
-- `IGitHubService` registered as singleton
-- Configuration loaded from Secret Manager (local) or environment variables (production)
+**Dependency Injection**: Both `IGitHubClientFactory` and `IGitHubService` are registered as singletons. Configuration is loaded from Secret Manager (local) or environment variables (production).
 
 ## Testing Strategy
 
@@ -71,18 +65,7 @@ The factory pattern enables comprehensive testing at multiple levels:
 
 ### Important: Octokit Path Prefix
 
-When using a custom `BaseUrl`, Octokit automatically prepends `/api/v3/` to all API paths (GitHub Enterprise mode behavior). All WireMock stubs must include this prefix:
-
-```csharp
-// Correct - includes /api/v3/ prefix
-MockServer
-    .Given(Request.Create()
-        .WithPath("/api/v3/repos/test-org/test-repo")
-        .UsingGet())
-    .RespondWith(Response.Create()
-        .WithStatusCode(200)
-        .WithBody(repositoryJson));
-```
+When using a custom `BaseUrl` (e.g., for testing with WireMock), Octokit automatically prepends `/api/v3/` to all API paths (GitHub Enterprise mode behavior). All mock stubs must include this prefix.
 
 ## Design Principles
 
@@ -103,8 +86,9 @@ MockServer
 
 ## Related Documentation
 
-- **[Authentication](./authentication.md)**: User OAuth authentication - user access tokens obtained during OAuth flow are used by `AuthorizationService` which calls `GitHubService.IsUserMemberOfTeamAsync()` for authorization checks
-- **[Testing Strategy](./testing/testing-strategy.md)**: Multi-level testing approach
+- **[Authentication](../authentication.md)**: User OAuth authentication - user access tokens obtained during OAuth flow are used by `AuthorizationService` which calls `GitHubService.IsUserMemberOfTeamAsync()` for authorization checks
+- **[Testing Strategy](../testing/testing-strategy.md)**: Multi-level testing approach
 - **[Configuration Service](./configuration-service.md)**: Policy configuration management
 - **Integration Tests**: `10xGitHubPolicies.Tests.Integration` project
 - **Contract Tests**: `10xGitHubPolicies.Tests.Contracts` project
+

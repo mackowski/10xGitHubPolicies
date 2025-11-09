@@ -117,7 +117,7 @@ The application authentication is implemented through the following services:
   - Manages GitHub App authentication (JWT generation and installation token caching)
   - Provides high-level methods for GitHub API operations
   - Handles both installation token authentication (for backend operations) and user token authentication (for team membership checks)
-  - See [GitHub Integration](./github-integration.md) for detailed API documentation
+  - See [GitHub Integration](./services/github-integration.md) for detailed API documentation
 
 - **`ScanningService`** (Scoped):
   - Orchestrates repository scanning and policy evaluation
@@ -478,11 +478,11 @@ For production deployments, secrets are stored in GitHub Repository Secrets and 
 The authentication system integrates with:
 
 - **GitHub API**: 
-  - For team membership verification (via `IGitHubService.IsUserMemberOfTeamAsync()` - see [GitHub Integration](./github-integration.md))
+  - For team membership verification (via `IGitHubService.IsUserMemberOfTeamAsync()` - see [GitHub Integration](./services/github-integration.md))
   - For backend operations using GitHub App authentication (see [Application Authentication (GitHub App)](#application-authentication-github-app) section above)
 - **Configuration Service**: For retrieving authorized team settings
 - **Dashboard Service**: For loading user-specific data
 
 **Note**: 
-- **User Authentication**: User OAuth access tokens obtained during authentication are stored in the authentication cookie. The `AuthorizationService` extracts these tokens and passes them to `GitHubService.IsUserMemberOfTeamAsync()` (described in [GitHub Integration](./github-integration.md)) to verify team membership for authorization checks.
+- **User Authentication**: User OAuth access tokens obtained during authentication are stored in the authentication cookie. The `AuthorizationService` extracts these tokens and passes them to `GitHubService.IsUserMemberOfTeamAsync()` (described in [GitHub Integration](./services/github-integration.md)) to verify team membership for authorization checks.
 - **Application Authentication**: Backend services use GitHub App authentication (JWT and installation tokens) managed by `GitHubService` for all automated operations. See the [Application Authentication (GitHub App)](#application-authentication-github-app) section for details.
