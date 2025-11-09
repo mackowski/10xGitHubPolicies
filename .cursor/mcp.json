@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "10x-mvp-tracker": {
+      "command": "npx",
+      "args": ["--yes", "@przeprogramowani/10x-mvp-tracker"],
+      "transport": "stdio",
+      "env": {
+        "NPM_CONFIG_REGISTRY": "https://registry.npmjs.org/"
+      }
+    }
+  }
+}
+

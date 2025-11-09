@@ -2,6 +2,50 @@
 
 All notable changes to this project will be documented in this file.
 
+## 1.11
+
+### Added
+- **Reusable GitHub Actions Workflows**: Refactored CI/CD workflows to use reusable workflow files for better maintainability and consistency
+  - Created `.github/workflows/lint.yml` - Reusable workflow for code linting with `dotnet format --verify-no-changes`
+  - Created `.github/workflows/test-unit.yml` - Reusable workflow for unit tests with TRX artifact upload
+  - Created `.github/workflows/test-integration.yml` - Reusable workflow for integration tests with TRX artifact upload
+  - Created `.github/workflows/test-contract.yml` - Reusable workflow for contract tests with TRX artifact upload
+  - Created `.github/workflows/test-component.yml` - Reusable workflow for component tests with TRX artifact upload
+  - All reusable workflows support configurable .NET version via input parameter (defaults to `8.0.x`)
+  - Reusable workflows output artifact names for downstream job consumption
+- **Cursor Rules Consolidation**: Streamlined cursor rules for better maintainability
+  - Created `.cursor/rules/github-actions.mdc` - Guidelines for creating and maintaining GitHub Actions workflows
+  - Created `.cursor/rules/testing-requirements.mdc` - Requirements for adding tests when code is changed
+  - Consolidated testing rules from multiple files into single `testing-requirements.mdc` file
+  - Removed redundant testing rule files (blazor-component-testing.mdc, contract-testing.mdc, e2e-testing.mdc, integration-testing.mdc, testing-overview.mdc, unit-testing.mdc)
+
+### Changed
+- **Pull Request Workflow**: Refactored to use reusable workflows for all test jobs
+  - `lint` job now calls reusable `lint.yml` workflow
+  - `unit-tests` job now calls reusable `test-unit.yml` workflow
+  - `component-tests` job now calls reusable `test-component.yml` workflow
+  - `integration-tests` job now calls reusable `test-integration.yml` workflow
+  - `contract-tests` job now calls reusable `test-contract.yml` workflow
+  - Maintains same job dependencies and parallel execution structure
+  - Improved workflow maintainability and consistency across workflows
+- **Production CI/CD Workflow**: Refactored to use reusable workflows for test jobs
+  - `lint` job now calls reusable `lint.yml` workflow
+  - `unit-tests` job now calls reusable `test-unit.yml` workflow
+  - `component-tests` job now calls reusable `test-component.yml` workflow
+  - `integration-tests` job now calls reusable `test-integration.yml` workflow
+  - `contract-tests` job now calls reusable `test-contract.yml` workflow
+  - Build and deploy jobs remain unchanged
+- **Coding Practices Rule**: Updated to reflect consolidated testing requirements
+  - Removed redundant testing documentation from coding-practices.mdc
+  - References new `testing-requirements.mdc` rule file
+  - Maintains comprehensive testing strategy documentation in AGENTS.md
+
+### Benefits
+- **Improved Maintainability**: Single source of truth for each workflow type reduces duplication
+- **Consistency**: All workflows using the same reusable workflow share identical configuration
+- **Easier Updates**: Changes to test execution logic only need to be made in one place
+- **Better Organization**: Clear separation of concerns with dedicated workflow files
+
 ## 1.10
 
 ### Changed

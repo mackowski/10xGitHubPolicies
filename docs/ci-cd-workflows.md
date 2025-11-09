@@ -12,24 +12,43 @@ The **Pull Request** workflow (`.github/workflows/pull-request.yml`) is triggere
 
 ### Workflow Structure
 
-The workflow is organized into several interdependent jobs that run in parallel where possible to minimize execution time:
+The workflow is organized into several interdependent jobs that run in parallel where possible to minimize execution time. The workflow uses **reusable workflows** for test execution to ensure consistency and maintainability:
 
 ```
-lint
- ├── unit-tests ──┐
- ├── component-tests ──┐
- │                    ├── integration-tests ──┐
- │                    ├── contract-tests ──┐  │
- │                    │                    │  ├── publish-coverage ──┐
- │                    │                    │  │                       │
- │                    │                    │  └── status-comment ─────┘
+lint (reusable)
+ ├── unit-tests (reusable) ──┐
+ ├── component-tests (reusable) ──┐
+ │                              ├── integration-tests (reusable) ──┐
+ │                              ├── contract-tests (reusable) ──┐  │
+ │                              │                                │  ├── publish-coverage ──┐
+ │                              │                                │  │                       │
+ │                              │                                │  └── status-comment ─────┘
 ```
+
+### Reusable Workflows
+
+The project uses reusable workflows to eliminate duplication and ensure consistency across all CI/CD pipelines. Each reusable workflow is defined in `.github/workflows/` and can be called from other workflows.
+
+#### Available Reusable Workflows
+
+1. **`lint.yml`** - Code formatting verification
+2. **`test-unit.yml`** - Unit test execution
+3. **`test-component.yml`** - Component test execution
+4. **`test-integration.yml`** - Integration test execution
+5. **`test-contract.yml`** - Contract test execution
+
+All reusable workflows:
+- Accept optional `dotnet_version` input (defaults to `8.0.x`)
+- Generate TRX test result files
+- Upload test artifacts for downstream consumption
+- Follow security best practices (pinned action SHAs, minimal permissions)
 
 ### Jobs
 
 #### 1. Lint Job
 **Purpose**: Enforces code formatting standards  
 **Runs on**: Every PR  
+**Workflow**: Calls reusable `lint.yml` workflow
 
 Performs:
 - Restores .NET dependencies
@@ -40,6 +59,7 @@ Performs:
 **Purpose**: Fast feedback on business logic correctness  
 **Depends on**: `lint`  
 **Runs on**: After linting passes  
+**Workflow**: Calls reusable `test-unit.yml` workflow
 
 Performs:
 - Runs all tests tagged with `Category=Unit`
@@ -53,6 +73,7 @@ Performs:
 **Purpose**: Validates Blazor component rendering and interactivity  
 **Depends on**: `lint` (runs in parallel with unit-tests)  
 **Runs on**: After linting passes  
+**Workflow**: Calls reusable `test-component.yml` workflow
 
 Performs:
 - Runs all tests tagged with `Category=Component`
@@ -67,6 +88,7 @@ Performs:
 **Purpose**: Validates service interactions with external dependencies  
 **Depends on**: `unit-tests`, `component-tests`  
 **Runs on**: After unit and component tests pass  
+**Workflow**: Calls reusable `test-integration.yml` workflow
 
 Performs:
 - Runs all tests tagged with `Category=Integration`
@@ -82,6 +104,7 @@ Performs:
 **Purpose**: Validates GitHub API contract compliance  
 **Depends on**: `unit-tests`, `component-tests` (runs in parallel with integration-tests)  
 **Runs on**: After unit and component tests pass  
+**Workflow**: Calls reusable `test-contract.yml` workflow
 
 Performs:
 - Runs all tests tagged with `Category=Contract`
@@ -370,19 +393,37 @@ dotnet format --verify-no-changes
 
 ## Production Deployment Workflow
 
-The **Production Deployment** workflow (`.github/workflows/ci-cd-prod.yml`) handles building and deploying the application to Azure App Service.
+The **Production Deployment** workflow (`.github/workflows/ci-cd-prod.yml`) handles building and deploying the application to Azure App Service. It uses the same reusable workflows as the pull request workflow to ensure consistency.
 
 ### Workflow Structure
 
 ```
-build
- └── deploy
+lint (reusable)
+ ├── unit-tests (reusable) ──┐
+ ├── component-tests (reusable) ──┐
+ │                              ├── integration-tests (reusable) ──┐
+ │                              ├── contract-tests (reusable) ──┐  │
+ │                              │                                │  │
+ │                              │                                │  └── build ──┐
+ │                              │                                │               │
+ │                              │                                └───────────────┴── deploy
 ```
 
 ### Trigger
 
 - **Automatic**: On push to `main` branch
 - **Manual**: Via `workflow_dispatch` in GitHub Actions UI
+
+### Test Jobs
+
+The production workflow runs the same test suite as the pull request workflow using reusable workflows:
+- **Lint**: Code formatting verification
+- **Unit Tests**: Business logic validation
+- **Component Tests**: UI component validation
+- **Integration Tests**: Service integration validation
+- **Contract Tests**: API contract validation
+
+All tests must pass before the build job executes.
 
 ### Build Job
 

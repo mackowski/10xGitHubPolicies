@@ -1,5 +1,7 @@
 # Docs for the Azure Web Apps Deploy action: https://github.com/Azure/webapps-deploy
 # More GitHub Actions for Azure: https://github.com/Azure/actions
+# Note: All actions are pinned to full-length commit SHAs for security compliance
+# To verify/update commit SHAs, visit each action's GitHub repository and check the Releases page
 
 name: CI/CD - Build and deploy ASP.Net Core app to Azure Web App - wa-10xghpolicies-prod
 
@@ -9,19 +11,47 @@ on:
       - main
   workflow_dispatch:
 
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  DOTNET_VERSION: '8.0.x'
+
 jobs:
+  lint:
+    uses: ./.github/workflows/lint.yml
+
+  unit-tests:
+    needs: lint
+    uses: ./.github/workflows/test-unit.yml
+
+  component-tests:
+    needs: lint
+    uses: ./.github/workflows/test-component.yml
+
+  integration-tests:
+    needs: [unit-tests, component-tests]
+    uses: ./.github/workflows/test-integration.yml
+
+  contract-tests:
+    needs: [unit-tests, component-tests]
+    uses: ./.github/workflows/test-contract.yml
+
   build:
     runs-on: ubuntu-latest
+    needs: [lint, unit-tests, component-tests]
     permissions:
-      contents: read #This is required for actions/checkout
+      contents: read
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@ff7abcd0c3c05ccf6adc123a8cd1fd4fb30fb493 # v4
 
       - name: Set up .NET Core
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@d4c94342e560b34958eacfc5d055d21461ed1c5d # v4
         with:
-          dotnet-version: '8.x'
+          dotnet-version: ${{ env.DOTNET_VERSION }}
 
       - name: Build with dotnet
         run: dotnet build --configuration Release
@@ -30,27 +60,27 @@ jobs:
         run: dotnet publish 10xGitHubPolicies.App/10xGitHubPolicies.App.csproj -c Release -o ./publish
 
       - name: Upload artifact for deployment job
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: .net-app
           path: ./publish
 
   deploy:
     runs-on: ubuntu-latest
-    needs: build
+    needs: [build, integration-tests, contract-tests]
     permissions:
-      id-token: write #This is required for requesting the JWT
-      contents: read #This is required for actions/checkout
+      id-token: write
+      contents: read
 
     steps:
       - name: Download artifact from build job
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           name: .net-app
           path: ./drop
       
       - name: Login to Azure
-        uses: azure/login@v2
+        uses: azure/login@8c334a195cbb38e46038007b304988d888bf676a # v2
         with:
           client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_E448EBAFC853434F8DFC24251DA6AFEB }}
           tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_A7645CB8FB934C8B92E27DFD71893AF3 }}
@@ -58,14 +88,14 @@ jobs:
 
       - name: Deploy to Azure Web App
         id: deploy-to-webapp
-        uses: azure/webapps-deploy@v3
+        uses: azure/webapps-deploy@657f0700ea5214d56a0400d8ac5e8023c963d25d # v3
         with:
           app-name: 'wa-10xghpolicies-prod'
           slot-name: 'Production'
           package: ./drop
 
       - name: Apply app settings
-        uses: azure/cli@v2
+        uses: azure/cli@965c8d7571d2231a54e321ddd07f7b10317f34d9 # v2
         with:
           inlineScript: |
             az webapp config appsettings set \
@@ -84,10 +114,10 @@ jobs:
 
       - name: Get runner public IP
         id: ip
-        uses: haythem/public-ip@v1.3
+        uses: haythem/public-ip@bdddd92c198b0955f0b494a8ebeac529754262ff # v1.3
 
       - name: Add firewall rule for runner
-        uses: azure/cli@v2
+        uses: azure/cli@965c8d7571d2231a54e321ddd07f7b10317f34d9 # v2
         with:
           inlineScript: |
             az sql server firewall-rule create \
@@ -98,16 +128,16 @@ jobs:
               --end-ip-address ${{ steps.ip.outputs.ipv4 }}
 
       - name: Set up .NET Core for migrations
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@d4c94342e560b34958eacfc5d055d21461ed1c5d # v4
         with:
-          dotnet-version: '8.x'
+          dotnet-version: ${{ env.DOTNET_VERSION }}
 
       - name: Checkout code for migrations
-        uses: actions/checkout@v4
+        uses: actions/checkout@ff7abcd0c3c05ccf6adc123a8cd1fd4fb30fb493 # v4
 
       - name: Get Azure AD token for SQL Database
         id: get-token
-        uses: azure/cli@v2
+        uses: azure/cli@965c8d7571d2231a54e321ddd07f7b10317f34d9 # v2
         with:
           inlineScript: |
             TOKEN=$(az account get-access-token --resource https://database.windows.net/ --query accessToken -o tsv)
@@ -125,12 +155,11 @@ jobs:
 
       - name: Remove firewall rule
         if: always()
-        uses: azure/cli@v2
+        uses: azure/cli@965c8d7571d2231a54e321ddd07f7b10317f34d9 # v2
         with:
           inlineScript: |
             az sql server firewall-rule delete \
               -g rg-10xghpolicies-prod \
               -s sql-10xghpolicies \
               -n "gh-runner-${{ github.run_id }}" \
-              --yes
-          
+              -y
