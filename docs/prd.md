@@ -26,7 +26,8 @@ Engineering organizations, particularly Product Security Teams, face significant
 The application will support the following policies in its initial version:
 1.  Verify the presence of an `AGENTS.md` file in the repository's root.
 2.  Verify the presence of a `catalog-info.yaml` file in the repository's root.
-3.  Verify that the repository's Workflow Permissions are set to 'Read repository contents and packages permissions'.
+3.  Verify that the `catalog-info.yaml` file contains an assigned owner in the `spec.owner` field.
+4.  Verify that the repository's Workflow Permissions are set to 'Read repository contents and packages permissions'.
 
 ### 3.5. Automated Actions (MVP)
 Based on policy violations, the application can be configured to take the following actions:
