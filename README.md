@@ -378,6 +378,45 @@ Test results are saved to the `./coverage` directory as TRX files for analysis.
 
 **Note**: This script uses the same test filters and logging configuration as the GitHub Actions workflow, ensuring consistency between local and CI environments.
 
+### Pre-Push Test Suite
+
+For comprehensive validation before pushing changes, use the pre-push test script that runs the complete test suite including E2E tests:
+
+```sh
+./pre-push-test.sh
+```
+
+This script automatically:
+
+1. **Checks Docker Database**: Verifies Docker is running and starts the `sql-server-db` container if needed
+2. **Runs Workflow Tests**: Executes `./test-workflow-local.sh` (lint, unit, component, integration, contract tests)
+3. **Runs E2E Tests with TestMode**: 
+   - Starts application with `TestMode:Enabled=true` (no authentication)
+   - Runs E2E-Smoke and E2E-Workflow tests
+   - Stops the application
+4. **Runs E2E Auth Tests**:
+   - Starts application with `TestMode:Enabled=false` (with authentication)
+   - Runs E2E-Auth tests
+   - Stops the application
+5. **Provides Summary**: Shows comprehensive test results and exit status
+
+**Features**:
+- ✅ Automatic Docker database management
+- ✅ Application lifecycle management (start/stop)
+- ✅ Colored output for easy reading
+- ✅ Test results saved to `./TestResults/` directory
+- ✅ Exit codes suitable for CI/CD integration
+- ✅ Comprehensive error handling and cleanup
+
+**Exit Codes**:
+- `0`: All tests passed - **SAFE TO PUSH**
+- `1`: Some tests failed - **DO NOT PUSH** until issues are fixed
+
+**Prerequisites**:
+- Docker Desktop running (or ability to start containers)
+- .NET 8 SDK installed
+- Playwright browsers installed (for E2E tests): `pwsh bin/Debug/net8.0/playwright.ps1 install chromium`
+
 For more details, see **[Testing Strategy](./docs/testing-strategy.md)** and **[CI/CD Workflows](./docs/ci-cd-workflows.md)**.
 
 ---

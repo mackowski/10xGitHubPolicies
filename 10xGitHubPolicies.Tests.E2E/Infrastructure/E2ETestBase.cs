@@ -73,6 +73,30 @@ public abstract class E2ETestBase : PageTest
         var hostBuilder = Microsoft.Extensions.Hosting.Host.CreateDefaultBuilder()
             .ConfigureAppConfiguration((context, config) =>
             {
+                // Find appsettings.json relative to the test assembly location
+                // This ensures it works regardless of the current working directory
+                var assemblyLocation = typeof(E2ETestBase).Assembly.Location;
+                var assemblyDirectory = Path.GetDirectoryName(assemblyLocation) ?? Directory.GetCurrentDirectory();
+
+                // Try to find the project root (where appsettings.json should be)
+                // Look for appsettings.json in the assembly directory or parent directories
+                var configPath = Path.Combine(assemblyDirectory, "appsettings.json");
+                if (!File.Exists(configPath))
+                {
+                    // Try parent directory (common when running from bin/Debug/net8.0)
+                    var parentDir = Directory.GetParent(assemblyDirectory)?.Parent?.Parent?.FullName;
+                    if (parentDir != null)
+                    {
+                        configPath = Path.Combine(parentDir, "appsettings.json");
+                    }
+                }
+
+                if (File.Exists(configPath))
+                {
+                    config.SetBasePath(Path.GetDirectoryName(configPath)!);
+                    config.AddJsonFile(Path.GetFileName(configPath), optional: false, reloadOnChange: false);
+                }
+
                 config.AddEnvironmentVariables();
                 config.AddUserSecrets<E2ETestBase>();
             })
@@ -84,9 +108,19 @@ public abstract class E2ETestBase : PageTest
                 // Add memory cache
                 services.AddMemoryCache();
 
+                // Validate connection string is configured
+                var connectionString = context.Configuration.GetConnectionString("DefaultConnection");
+                if (string.IsNullOrWhiteSpace(connectionString))
+                {
+                    throw new InvalidOperationException(
+                        "ConnectionString 'DefaultConnection' is not configured. " +
+                        "Please ensure appsettings.json exists in the test project with a valid connection string, " +
+                        "or configure it via environment variables or user secrets.");
+                }
+
                 // Add application services
                 services.AddDbContext<ApplicationDbContext>(options =>
-                    options.UseSqlServer(context.Configuration.GetConnectionString("DefaultConnection")));
+                    options.UseSqlServer(connectionString));
 
                 // Configure GitHub App options
                 services.Configure<GitHubAppOptions>(context.Configuration.GetSection(GitHubAppOptions.GitHubApp));

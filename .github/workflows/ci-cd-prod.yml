@@ -161,5 +161,4 @@ jobs:
             az sql server firewall-rule delete \
               -g rg-10xghpolicies-prod \
               -s sql-10xghpolicies \
-              -n "gh-runner-${{ github.run_id }}" \
-              -y
+              -n "gh-runner-${{ github.run_id }}"

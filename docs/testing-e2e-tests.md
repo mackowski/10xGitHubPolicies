@@ -87,6 +87,54 @@ dotnet build
 pwsh bin/Debug/net8.0/playwright.ps1 install chromium
 ```
 
+### 6. E2E Test Configuration
+
+The E2E test project requires a connection string configuration. The test infrastructure supports multiple configuration sources (in order of precedence):
+
+1. **appsettings.json** (recommended for local development)
+2. **Environment Variables**
+3. **User Secrets**
+
+#### Using appsettings.json
+
+Create `appsettings.json` in the `10xGitHubPolicies.Tests.E2E` project directory:
+
+```json
+{
+  "ConnectionStrings": {
+    "DefaultConnection": "Server=localhost,1433;Database=10xGitHubPolicies;User Id=sa;Password=yourStrong(!)Password;TrustServerCertificate=True"
+  },
+  "Logging": {
+    "LogLevel": {
+      "Default": "Information",
+      "Microsoft": "Warning",
+      "Microsoft.Hosting.Lifetime": "Information"
+    }
+  }
+}
+```
+
+**Note**: The `appsettings.json` file is automatically copied to the output directory during build. The test infrastructure automatically locates it relative to the test assembly location, handling scenarios where tests run from `bin/Debug/net8.0/` or other output directories.
+
+#### Using Environment Variables
+
+Set the connection string via environment variable:
+
+```bash
+export ConnectionStrings__DefaultConnection="Server=localhost,1433;Database=10xGitHubPolicies;User Id=sa;Password=yourStrong(!)Password;TrustServerCertificate=True"
+```
+
+#### Using User Secrets
+
+Configure via .NET User Secrets:
+
+```bash
+cd 10xGitHubPolicies.Tests.E2E
+dotnet user-secrets set "ConnectionStrings:DefaultConnection" "Server=localhost,1433;Database=10xGitHubPolicies;User Id=sa;Password=yourStrong(!)Password;TrustServerCertificate=True"
+```
+
+**Configuration Loading**: The `E2ETestBase` class automatically locates and loads configuration from `appsettings.json` relative to the test assembly location. If the file is not found, it falls back to environment variables and user secrets. If no connection string is configured, tests will fail with a clear error message.
+
 ## Quick Start
 
 ### Step 1: Start the Web Application
@@ -122,10 +170,18 @@ pwsh run-e2e-tests.ps1  # Windows PowerShell
 All E2E tests inherit from `E2ETestBase` which provides:
 
 - **Test Host Creation**: Minimal .NET host with GitHub services
+- **Configuration Loading**: Automatic discovery and loading of `appsettings.json` relative to test assembly
+- **Connection String Validation**: Validates that database connection string is configured before tests run
 - **Browser Management**: Playwright browser instance
 - **Web Application Connectivity**: Verification that app is running
 - **Screenshot Capture**: Automatic screenshots for debugging
 - **Cleanup**: Automatic resource disposal
+
+**Configuration Resolution**: The test base class automatically locates `appsettings.json` by:
+1. Checking the test assembly directory
+2. Checking parent directories (handles `bin/Debug/net8.0/` scenarios)
+3. Falling back to environment variables and user secrets if file not found
+4. Validating connection string is present before proceeding
 
 Example:
 

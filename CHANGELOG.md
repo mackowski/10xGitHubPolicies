@@ -2,6 +2,47 @@
 
 All notable changes to this project will be documented in this file.
 
+## 1.12
+
+### Added
+- **Pre-Push Test Script**: Comprehensive test suite script for validating all changes before pushing to repository
+  - Created `pre-push-test.sh` - Automated script that runs complete test suite including E2E tests
+  - Automatically checks and starts Docker database container if needed
+  - Runs workflow tests (lint, unit, component, integration, contract) via `test-workflow-local.sh`
+  - Starts application with TestMode enabled for E2E-Smoke and E2E-Workflow tests
+  - Starts application with TestMode disabled for E2E-Auth tests
+  - Provides colored output and comprehensive test summary
+  - Handles application lifecycle (start/stop) automatically
+  - Saves test results to `./TestResults/` directory as TRX files
+  - Exits with appropriate error codes for CI/CD integration
+- **E2E Test Configuration Support**: Enhanced E2E test infrastructure for better configuration management
+  - Added `appsettings.json` to E2E test project with connection string configuration
+  - Configured project to copy `appsettings.json` to output directory automatically
+  - Enhanced `E2ETestBase` to locate and load `appsettings.json` relative to test assembly
+  - Added intelligent path resolution for configuration file (handles bin/Debug/net8.0 scenarios)
+  - Added connection string validation with clear error messages
+  - Supports configuration via appsettings.json, environment variables, or user secrets
+- **Cursor Command Documentation**: Added documentation for pre-push test script
+  - Created `.cursor/commands/pre-push-test.md` - Command documentation for running pre-push tests
+  - Includes usage instructions and script behavior explanation
+
+### Changed
+- **E2E Test Base Infrastructure**: Improved configuration loading and error handling
+  - Enhanced `E2ETestBase.CreateTestHost()` to automatically locate `appsettings.json`
+  - Added validation for required connection string configuration
+  - Improved error messages for missing configuration scenarios
+  - Better support for running tests from different working directories
+- **Production CI/CD Workflow**: Minor cleanup in Azure CLI command
+  - Removed unnecessary `-y` flag from firewall rule deletion command
+  - Command now uses default confirmation behavior
+
+### Benefits
+- **Pre-Push Validation**: Catch issues before pushing to repository, reducing CI/CD failures
+- **Automated Testing**: Single command runs entire test suite including E2E tests
+- **Better Developer Experience**: Clear feedback and automatic resource management
+- **Configuration Flexibility**: E2E tests support multiple configuration sources
+- **Improved Reliability**: Better error handling and validation in test infrastructure
+
 ## 1.11
 
 ### Added

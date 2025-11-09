@@ -534,6 +534,10 @@ reportgenerator -reports:coverage.cobertura.xml  # View report
 dotnet test --filter Category!=E2E               # All except E2E
 dotnet test --logger "trx;LogFileName=results.trx" # CI-friendly output
 
+# Pre-Push Validation
+./pre-push-test.sh                                # Run complete test suite including E2E
+./test-workflow-local.sh                          # Run workflow tests (lint, unit, component, integration, contract)
+
 # E2E (requires web application running first)
 dotnet test 10xGitHubPolicies.Tests.E2E         # Run all E2E tests
 dotnet test --filter Category=E2E-Workflow      # Run specific category
