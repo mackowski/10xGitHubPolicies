@@ -78,6 +78,14 @@ public class ActionService : IActionService
                         case "archive-repo":
                             await ArchiveRepositoryForViolationAsync(violation, policyConfig);
                             break;
+                        case "comment-on-prs":
+                        case "comment_on_prs":
+                            await CommentOnPullRequestsForViolationAsync(violation, policyConfig);
+                            break;
+                        case "block-prs":
+                        case "block_prs":
+                            await BlockPullRequestsForViolationAsync(violation, policyConfig);
+                            break;
                         case "log-only":
                             _logger.LogInformation("Log-only action for violation ID: {ViolationId} in repository {RepositoryName}",
                                 violation.ViolationId, violation.Repository.Name);
@@ -203,6 +211,202 @@ public class ActionService : IActionService
 
         _dbContext.ActionsLogs.Add(actionLog);
         await _dbContext.SaveChangesAsync();
+    }
+
+    /// <summary>
+    /// Comments on a pull request for policy violations (webhook path).
+    /// </summary>
+    public async Task CommentOnPullRequestAsync(long repositoryId, int pullRequestNumber, Configuration.Models.PolicyConfig policyConfig, List<PolicyViolation> violations)
+    {
+        try
+        {
+            if (!violations.Any())
+            {
+                _logger.LogInformation("No violations for PR #{PrNumber} in repository {RepositoryId}. Skipping comment.", pullRequestNumber, repositoryId);
+                return;
+            }
+
+            // Build comment message
+            var message = policyConfig.PrCommentDetails?.Message;
+            if (string.IsNullOrEmpty(message))
+            {
+                // Default message format
+                // Use PolicyType (available from evaluation) or Policy.PolicyKey (if loaded from DB)
+                var violationList = string.Join("\n", violations.Select(v => $"- {v.PolicyType ?? v.Policy?.PolicyKey ?? "Unknown"}"));
+                message = $"⚠️ **Policy Compliance Violations Detected**\n\nThis pull request is associated with a repository that violates the following policies:\n\n{violationList}\n\nPlease address these violations before merging.";
+            }
+
+            // Check for duplicate comments (check if bot already commented with similar message)
+            var existingComments = await _gitHubService.GetPullRequestCommentsAsync(repositoryId, pullRequestNumber);
+            var botComments = existingComments.Where(c =>
+                c.User != null &&
+                (c.User.Type == AccountType.Bot ||
+                 (c.User.Login != null && (c.User.Login.EndsWith("[bot]", StringComparison.OrdinalIgnoreCase) ||
+                                           c.User.Login.Contains("bot", StringComparison.OrdinalIgnoreCase))))).ToList();
+
+            // Check if we already commented with a similar message (check first 50 chars to avoid exact match requirement)
+            var messagePrefix = message.Length > 50 ? message[..50] : message;
+            var hasDuplicateComment = botComments.Any(c => c.Body.Contains(messagePrefix, StringComparison.OrdinalIgnoreCase));
+
+            if (hasDuplicateComment)
+            {
+                _logger.LogInformation("Bot already commented on PR #{PrNumber} in repository {RepositoryId} with similar message. Skipping duplicate comment.", pullRequestNumber, repositoryId);
+                return;
+            }
+
+            await _gitHubService.CreatePullRequestCommentAsync(repositoryId, pullRequestNumber, message);
+
+            _logger.LogInformation("Successfully commented on PR #{PrNumber} in repository {RepositoryId}", pullRequestNumber, repositoryId);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to comment on PR #{PrNumber} in repository {RepositoryId}", pullRequestNumber, repositoryId);
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Creates or updates a status check for a pull request based on policy violations (webhook path).
+    /// </summary>
+    public async Task UpdatePullRequestStatusCheckAsync(long repositoryId, string headSha, List<PolicyViolation> violations, Configuration.Models.PolicyConfig policyConfig)
+    {
+        try
+        {
+            var statusCheckName = policyConfig.BlockPrsDetails?.StatusCheckName ?? "Policy Compliance Check";
+
+            // Determine status and conclusion based on violations
+            var hasViolations = violations.Any();
+            var status = "completed";
+            var conclusion = hasViolations ? "failure" : "success";
+
+            // Check if status check already exists and update it instead of creating new one
+            var existingCheckRuns = await _gitHubService.GetCheckRunsForRefAsync(repositoryId, headSha);
+            var existingCheckRun = existingCheckRuns.FirstOrDefault(cr => cr.Name?.Equals(statusCheckName, StringComparison.OrdinalIgnoreCase) == true);
+
+            if (existingCheckRun != null)
+            {
+                _logger.LogInformation(
+                    "Status check '{StatusCheckName}' already exists for SHA {HeadSha}. Updating existing check run {CheckRunId}.",
+                    statusCheckName,
+                    headSha,
+                    existingCheckRun.Id);
+
+                await _gitHubService.UpdateStatusCheckAsync(
+                    repositoryId,
+                    existingCheckRun.Id,
+                    status,
+                    conclusion,
+                    detailsUrl: null);
+            }
+            else
+            {
+                await _gitHubService.CreateStatusCheckAsync(
+                    repositoryId,
+                    headSha,
+                    statusCheckName,
+                    status,
+                    conclusion,
+                    detailsUrl: null);
+            }
+
+            _logger.LogInformation(
+                "Successfully created status check '{StatusCheckName}' for SHA {HeadSha} in repository {RepositoryId} with conclusion: {Conclusion}",
+                statusCheckName,
+                headSha,
+                repositoryId,
+                conclusion);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to create/update status check for SHA {HeadSha} in repository {RepositoryId}", headSha, repositoryId);
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Comments on all open pull requests for a violation (scan-based path, backward compatibility).
+    /// </summary>
+    private async Task CommentOnPullRequestsForViolationAsync(PolicyViolation violation, Configuration.Models.PolicyConfig policyConfig)
+    {
+        try
+        {
+            var openPRs = await _gitHubService.GetOpenPullRequestsAsync(violation.Repository.GitHubRepositoryId);
+
+            if (!openPRs.Any())
+            {
+                _logger.LogInformation("No open PRs found for repository {RepositoryName}. Skipping comment action.", violation.Repository.Name);
+                await LogActionAsync(violation, "comment-on-prs", "Skipped", "No open pull requests found");
+                return;
+            }
+
+            var violationsList = new List<PolicyViolation> { violation };
+
+            foreach (var pr in openPRs)
+            {
+                try
+                {
+                    await CommentOnPullRequestAsync(violation.Repository.GitHubRepositoryId, pr.Number, policyConfig, violationsList);
+                    await LogActionAsync(violation, "comment-on-prs", "Success", $"Commented on PR #{pr.Number}");
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Failed to comment on PR #{PrNumber} in repository {RepositoryName}", pr.Number, violation.Repository.Name);
+                    await LogActionAsync(violation, "comment-on-prs", "Failed", $"Failed to comment on PR #{pr.Number}: {ex.Message}");
+                    // Continue processing other PRs
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error processing comment-on-prs action for violation ID: {ViolationId}", violation.ViolationId);
+            await LogActionAsync(violation, "comment-on-prs", "Failed", $"Exception: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Blocks all open pull requests for a violation (scan-based path, backward compatibility).
+    /// </summary>
+    private async Task BlockPullRequestsForViolationAsync(PolicyViolation violation, Configuration.Models.PolicyConfig policyConfig)
+    {
+        try
+        {
+            var openPRs = await _gitHubService.GetOpenPullRequestsAsync(violation.Repository.GitHubRepositoryId);
+
+            if (!openPRs.Any())
+            {
+                _logger.LogInformation("No open PRs found for repository {RepositoryName}. Skipping block action.", violation.Repository.Name);
+                await LogActionAsync(violation, "block-prs", "Skipped", "No open pull requests found");
+                return;
+            }
+
+            var violationsList = new List<PolicyViolation> { violation };
+
+            foreach (var pr in openPRs)
+            {
+                try
+                {
+                    if (string.IsNullOrEmpty(pr.Head.Sha))
+                    {
+                        _logger.LogWarning("PR #{PrNumber} in repository {RepositoryName} has no head SHA. Skipping.", pr.Number, violation.Repository.Name);
+                        continue;
+                    }
+
+                    await UpdatePullRequestStatusCheckAsync(violation.Repository.GitHubRepositoryId, pr.Head.Sha, violationsList, policyConfig);
+                    await LogActionAsync(violation, "block-prs", "Success", $"Created/updated status check for PR #{pr.Number}");
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Failed to create status check for PR #{PrNumber} in repository {RepositoryName}", pr.Number, violation.Repository.Name);
+                    await LogActionAsync(violation, "block-prs", "Failed", $"Failed to block PR #{pr.Number}: {ex.Message}");
+                    // Continue processing other PRs
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error processing block-prs action for violation ID: {ViolationId}", violation.ViolationId);
+            await LogActionAsync(violation, "block-prs", "Failed", $"Exception: {ex.Message}");
+        }
     }
 
     /// <summary>

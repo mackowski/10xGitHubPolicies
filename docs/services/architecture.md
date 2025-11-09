@@ -40,8 +40,21 @@ These services orchestrate the repository scanning and policy evaluation process
 
 - **[Action Service](./action-service.md)** (`IActionService`)
   - Executes automated actions for policy violations
-  - Creates issues, archives repositories, or logs violations
+  - Creates issues, archives repositories, comments on PRs, blocks PRs, or logs violations
   - Prevents duplicate actions
+  - Supports both webhook-based (real-time) and scan-based (periodic) processing
+
+### Webhook Processing
+
+These services handle real-time GitHub webhook events:
+
+- **Webhook Service** (`IWebhookService`)
+  - Routes incoming webhook events to appropriate handlers
+  - Enqueues background jobs for async processing
+
+- **Pull Request Webhook Handler** (`IPullRequestWebhookHandler`)
+  - Processes pull request webhook events (opened, synchronize, reopened)
+  - Evaluates policies and executes PR actions (comments, status checks) in real-time
 
 ### Frontend & Data Presentation
 

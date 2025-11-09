@@ -343,6 +343,114 @@ public class GitHubService : IGitHubService
         return issues;
     }
 
+    public async Task<IReadOnlyList<PullRequest>> GetOpenPullRequestsAsync(long repositoryId)
+    {
+        var client = await GetAuthenticatedClient();
+        try
+        {
+            var prRequest = new PullRequestRequest
+            {
+                State = ItemStateFilter.Open
+            };
+            return await client.PullRequest.GetAllForRepository(repositoryId, prRequest);
+        }
+        catch (NotFoundException)
+        {
+            _logger.LogWarning("Could not retrieve pull requests for repository {RepositoryId}.", repositoryId);
+            return new List<PullRequest>();
+        }
+    }
+
+    public async Task<IssueComment> CreatePullRequestCommentAsync(long repositoryId, int pullRequestNumber, string comment)
+    {
+        var client = await GetAuthenticatedClient();
+        // PRs are issues in GitHub API, so we use Issue.Comment.Create
+        return await client.Issue.Comment.Create(repositoryId, pullRequestNumber, comment);
+    }
+
+    public async Task<IReadOnlyList<IssueComment>> GetPullRequestCommentsAsync(long repositoryId, int pullRequestNumber)
+    {
+        var client = await GetAuthenticatedClient();
+        try
+        {
+            return await client.Issue.Comment.GetAllForIssue(repositoryId, pullRequestNumber);
+        }
+        catch (NotFoundException)
+        {
+            _logger.LogWarning("Could not retrieve comments for PR #{PrNumber} in repository {RepositoryId}.", pullRequestNumber, repositoryId);
+            return new List<IssueComment>();
+        }
+    }
+
+    public async Task<CheckRun> CreateStatusCheckAsync(long repositoryId, string headSha, string name, string status, string conclusion, string? detailsUrl = null)
+    {
+        var client = await GetAuthenticatedClient();
+        try
+        {
+            var newCheckRun = new NewCheckRun(name, headSha)
+            {
+                Status = status == "completed" ? CheckStatus.Completed : CheckStatus.InProgress,
+                Conclusion = conclusion == "success" ? CheckConclusion.Success :
+                            conclusion == "failure" ? CheckConclusion.Failure :
+                            conclusion == "neutral" ? CheckConclusion.Neutral :
+                            conclusion == "cancelled" ? CheckConclusion.Cancelled :
+                            conclusion == "skipped" ? CheckConclusion.Skipped :
+                            conclusion == "timed_out" ? CheckConclusion.TimedOut :
+                            null,
+                DetailsUrl = detailsUrl
+            };
+
+            return await client.Check.Run.Create(repositoryId, newCheckRun);
+        }
+        catch (NotFoundException ex)
+        {
+            _logger.LogWarning(ex, "Repository {RepositoryId} not found when creating status check", repositoryId);
+            throw;
+        }
+    }
+
+    public async Task<CheckRun> UpdateStatusCheckAsync(long repositoryId, long checkRunId, string status, string conclusion, string? detailsUrl = null)
+    {
+        var client = await GetAuthenticatedClient();
+        try
+        {
+            var updateCheckRun = new CheckRunUpdate
+            {
+                Status = status == "completed" ? CheckStatus.Completed : CheckStatus.InProgress,
+                Conclusion = conclusion == "success" ? CheckConclusion.Success :
+                            conclusion == "failure" ? CheckConclusion.Failure :
+                            conclusion == "neutral" ? CheckConclusion.Neutral :
+                            conclusion == "cancelled" ? CheckConclusion.Cancelled :
+                            conclusion == "skipped" ? CheckConclusion.Skipped :
+                            conclusion == "timed_out" ? CheckConclusion.TimedOut :
+                            null,
+                DetailsUrl = detailsUrl
+            };
+
+            return await client.Check.Run.Update(repositoryId, checkRunId, updateCheckRun);
+        }
+        catch (NotFoundException ex)
+        {
+            _logger.LogWarning(ex, "Check run {CheckRunId} not found in repository {RepositoryId}", checkRunId, repositoryId);
+            throw;
+        }
+    }
+
+    public async Task<IReadOnlyList<CheckRun>> GetCheckRunsForRefAsync(long repositoryId, string @ref)
+    {
+        var client = await GetAuthenticatedClient();
+        try
+        {
+            var checkRunsResponse = await client.Check.Run.GetAllForReference(repositoryId, @ref);
+            return checkRunsResponse.CheckRuns;
+        }
+        catch (NotFoundException)
+        {
+            _logger.LogWarning("Could not retrieve check runs for ref {Ref} in repository {RepositoryId}.", @ref, repositoryId);
+            return new List<CheckRun>();
+        }
+    }
+
     private async Task<GitHubClient> GetAuthenticatedClient()
     {
         var token = await _cache.GetOrCreateAsync(InstallationTokenCacheKey, async entry =>

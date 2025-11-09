@@ -433,6 +433,7 @@ The workflow requires the following GitHub Repository Secrets:
 - `GH_APP_ID` - GitHub App ID (for backend services)
 - `GH_APP_PRIVATE_KEY` - GitHub App private key (full PEM content)
 - `GH_APP_INSTALLATION_ID` - GitHub App Installation ID
+- `GH_APP_WEBHOOK_SECRET` - GitHub App webhook secret (for webhook signature verification)
 - `ORG_NAME` - GitHub organization name
 - `OAUTH_CLIENT_ID` - GitHub OAuth App Client ID (for user login)
 - `OAUTH_CLIENT_SECRET` - GitHub OAuth App Client Secret
@@ -447,6 +448,7 @@ The deployment workflow sets the following app settings on Azure App Service:
 - `GitHubApp__PrivateKey` - GitHub App private key
 - `GitHubApp__InstallationId` - Installation ID
 - `GitHubApp__OrganizationName` - Organization name
+- `GitHubApp__WebhookSecret` - Webhook secret for signature verification
 - `GitHub__ClientId` - OAuth Client ID
 - `GitHub__ClientSecret` - OAuth Client Secret
 - `ConnectionStrings__DefaultConnection` - MSI-based SQL connection string

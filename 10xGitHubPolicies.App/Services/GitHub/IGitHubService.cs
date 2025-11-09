@@ -30,4 +30,12 @@ public interface IGitHubService
     Task CloseIssueAsync(long repositoryId, int issueNumber);
     Task DeleteRepositoryAsync(string repositoryName);
     Task<IReadOnlyList<Issue>> GetRepositoryIssuesAsync(string repositoryName);
+
+    // Pull Request Methods
+    Task<IReadOnlyList<PullRequest>> GetOpenPullRequestsAsync(long repositoryId);
+    Task<IssueComment> CreatePullRequestCommentAsync(long repositoryId, int pullRequestNumber, string comment);
+    Task<IReadOnlyList<IssueComment>> GetPullRequestCommentsAsync(long repositoryId, int pullRequestNumber);
+    Task<CheckRun> CreateStatusCheckAsync(long repositoryId, string headSha, string name, string status, string conclusion, string? detailsUrl = null);
+    Task<CheckRun> UpdateStatusCheckAsync(long repositoryId, long checkRunId, string status, string conclusion, string? detailsUrl = null);
+    Task<IReadOnlyList<CheckRun>> GetCheckRunsForRefAsync(long repositoryId, string @ref);
 }

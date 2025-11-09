@@ -2,6 +2,63 @@
 
 All notable changes to this project will be documented in this file.
 
+## 1.17
+
+### Added
+- **Webhook Infrastructure**: Real-time processing of GitHub webhook events for immediate PR feedback
+  - `WebhookController` with signature verification using HMAC-SHA256
+  - `IWebhookService` and `WebhookService` for routing webhook events
+  - `IPullRequestWebhookHandler` and `PullRequestWebhookHandler` for processing PR events
+  - Webhook endpoint: `POST /api/webhooks/github`
+  - Supports `pull_request` events (opened, synchronize, reopened) and `ping` events
+  - Async processing using Hangfire to avoid blocking webhook responses
+  - Comprehensive unit tests (16 tests) covering webhook controller and handler logic
+
+- **PR Comment Action** (`comment-on-prs` or `comment_on_prs`): Comments on pull requests when policy violations are detected
+  - **Webhook Mode** (Primary): Real-time processing when PRs are opened or updated
+  - **Scan Mode** (Backward Compatible): Comments on all open PRs during periodic scans
+  - Configurable comment message via `PrCommentDetails.Message`
+  - Duplicate prevention: Checks if bot already commented to avoid spam
+  - Combines multiple violations in a single comment
+  - Comprehensive unit tests (4 tests) covering comment creation, duplicate prevention, and error handling
+
+- **PR Block Action** (`block-prs` or `block_prs`): Blocks pull requests by creating failing status checks
+  - **Webhook Mode** (Primary): Real-time processing when PRs are opened or updated
+  - **Scan Mode** (Backward Compatible): Blocks all open PRs during periodic scans
+  - Creates or updates status checks to block PR merges
+  - Updates status checks to "success" when violations are fixed
+  - Configurable status check name via `BlockPrsDetails.StatusCheckName`
+  - Duplicate prevention: Updates existing status checks instead of creating duplicates
+  - Comprehensive unit tests (4 tests) covering status check creation, updates, and error handling
+
+- **GitHubService PR Methods**: New methods for pull request operations
+  - `GetOpenPullRequestsAsync`: Retrieve all open PRs for a repository
+  - `CreatePullRequestCommentAsync`: Add comments to pull requests
+  - `GetPullRequestCommentsAsync`: Retrieve PR comments
+  - `CreateStatusCheckAsync`: Create status checks for commits
+  - `UpdateStatusCheckAsync`: Update existing status checks
+  - `GetCheckRunsForRefAsync`: Retrieve check runs for a commit ref
+  - Integration tests (8 tests) covering all PR operations with WireMock
+  - Contract tests (6 tests) validating PR API response schemas
+
+- **Configuration Models**: New models for PR action configuration
+  - `PrCommentDetails`: Configuration for PR comment messages
+  - `BlockPrsDetails`: Configuration for status check names
+  - Updated `PolicyConfig` to include optional PR action details
+
+### Changed
+- **ActionService**: Extended to support PR actions with webhook and scan-based processing
+  - New methods: `CommentOnPullRequestAsync`, `UpdatePullRequestStatusCheckAsync`
+  - Scan-based methods: `CommentOnPullRequestsForViolationAsync`, `BlockPullRequestsForViolationAsync`
+  - Updated `ProcessActionsForScanAsync` to handle `comment-on-prs` and `block-prs` actions
+
+### Benefits
+- **Real-time Feedback**: PRs are commented/blocked immediately when opened or updated, not waiting for the next scan
+- **Better UX**: Developers get immediate feedback when opening PRs
+- **Status Check Updates**: When violations are fixed, status checks are updated immediately on PR sync
+- **Centralized Control**: No need to add GitHub Actions workflows to every repository
+- **Backward Compatible**: Scan-based actions continue to work for existing workflows
+
 ## 1.16
 
 ### Added

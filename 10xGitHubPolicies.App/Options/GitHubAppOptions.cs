@@ -10,6 +10,12 @@ public class GitHubAppOptions
     public string OrganizationName { get; set; } = string.Empty;
 
     /// <summary>
+    /// Webhook secret for validating GitHub webhook payloads.
+    /// Required for webhook signature verification.
+    /// </summary>
+    public string? WebhookSecret { get; set; }
+
+    /// <summary>
     /// Optional base URL for GitHub API. If null, uses default GitHub API (https://api.github.com).
     /// Primarily used for testing with WireMock.
     /// </summary>

@@ -12,6 +12,7 @@ using _10xGitHubPolicies.App.Services.GitHub;
 using _10xGitHubPolicies.App.Services.Policies;
 using _10xGitHubPolicies.App.Services.Policies.Evaluators;
 using _10xGitHubPolicies.App.Services.Scanning;
+using _10xGitHubPolicies.App.Services.Webhooks;
 
 using Hangfire;
 
@@ -126,6 +127,8 @@ builder.Services.AddScoped<IPolicyEvaluator, CatalogInfoHasOwnerEvaluator>();
 builder.Services.AddScoped<IPolicyEvaluator, CorrectWorkflowPermissionsEvaluator>();
 builder.Services.AddScoped<IActionService, ActionService>();
 builder.Services.AddScoped<_10xGitHubPolicies.App.Services.Authorization.IAuthorizationService, _10xGitHubPolicies.App.Services.Authorization.AuthorizationService>();
+builder.Services.AddScoped<IWebhookService, WebhookService>();
+builder.Services.AddScoped<IPullRequestWebhookHandler, PullRequestWebhookHandler>();
 
 // Configure HTTPS redirection for development
 if (builder.Environment.IsDevelopment())

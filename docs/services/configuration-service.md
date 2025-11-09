@@ -35,8 +35,10 @@ The service uses strongly-typed models to represent the configuration:
 
 - **`AppConfig`**: Root configuration containing access control and policies
 - **`AccessControlConfig`**: Defines the authorized team for dashboard access (format: `org/team-slug`)
-- **`PolicyConfig`**: Defines a single policy with `Name`, `Type`, `Actions` (list of actions), and optional `IssueDetails`
+- **`PolicyConfig`**: Defines a single policy with `Name`, `Type`, `Actions` (list of actions), and optional `IssueDetails`, `PrCommentDetails`, `BlockPrsDetails`
 - **`IssueDetails`**: Contains `Title`, `Body`, and `Labels` for issue creation actions
+- **`PrCommentDetails`**: Contains `Message` for PR comment actions
+- **`BlockPrsDetails`**: Contains `StatusCheckName` for PR blocking actions
 
 ## Configuration File Format
 
@@ -68,6 +70,18 @@ policies:
   - name: 'Verify Workflow Permissions'
     type: 'correct_workflow_permissions'
     action: 'archive-repo'  # Single action
+    
+  - name: 'Documentation Policy'
+    type: 'has_agents_md'
+    action: 'comment-on-prs'  # PR comment action
+    pr_comment_details:
+      message: '⚠️ **Policy Compliance Violations Detected**\n\nThis pull request is associated with a repository that violates the documentation policy. Please address these violations before merging.'
+      
+  - name: 'Security Compliance Check'
+    type: 'correct_workflow_permissions'
+    action: 'block-prs'  # PR blocking action
+    block_prs_details:
+      status_check_name: 'Policy Compliance: Workflow Permissions'
 ```
 
 ## Caching Strategy

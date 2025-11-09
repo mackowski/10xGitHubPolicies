@@ -255,9 +255,10 @@ You are a senior Blazor and .NET developer and an expert in `C#`, `ASP.NET Core`
 
 ### Action Service
 - Use `IActionService` to process automated actions for policy violations.
-- The service supports three action types: `create-issue`, `archive-repo`, and `log-only`.
+- The service supports five action types: `create-issue`, `archive-repo`, `comment-on-prs`, `block-prs`, and `log-only`.
+- PR actions (`comment-on-prs`, `block-prs`) work in both webhook mode (real-time) and scan mode (backward compatible).
 - All actions are logged to the `ActionLog` table with status tracking.
-- Duplicate issue prevention is built-in for `create-issue` actions.
+- Duplicate prevention is built-in for `create-issue`, `archive-repo`, PR comments, and status checks.
 - Individual action failures don't block processing of other violations.
 - Refer to `/docs/services/action-service.md` for detailed usage examples and configuration.
 

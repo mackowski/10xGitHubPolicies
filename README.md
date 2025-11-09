@@ -131,6 +131,7 @@ The application will be available at:
 | `/onboarding` | First-time setup wizard for configuration | ❌ No (public) |
 | `/debug` | Debug information and authentication details | ✅ Yes |
 | `/hangfire` | Background job dashboard and monitoring | ✅ Yes |
+| `/api/webhooks/github` | GitHub webhook endpoint for real-time PR processing | ❌ No (webhook signature verified) |
 | `/challenge` | OAuth challenge endpoint for authentication flow | ❌ No (public) |
 | `/signin-github` | GitHub OAuth callback endpoint | ❌ No (public) |
 
@@ -237,6 +238,7 @@ The GitHub App is used by backend services to perform automated scans and action
     dotnet user-secrets set "GitHubApp:AppId" "YOUR_GITHUB_APP_ID"
     dotnet user-secrets set "GitHubApp:InstallationId" "YOUR_GITHUB_APP_INSTALLATION_ID"
     dotnet user-secrets set "GitHubApp:PrivateKey" "PASTE_YOUR_PRIVATE_KEY_CONTENTS_HERE"
+    dotnet user-secrets set "GitHubApp:WebhookSecret" "YOUR_WEBHOOK_SECRET"
     ```
     **Note**: When setting the `PrivateKey`, paste the full content of the `.pem` file, including the `-----BEGIN RSA PRIVATE KEY-----` and `-----END RSA PRIVATE KEY-----` markers.
 
@@ -258,16 +260,25 @@ To create a GitHub App for backend services:
 3. Configure the following:
    - **GitHub App name**: 10x GitHub Policy Enforcer
    - **Homepage URL**: `https://localhost:7040/` (for local development)
-   - **Webhook URL**: Leave empty for local development
+   - **Webhook URL**: 
+     - For local development: Use ngrok (see [Webhook Development Guide](./docs/webhook-development.md))
+     - For production: `https://wa-10xghpolicies-prod.azurewebsites.net/api/webhooks/github`
+   - **Webhook Secret**: Generate a secret and save it securely (you'll need this for configuration)
    - **Repository permissions**:
      - **Administration**: Read & write (to archive repositories)
      - **Contents**: Read-only (to check for file presence)
      - **Issues**: Read & write (to create and check for duplicate issues)
      - **Metadata**: Read-only (to list repositories)
+     - **Pull requests**: Read & write (to comment on PRs and create status checks)
+     - **Checks**: Write (to create and update status checks for PR blocking)
    - **Organization permissions**: None required
+   - **Subscribe to events**: 
+     - ✅ Pull requests (for PR comment/block actions)
+     - ✅ Ping (for testing webhook connectivity)
 4. After creating the app:
    - Note the **App ID** (found on the app's general page)
    - Generate a **Private Key** (download the `.pem` file)
+   - Generate and save the **Webhook Secret** (you'll need this for configuration)
    - Install the app on your organization and note the **Installation ID**
 
 #### GitHub OAuth App (User Authentication)
@@ -290,9 +301,11 @@ For user authentication, you need to create a GitHub OAuth App:
 The policy configuration is managed via a `config.yaml` file located in the root of your organization's `.github` repository.
 
 **Available Actions:**
-- `create_issue`: Creates a GitHub issue in the non-compliant repository (with duplicate prevention)
-- `archive_repo`: 🔒 **Archives the repository** - Makes it read-only to enforce compliance (with duplicate prevention)
-- `log_only`: Logs the violation without taking automated action
+- `create-issue` (or `create_issue`): Creates a GitHub issue in the non-compliant repository (with duplicate prevention)
+- `archive-repo` (or `archive_repo`): 🔒 **Archives the repository** - Makes it read-only to enforce compliance (with duplicate prevention)
+- `comment-on-prs` (or `comment_on_prs`): 📝 Comments on pull requests when violations are detected (real-time via webhooks or during scans)
+- `block-prs` (or `block_prs`): 🚫 Blocks pull requests by creating failing status checks (real-time via webhooks or during scans)
+- `log-only` (or `log_only`): Logs the violation without taking automated action
 
 **Multiple Actions Per Policy:**
 Policies can be configured with multiple actions that execute in sequence. Use either:
@@ -339,6 +352,18 @@ policies:
   - name: 'Verify Workflow Permissions'
     type: 'correct_workflow_permissions'
     action: 'archive-repo'  # Single action - Archive repositories with incorrect workflow permissions
+    
+  - name: 'Documentation Policy'
+    type: 'has_agents_md'
+    action: 'comment-on-prs'  # PR comment action - Real-time feedback via webhooks
+    pr_comment_details:
+      message: '⚠️ **Policy Compliance Violations Detected**\n\nThis pull request is associated with a repository that violates the documentation policy. Please address these violations before merging.'
+      
+  - name: 'Security Compliance Check'
+    type: 'correct_workflow_permissions'
+    action: 'block-prs'  # PR blocking action - Real-time blocking via webhooks
+    block_prs_details:
+      status_check_name: 'Policy Compliance: Workflow Permissions'
 ```
 
 ---
@@ -491,6 +516,7 @@ Detailed documentation for specific features and integrations:
 - **[Action Service](./docs/services/action-service.md)**: Automated action processing for policy violations
 - **[Dashboard Service](./docs/services/dashboard-service.md)**: Dashboard data aggregation and metrics
 - **[Hangfire Integration](./docs/hangfire-integration.md)**: Background job processing and scheduling
+- **[Webhook Development](./docs/webhook-development.md)**: Guide for testing and developing webhooks locally with ngrok
 - **[Testing Strategy](./docs/testing/testing-strategy.md)**: Comprehensive testing approach, tooling, and best practices
 - **[Testing Guide](./docs/testing/README.md)**: Entry point for all testing documentation
 - **[Contract Testing](./docs/testing/contract-tests.md)**: Detailed guide to contract testing with WireMock, Verify.NET, and JSON Schema

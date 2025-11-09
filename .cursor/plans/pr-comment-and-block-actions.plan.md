@@ -3,12 +3,64 @@
 
 ## Overview
 
-Add two new action types to the Action Service:
+Add two new action types to the Action Service with **webhook-based real-time processing**:
 
-1. **`comment-on-prs`** - Adds comments to all open pull requests in a repository when policy violations are detected
-2. **`block-prs`** - Blocks all pull requests in a repository by creating failing status checks when policy violations are detected
+1. **`comment-on-prs`** - Adds comments to pull requests when policy violations are detected (via webhooks)
+2. **`block-prs`** - Blocks pull requests by creating failing status checks when policy violations are detected (via webhooks)
+
+## Architecture Decision: Webhooks vs Scanning
+
+**Why Webhooks?**
+- **Real-time response**: PRs are commented/blocked immediately when opened or updated, not waiting for the next scan (up to 24 hours)
+- **Better UX**: Developers get immediate feedback when opening PRs
+- **Status check updates**: When violations are fixed, status checks can be updated immediately on PR sync
+- **Centralized control**: No need to add GitHub Actions workflows to every repository
+- **Aligns with existing architecture**: The app is already a GitHub App, which supports webhooks
+
+**Hybrid Approach**:
+- **Scanning** (existing): Continues to detect repository-level violations and trigger actions like `create-issue` and `archive-repo`
+- **Webhooks** (new): Handle PR-level actions (`comment-on-prs`, `block-prs`) in real-time
 
 ## Implementation Tasks
+
+### 0. Add Webhook Infrastructure (NEW - CRITICAL)
+
+**Location**: `10xGitHubPolicies.App/Controllers/` and `10xGitHubPolicies.App/Services/Webhooks/`
+
+**Testing First**: Before implementing full webhook processing, test the infrastructure using the minimal webhook controller. See `.cursor/plans/webhook-testing-guide.md` for detailed testing instructions.
+
+**New Components Needed**:
+
+1. **Webhook Controller** (`WebhookController.cs`): ✅ **CREATED** (minimal version for testing)
+   - Endpoint: `POST /api/webhooks/github`
+   - Validates webhook signature using GitHub App webhook secret
+   - Logs incoming webhook events
+   - Returns 200 OK immediately (webhook processing will be async in full implementation)
+
+2. **Webhook Service** (`IWebhookService.cs` and `WebhookService.cs`):
+   - Processes `pull_request` events (opened, synchronize, reopened)
+   - Processes `check_run` events (optional, for status check updates)
+   - Enqueues background jobs for policy evaluation and PR actions
+
+3. **PR Webhook Handler** (`IPullRequestWebhookHandler.cs` and `PullRequestWebhookHandler.cs`):
+   - Evaluates repository policies for the PR's repository
+   - Determines if PR should be commented/blocked based on violations
+   - Creates comments or status checks as needed
+   - Updates existing status checks when violations are fixed
+
+**Implementation Details**:
+
+- Use `Octokit.Webhooks` NuGet package or implement manual webhook signature verification
+- Webhook secret should be stored in configuration (GitHub App webhook secret)
+- Use Hangfire to enqueue webhook processing jobs (avoid blocking webhook response)
+- Handle webhook delivery retries gracefully (idempotent operations)
+- Log all webhook events for debugging
+
+**GitHub App Configuration**:
+- Enable webhook delivery in GitHub App settings
+- Subscribe to `pull_request` events (opened, synchronize, reopened, closed)
+- Set webhook URL to: `https://your-domain.com/api/webhooks/github`
+- Configure webhook secret in application configuration
 
 ### 1. Add PR Methods to GitHubService
 
@@ -32,47 +84,51 @@ Add two new action types to the Action Service:
 
 **Location**: `10xGitHubPolicies.App/Services/Action/ActionService.cs`
 
-**New Method**: `CommentOnPullRequestsForViolationAsync(PolicyViolation violation, PolicyConfig policyConfig)`
+**New Methods**:
+- `CommentOnPullRequestAsync(long repositoryId, int pullRequestNumber, PolicyConfig policyConfig, List<PolicyViolation> violations)` - Comment on a specific PR (called from webhook handler)
+- `CommentOnPullRequestsForViolationAsync(PolicyViolation violation, PolicyConfig policyConfig)` - Comment on all open PRs (called from scan-based actions, for backward compatibility)
 
 **Features**:
 
-- Retrieve all open PRs for the violating repository
-- Add a comment to each PR with policy violation details
+- Add a comment to the PR with policy violation details
 - Use configurable comment message from `PolicyConfig` or default format
-- Implement duplicate prevention: Check if bot already commented (by checking existing comments)
-- Log each comment action separately (one log entry per PR)
-- Handle errors gracefully - continue processing other PRs if one fails
+- Implement duplicate prevention: Check if bot already commented (by checking existing comments for the same policy)
+- Log each comment action separately
+- Handle errors gracefully
 - Support both action name formats: `"comment-on-prs"` and `"comment_on_prs"`
 
 **Comment Content**:
 
 - Default: Include policy name, violation details, and link to repository
 - Configurable via new `PrCommentDetails` model in `PolicyConfig` (similar to `IssueDetails`)
+- When multiple violations exist, combine them in a single comment
 
 ### 3. Add Block PRs Action to ActionService
 
 **Location**: `10xGitHubPolicies.App/Services/Action/ActionService.cs`
 
-**New Method**: `BlockPullRequestsForViolationAsync(PolicyViolation violation, PolicyConfig policyConfig)`
+**New Methods**:
+- `UpdatePullRequestStatusCheckAsync(long repositoryId, string headSha, List<PolicyViolation> violations, PolicyConfig policyConfig)` - Create/update status check for a specific PR (called from webhook handler)
+- `BlockPullRequestsForViolationAsync(PolicyViolation violation, PolicyConfig policyConfig)` - Block all open PRs (called from scan-based actions, for backward compatibility)
 
 **Features**:
 
-- Retrieve all open PRs for the violating repository
-- For each PR, create a failing status check on the PR's head SHA
+- Create or update a status check on the PR's head SHA
 - Status check name: Configurable or default to "Policy Compliance Check"
-- Status check conclusion: `"failure"` to block merging
-- Status check details: Include policy violation information
-- Implement duplicate prevention: Check if status check already exists for this violation
-- Log each status check creation separately
-- Handle errors gracefully - continue processing other PRs if one fails
+- Status check conclusion: `"failure"` if violations exist, `"success"` if no violations
+- Status check details: Include policy violation information (or success message if compliant)
+- Implement duplicate prevention: Update existing status check if it exists (same name)
+- Log each status check creation/update separately
+- Handle errors gracefully
 - Support both action name formats: `"block-prs"` and `"block_prs"`
 
 **Status Check Details**:
 
 - Name: Configurable via `PolicyConfig` or default format
-- Conclusion: Always `"failure"` to block merging
-- Output: Include policy name and violation details
+- Conclusion: `"failure"` when violations exist, `"success"` when compliant
+- Output: Include policy name and violation details (or success message)
 - External URL: Optional link to repository or dashboard
+- **Important**: Status checks should be updated on every PR sync to reflect current compliance status
 
 ### 4. Update PolicyConfig Model
 
@@ -92,7 +148,7 @@ Add two new action types to the Action Service:
 
 **Location**: `10xGitHubPolicies.App/Services/Action/ActionService.cs`
 
-**Add new action handlers**:
+**Add new action handlers** (for backward compatibility with scan-based actions):
 
 ```csharp
 else if (policyConfig.Action == "comment-on-prs" || policyConfig.Action == "comment_on_prs")
@@ -105,7 +161,34 @@ else if (policyConfig.Action == "block-prs" || policyConfig.Action == "block_prs
 }
 ```
 
+**Note**: These scan-based handlers are for backward compatibility. The primary mechanism for PR actions is webhook-based (see Task 0).
+
 ## Testing Implementation
+
+### Level 0: Webhook Infrastructure Tests (NEW)
+
+**Location**: `10xGitHubPolicies.Tests/Controllers/` and `10xGitHubPolicies.Tests/Services/Webhooks/`
+
+**New Test Files**:
+
+- `WebhookControllerTests.cs` - Test webhook endpoint
+  - `Post_WhenValidSignature_Returns200`
+  - `Post_WhenInvalidSignature_Returns401`
+  - `Post_WhenPullRequestOpened_EnqueuesProcessingJob`
+  - `Post_WhenPullRequestSynchronized_EnqueuesProcessingJob`
+  - `Post_WhenUnsupportedEvent_Returns200` (ignore unsupported events)
+
+- `PullRequestWebhookHandlerTests.cs` - Test webhook handler logic
+  - `HandlePullRequestOpened_WhenViolationsExist_CommentsAndBlocksPR`
+  - `HandlePullRequestOpened_WhenNoViolations_DoesNotCommentOrBlock`
+  - `HandlePullRequestSynchronized_WhenViolationsFixed_UpdatesStatusCheckToSuccess`
+  - `HandlePullRequestSynchronized_WhenNewViolations_UpdatesStatusCheckToFailure`
+  - `HandlePullRequestOpened_WithMultiplePolicies_ProcessesAllActions`
+
+**Test Infrastructure**:
+- Mock webhook signature verification
+- Use NSubstitute to mock GitHubService and PolicyEvaluationService
+- Test webhook payload parsing
 
 ### Level 1: Unit Tests
 
@@ -113,19 +196,23 @@ else if (policyConfig.Action == "block-prs" || policyConfig.Action == "block_prs
 
 **New Tests for Comment-on-PRs**:
 
-- `ProcessActionsForScanAsync_WhenCommentOnPrsAction_CommentsOnAllOpenPRs` - Tests successful commenting
-- `ProcessActionsForScanAsync_WhenCommentOnPrsAction_NoOpenPRs_LogsInfo` - Tests when no PRs exist
-- `ProcessActionsForScanAsync_WhenCommentOnPrsAction_DuplicateComment_Skips` - Tests duplicate prevention
-- `ProcessActionsForScanAsync_WhenCommentOnPrsAction_PartialFailure_ContinuesProcessing` - Tests error handling
-- `ProcessActionsForScanAsync_WhenCommentOnPrsAction_UsesCustomMessage` - Tests configurable message
+- `CommentOnPullRequestAsync_WhenViolationsExist_CommentsOnPR` - Tests successful commenting (webhook path)
+- `CommentOnPullRequestAsync_WhenNoViolations_DoesNotComment` - Tests when no violations exist
+- `CommentOnPullRequestAsync_WhenDuplicateComment_Skips` - Tests duplicate prevention
+- `CommentOnPullRequestAsync_WhenError_LogsAndContinues` - Tests error handling
+- `CommentOnPullRequestAsync_UsesCustomMessage` - Tests configurable message
+- `CommentOnPullRequestsForViolationAsync_WhenCommentOnPrsAction_CommentsOnAllOpenPRs` - Tests scan-based path (backward compatibility)
+- `CommentOnPullRequestsForViolationAsync_WhenNoOpenPRs_LogsInfo` - Tests when no PRs exist
 
 **New Tests for Block-PRs**:
 
-- `ProcessActionsForScanAsync_WhenBlockPrsAction_CreatesFailingStatusChecks` - Tests successful blocking
-- `ProcessActionsForScanAsync_WhenBlockPrsAction_NoOpenPRs_LogsInfo` - Tests when no PRs exist
-- `ProcessActionsForScanAsync_WhenBlockPrsAction_DuplicateStatusCheck_Skips` - Tests duplicate prevention
-- `ProcessActionsForScanAsync_WhenBlockPrsAction_PartialFailure_ContinuesProcessing` - Tests error handling
-- `ProcessActionsForScanAsync_WhenBlockPrsAction_UsesCustomStatusCheckName` - Tests configurable name
+- `UpdatePullRequestStatusCheckAsync_WhenViolationsExist_CreatesFailingStatusCheck` - Tests successful blocking (webhook path)
+- `UpdatePullRequestStatusCheckAsync_WhenNoViolations_CreatesSuccessStatusCheck` - Tests when compliant
+- `UpdatePullRequestStatusCheckAsync_WhenStatusCheckExists_UpdatesExisting` - Tests status check updates
+- `UpdatePullRequestStatusCheckAsync_WhenError_LogsAndContinues` - Tests error handling
+- `UpdatePullRequestStatusCheckAsync_UsesCustomStatusCheckName` - Tests configurable name
+- `BlockPullRequestsForViolationAsync_WhenBlockPrsAction_CreatesFailingStatusChecks` - Tests scan-based path (backward compatibility)
+- `BlockPullRequestsForViolationAsync_WhenNoOpenPRs_LogsInfo` - Tests when no PRs exist
 
 **Test Data Requirements**:
 
@@ -135,19 +222,26 @@ else if (policyConfig.Action == "block-prs" || policyConfig.Action == "block_prs
 
 ### Level 2: Integration Tests
 
-**Location**: `10xGitHubPolicies.Tests.Integration/GitHub/`
+**Location**: `10xGitHubPolicies.Tests.Integration/`
 
 **New Test Files**:
 
-- `PullRequestOperationsTests.cs` - Test GitHubService PR methods with WireMock
+- `GitHub/PullRequestOperationsTests.cs` - Test GitHubService PR methods with WireMock
                                                                 - `GetOpenPullRequestsAsync_WhenCalled_ReturnsOpenPRs`
                                                                 - `CreatePullRequestCommentAsync_WhenCalled_CreatesComment`
                                                                 - `CreateStatusCheckAsync_WhenCalled_CreatesFailingCheck`
                                                                 - `CreateStatusCheckAsync_WhenRepositoryNotFound_ThrowsNotFoundException`
+  - `UpdateStatusCheckAsync_WhenCalled_UpdatesExistingCheck`
+
+- `Webhooks/WebhookIntegrationTests.cs` - Test webhook processing end-to-end with WireMock
+  - `ProcessPullRequestOpenedWebhook_WhenViolationsExist_CommentsAndBlocksPR`
+  - `ProcessPullRequestSynchronizedWebhook_WhenViolationsFixed_UpdatesStatusCheck`
+  - `ProcessPullRequestWebhook_WithInvalidSignature_RejectsRequest`
+  - Test webhook signature verification with real payloads
 
 - `Action/PullRequestActionTests.cs` - Test ActionService PR actions with database
-                                                                - `CommentOnPrsAction_WhenViolationExists_CommentsOnAllPRs`
-                                                                - `BlockPrsAction_WhenViolationExists_BlocksAllPRs`
+  - `CommentOnPrsAction_WhenViolationExists_CommentsOnPR` (webhook path)
+  - `BlockPrsAction_WhenViolationExists_BlocksPR` (webhook path)
                                                                 - `CommentOnPrsAction_WithMultipleViolations_ProcessesAll`
                                                                 - Test action logging persistence for PR actions
 
@@ -267,26 +361,61 @@ policies:
 
 ## Implementation Order
 
-1. **Add GitHubService PR Methods** - Implement `GetOpenPullRequestsAsync`, `CreatePullRequestCommentAsync`, `CreateStatusCheckAsync`
-2. **Add Configuration Models** - Create `PrCommentDetails` and `BlockPrsDetails` models, update `PolicyConfig`
-3. **Implement Comment-on-PRs Action** - Add `CommentOnPullRequestsForViolationAsync` method
-4. **Implement Block-PRs Action** - Add `BlockPullRequestsForViolationAsync` method
-5. **Update ProcessActionsForScanAsync** - Add action handlers for new actions
-6. **Unit Tests** - Add unit tests for both actions
-7. **Integration Tests** - Add integration tests for GitHubService and ActionService
-8. **Contract Tests** - Add contract tests for PR API responses
-9. **Documentation** - Update all relevant documentation
-10. **Code Review** - Verify all tests pass and implementation follows patterns
+1. **Add Webhook Infrastructure** (CRITICAL FIRST STEP)
+   - Create `WebhookController` with signature verification
+   - Create `IWebhookService` and `WebhookService`
+   - Create `IPullRequestWebhookHandler` and `PullRequestWebhookHandler`
+   - Configure webhook endpoint in `Program.cs`
+   - Add webhook secret to configuration
+
+2. **Add GitHubService PR Methods** - Implement `GetOpenPullRequestsAsync`, `CreatePullRequestCommentAsync`, `CreateStatusCheckAsync`, `UpdateStatusCheckAsync`
+
+3. **Add Configuration Models** - Create `PrCommentDetails` and `BlockPrsDetails` models, update `PolicyConfig`
+
+4. **Implement PR Actions in ActionService** - Add `CommentOnPullRequestAsync` and `UpdatePullRequestStatusCheckAsync` methods (webhook path)
+
+5. **Integrate Webhook Handler with ActionService** - Connect webhook handler to ActionService methods
+
+6. **Add Scan-Based Handlers** (backward compatibility) - Add `CommentOnPullRequestsForViolationAsync` and `BlockPullRequestsForViolationAsync` for scan-based actions
+
+7. **Update ProcessActionsForScanAsync** - Add action handlers for new actions (scan-based path)
+
+8. **Unit Tests** - Add unit tests for webhook infrastructure and PR actions
+
+9. **Integration Tests** - Add integration tests for webhooks, GitHubService, and ActionService
+
+10. **Contract Tests** - Add contract tests for PR API responses and webhook payloads
+
+11. **Documentation** - Update all relevant documentation
+
+12. **Code Review** - Verify all tests pass and implementation follows patterns
 
 ## Success Criteria
 
-- `comment-on-prs` action successfully comments on all open PRs in violating repositories
-- `block-prs` action successfully creates failing status checks on all open PRs
+- **Webhook Infrastructure**:
+  - Webhook endpoint accepts and validates GitHub webhook payloads
+  - Webhook signature verification works correctly
+  - PR events (opened, synchronize, reopened) trigger policy evaluation
+  - Webhook processing is async (doesn't block webhook response)
+
+- **PR Actions**:
+  - `comment-on-prs` action comments on PRs immediately when opened/updated (via webhooks)
+  - `block-prs` action creates/updates status checks immediately when PRs are opened/updated (via webhooks)
+  - Status checks are updated to "success" when violations are fixed
 - Both actions implement duplicate prevention
 - Both actions handle errors gracefully without blocking other actions
+
+- **Backward Compatibility**:
+  - Scan-based actions still work (comment/block all open PRs when violations detected during scan)
+  - Existing workflows continue to function
+
+- **Testing**:
 - All unit tests pass (existing + new)
 - All integration tests pass (existing + new)
 - All contract tests pass (existing + new)
+  - Webhook tests pass
+
+- **Documentation & Code Quality**:
 - Action logs are correctly persisted for all scenarios
 - Documentation is updated and accurate
 - Code follows existing patterns and conventions
@@ -294,23 +423,64 @@ policies:
 
 ## Considerations
 
-- **Rate Limiting**: PR actions may create many API calls (one per PR). Consider rate limit handling and potential batching if needed.
-- **Status Check Permissions**: Creating status checks requires appropriate GitHub App permissions. Ensure the app has `checks: write` permission.
-- **Comment Permissions**: PR comments require `pull_requests: write` permission.
-- **Duplicate Prevention**: For comments, check if bot user already commented. For status checks, check if status check with same name already exists.
-- **Performance**: Processing many PRs may take time. Consider async processing and logging progress.
-- **Status Check Visibility**: Status checks appear in PR checks section. Ensure the name clearly indicates policy violation.
+### Webhook Infrastructure
+- **Webhook Secret**: Store GitHub App webhook secret securely in configuration (not in code)
+- **Signature Verification**: Always verify webhook signatures to prevent unauthorized requests
+- **Async Processing**: Process webhooks asynchronously using Hangfire to avoid blocking webhook responses
+- **Idempotency**: Handle webhook delivery retries gracefully (GitHub may retry failed deliveries)
+- **Event Filtering**: Only process relevant events (`pull_request.opened`, `pull_request.synchronize`, `pull_request.reopened`)
+
+### GitHub App Permissions
+- **Status Check Permissions**: Creating status checks requires `checks: write` permission
+- **Comment Permissions**: PR comments require `pull_requests: write` permission
+- **Webhook Events**: Subscribe to `pull_request` events in GitHub App settings
+
+### Performance & Rate Limiting
+- **Rate Limiting**: PR actions create API calls per PR. Consider rate limit handling and potential batching if needed
+- **Webhook Processing**: Use Hangfire to queue webhook processing jobs (avoid blocking webhook endpoint)
+- **Status Check Updates**: Update status checks efficiently (check if update is needed before making API call)
+
+### Duplicate Prevention
+- **Comments**: Check if bot user already commented on the PR for the same policy violation
+- **Status Checks**: Update existing status check if it exists (same name), don't create duplicates
+
+### Status Check Behavior
+- **Status Check Visibility**: Status checks appear in PR checks section. Ensure the name clearly indicates policy violation
+- **Status Updates**: Update status checks on every PR sync to reflect current compliance status
+- **Success State**: When violations are fixed, update status check to "success" to unblock PR
+
+### Configuration
+- **Webhook URL**: Configure webhook URL in GitHub App settings: `https://your-domain.com/api/webhooks/github`
+- **Webhook Secret**: Configure webhook secret in application configuration (e.g., `GitHubApp:WebhookSecret`)
 
 ### To-dos
 
-- [ ] Add GetOpenPullRequestsAsync, CreatePullRequestCommentAsync, and CreateStatusCheckAsync methods to IGitHubService and GitHubService
-- [ ] Create PrCommentDetails and BlockPrsDetails models, update PolicyConfig to include new properties
-- [ ] Implement CommentOnPullRequestsForViolationAsync method in ActionService with duplicate prevention and error handling
-- [ ] Implement BlockPullRequestsForViolationAsync method in ActionService with duplicate prevention and error handling
+- [ ] Create WebhookController with signature verification endpoint
+- [ ] Create IWebhookService and WebhookService for webhook processing
+- [ ] Create IPullRequestWebhookHandler and PullRequestWebhookHandler
+- [ ] Configure webhook endpoint in Program.cs
+- [ ] Add webhook secret to configuration (GitHubApp:WebhookSecret)
+- [ ] Add unit tests for webhook controller and handlers
+- [ ] Add integration tests for webhook processing with WireMock
+- [ ] Add GetOpenPullRequestsAsync, CreatePullRequestCommentAsync, CreateStatusCheckAsync, UpdateStatusCheckAsync methods to IGitHubService and GitHubService
+- [ ] Add integration tests for GitHubService PR methods with WireMock
+- [ ] Create PrCommentDetails and BlockPrsDetails models
+- [ ] Update PolicyConfig to include new properties
+- [ ] Implement CommentOnPullRequestAsync method (webhook path) with duplicate prevention and error handling
+- [ ] Implement UpdatePullRequestStatusCheckAsync method (webhook path) with duplicate prevention and error handling
+- [ ] Implement CommentOnPullRequestsForViolationAsync method (scan path, backward compatibility)
+- [ ] Implement BlockPullRequestsForViolationAsync method (scan path, backward compatibility)
 - [ ] Update ProcessActionsForScanAsync to handle comment-on-prs and block-prs actions
-- [ ] Add unit tests for comment-on-prs action: successful commenting, no PRs scenario, duplicate prevention, partial failures, custom message
-- [ ] Add unit tests for block-prs action: successful blocking, no PRs scenario, duplicate prevention, partial failures, custom status check name
-- [ ] Add integration tests for GitHubService PR methods: GetOpenPullRequestsAsync, CreatePullRequestCommentAsync, CreateStatusCheckAsync with WireMock
-- [ ] Add integration tests for ActionService PR actions with database: CommentOnPrsAction and BlockPrsAction workflows
+- [ ] Add unit tests for webhook infrastructure: controller, service, handler
+- [ ] Add unit tests for comment-on-prs action: successful commenting, no violations scenario, duplicate prevention, error handling, custom message
+- [ ] Add unit tests for block-prs action: successful blocking, no violations scenario, status check updates, error handling, custom status check name
+- [ ] Add integration tests for webhook processing end-to-end
+- [ ] Add integration tests for ActionService PR actions with database
 - [ ] Add contract tests for PR API responses: PullRequest, PR comment, and StatusCheck response schemas with snapshot testing
-- [ ] Update action-service.md, github-integration.md, configuration docs, and CHANGELOG.md with new PR actions documentation
+- [ ] Add contract tests for webhook payload schemas
+- [ ] Update action-service.md with webhook-based PR actions documentation
+- [ ] Update github-integration.md with webhook infrastructure and PR methods
+- [ ] Create webhooks.md documentation (new file)
+- [ ] Update configuration docs with PrCommentDetails and BlockPrsDetails
+- [ ] Update CHANGELOG.md with new PR actions and webhook infrastructure
+- [ ] Update PRD with new PR action requirements

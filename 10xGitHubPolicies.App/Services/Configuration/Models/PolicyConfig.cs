@@ -28,6 +28,12 @@ public class PolicyConfig
     [YamlMember(Alias = "issue_details")]
     public IssueDetails? IssueDetails { get; set; }
 
+    [YamlMember(Alias = "pr_comment_details")]
+    public PrCommentDetails? PrCommentDetails { get; set; }
+
+    [YamlMember(Alias = "block_prs_details")]
+    public BlockPrsDetails? BlockPrsDetails { get; set; }
+
     /// <summary>
     /// Normalizes the Action field after deserialization.
     /// Handles both single string and list formats.

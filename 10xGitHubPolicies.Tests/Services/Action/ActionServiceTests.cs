@@ -74,7 +74,7 @@ public class ActionServiceTests : IAsyncLifetime
         await _gitHubService.DidNotReceive().ArchiveRepositoryAsync(Arg.Any<long>());
 
         // Verify appropriate log message was logged (use ReceivedWithAnyArgs for structured logging)
-        _logger.ReceivedWithAnyArgs().LogInformation(default(string)!, default);
+        _logger.ReceivedWithAnyArgs().LogInformation(default(string)!, default!);
     }
 
     [Fact]
@@ -1050,6 +1050,233 @@ public class ActionServiceTests : IAsyncLifetime
         actionLogs.Should().BeEmpty();
     }
 
+    // PR Action Tests (Webhook Path)
+
+    [Fact]
+    public async Task CommentOnPullRequestAsync_WhenViolationsExist_CreatesCommentWithDefaultMessage()
+    {
+        // Arrange
+        var repositoryId = _faker.Random.Long(1000, 999999);
+        var pullRequestNumber = _faker.Random.Int(1, 100);
+        var violation = await CreateViolationWithPolicyAsync();
+
+        var policyConfig = new PolicyConfig
+        {
+            Type = "test-policy",
+            Name = "Test Policy",
+            Actions = new List<string> { "comment-on-pr" },
+            PrCommentDetails = null // Use default message
+        };
+
+        var violations = new List<PolicyViolation> { violation };
+
+        _gitHubService.GetPullRequestCommentsAsync(repositoryId, pullRequestNumber)
+            .Returns(new List<IssueComment>());
+
+        var mockComment = CreateMockIssueComment();
+        _gitHubService.CreatePullRequestCommentAsync(repositoryId, pullRequestNumber, Arg.Any<string>())
+            .Returns(mockComment);
+
+        // Act
+        await _sut.CommentOnPullRequestAsync(repositoryId, pullRequestNumber, policyConfig, violations);
+
+        // Assert
+        await _gitHubService.Received(1).GetPullRequestCommentsAsync(repositoryId, pullRequestNumber);
+        await _gitHubService.Received(1).CreatePullRequestCommentAsync(
+            repositoryId,
+            pullRequestNumber,
+            Arg.Is<string>(msg => msg.Contains("Policy Compliance Violations Detected") && msg.Contains("test-policy")));
+    }
+
+    [Fact]
+    public async Task CommentOnPullRequestAsync_WhenCustomMessageProvided_UsesCustomMessage()
+    {
+        // Arrange
+        var repositoryId = _faker.Random.Long(1000, 999999);
+        var pullRequestNumber = _faker.Random.Int(1, 100);
+        var customMessage = _faker.Lorem.Paragraph();
+        var violation = await CreateViolationWithPolicyAsync();
+
+        var policyConfig = new PolicyConfig
+        {
+            Type = "test-policy",
+            Name = "Test Policy",
+            Actions = new List<string> { "comment-on-pr" },
+            PrCommentDetails = new PrCommentDetails { Message = customMessage }
+        };
+
+        var violations = new List<PolicyViolation> { violation };
+
+        _gitHubService.GetPullRequestCommentsAsync(repositoryId, pullRequestNumber)
+            .Returns(new List<IssueComment>());
+
+        var mockComment = CreateMockIssueComment();
+        _gitHubService.CreatePullRequestCommentAsync(repositoryId, pullRequestNumber, Arg.Any<string>())
+            .Returns(mockComment);
+
+        // Act
+        await _sut.CommentOnPullRequestAsync(repositoryId, pullRequestNumber, policyConfig, violations);
+
+        // Assert
+        await _gitHubService.Received(1).CreatePullRequestCommentAsync(repositoryId, pullRequestNumber, customMessage);
+    }
+
+    [Fact]
+    public async Task CommentOnPullRequestAsync_WhenNoViolations_SkipsComment()
+    {
+        // Arrange
+        var repositoryId = _faker.Random.Long(1000, 999999);
+        var pullRequestNumber = _faker.Random.Int(1, 100);
+        var policyConfig = new PolicyConfig
+        {
+            Type = "test-policy",
+            Name = "Test Policy",
+            Actions = new List<string> { "comment-on-pr" }
+        };
+
+        var violations = new List<PolicyViolation>(); // Empty violations
+
+        // Act
+        await _sut.CommentOnPullRequestAsync(repositoryId, pullRequestNumber, policyConfig, violations);
+
+        // Assert
+        await _gitHubService.DidNotReceive().GetPullRequestCommentsAsync(Arg.Any<long>(), Arg.Any<int>());
+        await _gitHubService.DidNotReceive().CreatePullRequestCommentAsync(Arg.Any<long>(), Arg.Any<int>(), Arg.Any<string>());
+    }
+
+    [Fact]
+    public async Task UpdatePullRequestStatusCheckAsync_WhenViolationsExist_CreatesFailureStatusCheck()
+    {
+        // Arrange
+        var repositoryId = _faker.Random.Long(1000, 999999);
+        var headSha = _faker.Random.AlphaNumeric(40);
+        var violation = await CreateViolationWithPolicyAsync();
+
+        var policyConfig = new PolicyConfig
+        {
+            Type = "test-policy",
+            Name = "Test Policy",
+            Actions = new List<string> { "block-prs" },
+            BlockPrsDetails = null // Use default status check name
+        };
+
+        var violations = new List<PolicyViolation> { violation };
+
+        _gitHubService.GetCheckRunsForRefAsync(repositoryId, headSha)
+            .Returns(new List<CheckRun>());
+
+        var mockCheckRun = CreateMockCheckRun();
+        _gitHubService.CreateStatusCheckAsync(
+            repositoryId,
+            headSha,
+            Arg.Any<string>(),
+            "completed",
+            "failure",
+            Arg.Any<string>())
+            .Returns(mockCheckRun);
+
+        // Act
+        await _sut.UpdatePullRequestStatusCheckAsync(repositoryId, headSha, violations, policyConfig);
+
+        // Assert
+        await _gitHubService.Received(1).GetCheckRunsForRefAsync(repositoryId, headSha);
+        await _gitHubService.Received(1).CreateStatusCheckAsync(
+            repositoryId,
+            headSha,
+            "Policy Compliance Check",
+            "completed",
+            "failure",
+            null);
+    }
+
+    [Fact]
+    public async Task UpdatePullRequestStatusCheckAsync_WhenNoViolations_CreatesSuccessStatusCheck()
+    {
+        // Arrange
+        var repositoryId = _faker.Random.Long(1000, 999999);
+        var headSha = _faker.Random.AlphaNumeric(40);
+
+        var policyConfig = new PolicyConfig
+        {
+            Type = "test-policy",
+            Name = "Test Policy",
+            Actions = new List<string> { "block-prs" },
+            BlockPrsDetails = null
+        };
+
+        var violations = new List<PolicyViolation>(); // No violations
+
+        _gitHubService.GetCheckRunsForRefAsync(repositoryId, headSha)
+            .Returns(new List<CheckRun>());
+
+        var mockCheckRun = CreateMockCheckRun();
+        _gitHubService.CreateStatusCheckAsync(
+            repositoryId,
+            headSha,
+            Arg.Any<string>(),
+            "completed",
+            "success",
+            Arg.Any<string>())
+            .Returns(mockCheckRun);
+
+        // Act
+        await _sut.UpdatePullRequestStatusCheckAsync(repositoryId, headSha, violations, policyConfig);
+
+        // Assert
+        await _gitHubService.Received(1).CreateStatusCheckAsync(
+            repositoryId,
+            headSha,
+            "Policy Compliance Check",
+            "completed",
+            "success",
+            null);
+    }
+
+    [Fact]
+    public async Task UpdatePullRequestStatusCheckAsync_WhenCustomStatusCheckName_UsesCustomName()
+    {
+        // Arrange
+        var repositoryId = _faker.Random.Long(1000, 999999);
+        var headSha = _faker.Random.AlphaNumeric(40);
+        var customStatusCheckName = "Custom Policy Check";
+        var violation = await CreateViolationWithPolicyAsync();
+
+        var policyConfig = new PolicyConfig
+        {
+            Type = "test-policy",
+            Name = "Test Policy",
+            Actions = new List<string> { "block-prs" },
+            BlockPrsDetails = new BlockPrsDetails { StatusCheckName = customStatusCheckName }
+        };
+
+        var violations = new List<PolicyViolation> { violation };
+
+        _gitHubService.GetCheckRunsForRefAsync(repositoryId, headSha)
+            .Returns(new List<CheckRun>());
+
+        var mockCheckRun = CreateMockCheckRun();
+        _gitHubService.CreateStatusCheckAsync(
+            repositoryId,
+            headSha,
+            Arg.Any<string>(),
+            "completed",
+            "failure",
+            Arg.Any<string>())
+            .Returns(mockCheckRun);
+
+        // Act
+        await _sut.UpdatePullRequestStatusCheckAsync(repositoryId, headSha, violations, policyConfig);
+
+        // Assert
+        await _gitHubService.Received(1).CreateStatusCheckAsync(
+            repositoryId,
+            headSha,
+            customStatusCheckName,
+            "completed",
+            "failure",
+            null);
+    }
+
     /// <summary>
     /// Creates a mock Octokit.Issue for testing
     /// </summary>
@@ -1164,6 +1391,86 @@ public class ActionServiceTests : IAsyncLifetime
         }
 
         return repository;
+    }
+
+    /// <summary>
+    /// Creates a violation with associated policy for PR action tests
+    /// </summary>
+    private async Task<PolicyViolation> CreateViolationWithPolicyAsync()
+    {
+        var policy = new Policy
+        {
+            PolicyKey = "test-policy",
+            Description = "Test Policy",
+            Action = "comment-on-pr"
+        };
+        await _dbContext.Policies.AddAsync(policy);
+
+        var repository = CreateRepository();
+        await _dbContext.Repositories.AddAsync(repository);
+
+        var scan = new Scan { ScanId = _faker.Random.Int(1, 1000), StartedAt = DateTime.UtcNow, Status = "InProgress" };
+        await _dbContext.Scans.AddAsync(scan);
+
+        var violation = CreateViolation(scan.ScanId, policy.PolicyId, repository.RepositoryId);
+        violation.PolicyType = "test-policy"; // Set PolicyType for webhook path
+        await _dbContext.PolicyViolations.AddAsync(violation);
+
+        await _dbContext.SaveChangesAsync();
+
+        // Load navigation properties
+        await _dbContext.Entry(violation).Reference(v => v.Policy).LoadAsync();
+        await _dbContext.Entry(violation).Reference(v => v.Repository).LoadAsync();
+
+        return violation;
+    }
+
+    /// <summary>
+    /// Creates a mock Octokit.IssueComment for testing
+    /// </summary>
+    private IssueComment CreateMockIssueComment(int id = 1, string body = "Test comment")
+    {
+        // Use JSON deserialization since IssueComment doesn't have a public constructor
+        var commentJson = $$"""
+        {
+          "id": {{id}},
+          "node_id": "IC_{{id}}",
+          "url": "https://api.github.com/repos/test/repo/issues/comments/{{id}}",
+          "html_url": "https://github.com/test/repo/issues/comments/{{id}}",
+          "body": "{{body.Replace("\"", "\\\"")}}",
+          "created_at": "{{DateTimeOffset.UtcNow:yyyy-MM-ddTHH:mm:ssZ}}",
+          "updated_at": "{{DateTimeOffset.UtcNow:yyyy-MM-ddTHH:mm:ssZ}}",
+          "user": {
+            "login": "test-user",
+            "id": 1,
+            "type": "User"
+          },
+          "author_association": "NONE"
+        }
+        """;
+
+        return Newtonsoft.Json.JsonConvert.DeserializeObject<IssueComment>(commentJson)!;
+    }
+
+    /// <summary>
+    /// Creates a mock Octokit.CheckRun for testing
+    /// </summary>
+    private CheckRun CreateMockCheckRun(long id = 1, string name = "Test Check", CheckStatus status = CheckStatus.Completed, CheckConclusion? conclusion = CheckConclusion.Success)
+    {
+        // Use JSON deserialization since CheckRun doesn't have a public constructor
+        var conclusionStr = conclusion.HasValue ? $"\"{conclusion.Value.ToString().ToLower()}\"" : "null";
+        var checkRunJson = $$"""
+        {
+          "id": {{id}},
+          "name": "{{name}}",
+          "status": "{{status.ToString().ToLower()}}",
+          "conclusion": {{conclusionStr}},
+          "head_sha": "{{_faker.Random.AlphaNumeric(40)}}",
+          "html_url": "https://github.com/test/repo/runs/{{id}}"
+        }
+        """;
+
+        return Newtonsoft.Json.JsonConvert.DeserializeObject<CheckRun>(checkRunJson)!;
     }
 }
 

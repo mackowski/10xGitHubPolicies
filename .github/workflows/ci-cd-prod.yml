@@ -108,6 +108,7 @@ jobs:
                 GitHubApp__PrivateKey="${{ secrets.GH_APP_PRIVATE_KEY }}" \
                 GitHubApp__InstallationId="${{ secrets.GH_APP_INSTALLATION_ID }}" \
                 GitHubApp__OrganizationName="${{ secrets.ORG_NAME }}" \
+                GitHubApp__WebhookSecret="${{ secrets.GH_APP_WEBHOOK_SECRET }}" \
                 GitHub__ClientId="${{ secrets.OAUTH_CLIENT_ID }}" \
                 GitHub__ClientSecret="${{ secrets.OAUTH_CLIENT_SECRET }}" \
                 ConnectionStrings__DefaultConnection="Server=tcp:sql-10xghpolicies.database.windows.net,1433;Database=sqldb-10xghpolicies;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;Authentication=Active Directory Managed Identity"

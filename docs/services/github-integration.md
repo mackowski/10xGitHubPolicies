@@ -14,6 +14,8 @@ The GitHub integration provides a testable, maintainable abstraction over the Gi
 - Repository management (list, get settings, archive, create, delete)
 - File operations (check existence, read content, create, update, delete)
 - Issue management (create, list, close)
+- Pull request operations (list open PRs, create comments, get comments)
+- Status checks (create, update, get check runs for ref)
 - Workflow permissions (get, update)
 - User and team operations (organizations, team membership)
 - E2E testing utilities (repository lifecycle management)
@@ -84,11 +86,72 @@ When using a custom `BaseUrl` (e.g., for testing with WireMock), Octokit automat
 - Configurable base URL for different environments
 - Custom HTTP handlers for advanced scenarios (SSL, proxies)
 
+## Webhook Infrastructure
+
+The application includes webhook support for real-time processing of GitHub events:
+
+### Webhook Controller
+
+**`WebhookController`** - Handles incoming GitHub webhook events:
+- **Endpoint**: `POST /api/webhooks/github`
+- **Signature Verification**: Validates webhook payloads using HMAC-SHA256
+- **Event Processing**: Routes events to appropriate handlers
+- **Supported Events**: `pull_request` (opened, synchronize, reopened), `ping`
+
+### Webhook Services
+
+**`IWebhookService`** - Service for processing webhook events:
+- Routes webhook events to appropriate handlers
+- Uses Hangfire to enqueue background jobs for async processing
+
+**`IPullRequestWebhookHandler`** - Handler for pull request webhook events:
+- Evaluates repository policies for PR repositories
+- Executes PR actions (comments, status checks) based on violations
+- Processes `opened`, `synchronize`, and `reopened` PR actions
+
+### Webhook Configuration
+
+- **Webhook Secret**: Configured via `GitHubApp:WebhookSecret` in application configuration
+- **GitHub App Settings**: Enable webhook delivery and subscribe to `pull_request` events
+- **Webhook URL**: `https://your-domain.com/api/webhooks/github`
+
+## Pull Request Operations
+
+The service provides methods for interacting with pull requests:
+
+### List Open Pull Requests
+
+```csharp
+Task<IReadOnlyList<PullRequest>> GetOpenPullRequestsAsync(long repositoryId)
+```
+
+Retrieves all open pull requests for a repository.
+
+### PR Comments
+
+```csharp
+Task<IssueComment> CreatePullRequestCommentAsync(long repositoryId, int pullRequestNumber, string comment)
+Task<IReadOnlyList<IssueComment>> GetPullRequestCommentsAsync(long repositoryId, int pullRequestNumber)
+```
+
+Creates and retrieves comments on pull requests. PRs are treated as issues in the GitHub API.
+
+### Status Checks
+
+```csharp
+Task<CheckRun> CreateStatusCheckAsync(long repositoryId, string headSha, string name, string status, string conclusion, string? detailsUrl = null)
+Task<CheckRun> UpdateStatusCheckAsync(long repositoryId, long checkRunId, string status, string conclusion, string? detailsUrl = null)
+Task<IReadOnlyList<CheckRun>> GetCheckRunsForRefAsync(long repositoryId, string @ref)
+```
+
+Creates, updates, and retrieves status checks (check runs) for commits. Used to block PR merges when policy violations are detected.
+
 ## Related Documentation
 
 - **[Authentication](../authentication.md)**: User OAuth authentication - user access tokens obtained during OAuth flow are used by `AuthorizationService` which calls `GitHubService.IsUserMemberOfTeamAsync()` for authorization checks
 - **[Testing Strategy](../testing/testing-strategy.md)**: Multi-level testing approach
 - **[Configuration Service](./configuration-service.md)**: Policy configuration management
+- **[Action Service](./action-service.md)**: PR actions (comment-on-prs, block-prs)
 - **Integration Tests**: `10xGitHubPolicies.Tests.Integration` project
 - **Contract Tests**: `10xGitHubPolicies.Tests.Contracts` project
 

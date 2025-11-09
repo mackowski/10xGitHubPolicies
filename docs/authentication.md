@@ -139,8 +139,26 @@ When setting up your GitHub App, configure the following repository permissions:
 | **Contents** | Read-only | To check for file presence and read file contents |
 | **Issues** | Read & write | To create issues for policy violations and check for duplicate issues |
 | **Metadata** | Read-only | To list repositories and access basic repository information |
+| **Pull requests** | Read & write | To comment on PRs and create status checks |
+| **Checks** | Write | To create and update status checks for PR blocking |
 
 **Organization Permissions**: None required
+
+### Webhook Configuration
+
+The GitHub App requires webhook configuration for real-time PR processing:
+
+1. **Webhook URL**: 
+   - Development: Use ngrok (see [Webhook Development Guide](../webhook-development.md))
+   - Production: `https://wa-10xghpolicies-prod.azurewebsites.net/api/webhooks/github`
+
+2. **Webhook Secret**: Generate a secure secret in GitHub App settings and configure it in:
+   - Development: `.NET Secret Manager` (see [Configuration](#configuration) section)
+   - Production: GitHub Repository Secrets (see [Production Deployment](#production-deployment) section)
+
+3. **Subscribed Events**:
+   - `pull_request` (for PR comment/block actions)
+   - `ping` (for testing webhook connectivity)
 
 ### Configuration
 
@@ -153,6 +171,7 @@ cd 10xGitHubPolicies.App
 dotnet user-secrets set "GitHubApp:AppId" "YOUR_GITHUB_APP_ID"
 dotnet user-secrets set "GitHubApp:InstallationId" "YOUR_GITHUB_APP_INSTALLATION_ID"
 dotnet user-secrets set "GitHubApp:PrivateKey" "PASTE_YOUR_PRIVATE_KEY_CONTENTS_HERE"
+dotnet user-secrets set "GitHubApp:WebhookSecret" "YOUR_WEBHOOK_SECRET"
 ```
 
 **Note**: When setting the `PrivateKey`, paste the full content of the `.pem` file, including the `-----BEGIN RSA PRIVATE KEY-----` and `-----END RSA PRIVATE KEY-----` markers.
@@ -176,13 +195,21 @@ To create a GitHub App for backend services:
 3. Configure the following:
    - **GitHub App name**: 10x GitHub Policy Enforcer
    - **Homepage URL**: `https://localhost:7040/` (for local development)
-   - **Webhook URL**: Leave empty for local development
+   - **Webhook URL**: 
+     - For local development: Use ngrok (see [Webhook Development Guide](../webhook-development.md))
+     - For production: `https://wa-10xghpolicies-prod.azurewebsites.net/api/webhooks/github`
+   - **Webhook Secret**: Generate a secret and save it securely (you'll need this for configuration)
    - **Repository permissions** (as specified in the table above):
      - **Administration**: Read & write
      - **Contents**: Read-only
      - **Issues**: Read & write
      - **Metadata**: Read-only
+     - **Pull requests**: Read & write
+     - **Checks**: Write
    - **Organization permissions**: None required
+   - **Subscribe to events**: 
+     - ✅ Pull requests (for PR comment/block actions)
+     - ✅ Ping (for testing webhook connectivity)
 4. After creating the app:
    - Note the **App ID** (found on the app's general page)
    - Generate and download a **private key** (`.pem` file)
@@ -457,6 +484,7 @@ For production deployments, secrets are stored in GitHub Repository Secrets and 
    - `GH_APP_ID` - GitHub App ID (for backend services)
    - `GH_APP_PRIVATE_KEY` - GitHub App private key (full PEM content)
    - `GH_APP_INSTALLATION_ID` - GitHub App Installation ID
+   - `GH_APP_WEBHOOK_SECRET` - GitHub App webhook secret (for webhook signature verification)
    - `ORG_NAME` - GitHub organization name
    - `OAUTH_CLIENT_ID` - GitHub OAuth App Client ID (for user login)
    - `OAUTH_CLIENT_SECRET` - GitHub OAuth App Client Secret

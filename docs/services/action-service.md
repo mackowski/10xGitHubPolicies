@@ -29,7 +29,7 @@ The Action Service is responsible for executing configured actions when policy v
 
 ## Action Types
 
-The service supports three types of actions based on the policy configuration:
+The service supports five types of actions based on the policy configuration:
 
 ### 1. Create Issue (`create-issue` or `create_issue`)
 
@@ -58,15 +58,70 @@ Creates a GitHub issue in the violating repository with:
 3. If not archived, calls `ArchiveRepositoryAsync()` to archive the repository
 4. Logs success or failure with appropriate status and details
 
-### 3. Log Only (`log-only` or `log_only`)
+### 3. Comment on Pull Requests (`comment-on-prs` or `comment_on_prs`) 📝
+
+**Real-time PR Feedback**: Comments on pull requests when policy violations are detected. This action works in two modes:
+
+- **Webhook Mode** (Primary): Real-time processing when PRs are opened or updated via webhooks
+- **Scan Mode** (Backward Compatible): Comments on all open PRs when violations are detected during periodic scans
+
+**Features**:
+- **Custom Messages**: Configurable comment message via `PrCommentDetails.Message` or default format
+- **Duplicate Prevention**: Checks if the bot already commented with a similar message to avoid spam
+- **Multiple Violations**: Combines multiple violations in a single comment
+- **Real-time Processing**: Webhook-based processing provides immediate feedback when PRs are opened/updated
+
+**Behavior (Webhook Mode)**:
+1. Triggered when a PR is opened, synchronized, or reopened
+2. Evaluates repository policies for the PR's repository
+3. If violations exist, adds a comment to the specific PR
+4. Skips if bot already commented with similar message
+
+**Behavior (Scan Mode)**:
+1. Triggered during periodic repository scans
+2. Retrieves all open PRs for the violating repository
+3. Comments on each open PR with violation details
+4. Logs action separately for each PR
+
+### 4. Block Pull Requests (`block-prs` or `block_prs`) 🚫
+
+**PR Merge Prevention**: Creates or updates status checks to block PR merges when policy violations are detected. This action works in two modes:
+
+- **Webhook Mode** (Primary): Real-time processing when PRs are opened or updated via webhooks
+- **Scan Mode** (Backward Compatible): Blocks all open PRs when violations are detected during periodic scans
+
+**Features**:
+- **Status Check Creation**: Creates a failing status check to block PR merges
+- **Status Check Updates**: Updates existing status checks when violations are fixed (changes to success)
+- **Custom Status Check Name**: Configurable via `BlockPrsDetails.StatusCheckName` or default "Policy Compliance Check"
+- **Real-time Updates**: Status checks are updated on every PR sync to reflect current compliance status
+- **Duplicate Prevention**: Updates existing status check if it exists (same name), doesn't create duplicates
+
+**Behavior (Webhook Mode)**:
+1. Triggered when a PR is opened, synchronized, or reopened
+2. Evaluates repository policies for the PR's repository
+3. Creates or updates status check on the PR's head SHA:
+   - **Failure** if violations exist
+   - **Success** if no violations (violations fixed)
+4. Updates existing status check if it exists, otherwise creates new one
+
+**Behavior (Scan Mode)**:
+1. Triggered during periodic repository scans
+2. Retrieves all open PRs for the violating repository
+3. Creates or updates status checks for each PR's head SHA
+4. Logs action separately for each PR
+
+### 5. Log Only (`log-only` or `log_only`)
 
 Logs the violation without taking any automated action.
 
 ## Configuration Models
 
 The service uses `PolicyConfig` from the configuration service, which includes:
-- `Actions`: A list of action types (`create-issue`, `archive-repo`, or `log-only`). Supports both single action (backward compatible) and multiple actions per policy.
+- `Actions`: A list of action types (`create-issue`, `archive-repo`, `comment-on-prs`, `block-prs`, or `log-only`). Supports both single action (backward compatible) and multiple actions per policy.
 - `IssueDetails`: Optional details for issue creation (title, body, labels)
+- `PrCommentDetails`: Optional details for PR comments (message)
+- `BlockPrsDetails`: Optional details for PR blocking (status_check_name)
 
 ## Multiple Actions Per Policy
 
@@ -94,7 +149,7 @@ All actions are logged to the `ActionLog` database table with the following info
 
 ## Duplicate Prevention
 
-The service implements duplicate prevention for both issue creation and repository archiving:
+The service implements duplicate prevention for issue creation, repository archiving, PR comments, and status checks:
 
 ### Issue Creation (US-010 requirement)
 
@@ -107,6 +162,20 @@ The service implements duplicate prevention for both issue creation and reposito
 1. **Status Check**: Retrieves repository settings to check current archived status
 2. **Skip Archive**: If repository is already archived, logs the action as "Skipped" and returns early
 3. **Efficiency**: Prevents unnecessary API calls and improves performance
+
+### PR Comments
+
+1. **Comment Retrieval**: Retrieves all existing comments on the PR
+2. **Bot Comment Detection**: Filters comments to find those from bot users
+3. **Message Matching**: Checks if bot already commented with similar message (first 50 characters)
+4. **Skip Comment**: If duplicate found, skips commenting to avoid spam
+
+### Status Checks
+
+1. **Check Run Retrieval**: Retrieves all check runs for the PR's head SHA
+2. **Name Matching**: Finds existing status check with the same name
+3. **Update Instead of Create**: Updates existing check run instead of creating duplicate
+4. **Efficiency**: Prevents multiple status checks with the same name
 
 ## Error Handling
 
@@ -154,6 +223,18 @@ policies:
   - name: 'Verify Workflow Permissions'
     type: 'correct_workflow_permissions'
     action: 'archive-repo'  # Single action
+    
+  - name: 'Documentation Policy'
+    type: 'has_agents_md'
+    action: 'comment-on-prs'  # PR comment action
+    pr_comment_details:
+      message: '⚠️ **Policy Compliance Violations Detected**\n\nThis pull request is associated with a repository that violates the documentation policy. Please address these violations before merging.'
+      
+  - name: 'Security Compliance Check'
+    type: 'correct_workflow_permissions'
+    action: 'block-prs'  # PR blocking action
+    block_prs_details:
+      status_check_name: 'Policy Compliance: Workflow Permissions'
 ```
 
 ## Service Registration

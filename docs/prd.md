@@ -33,6 +33,15 @@ The application will support the following policies in its initial version:
 Based on policy violations, the application can be configured to take the following actions:
 1.  *Create GitHub Issue*: Creates a labeled issue in the non-compliant repository. The application will prevent the creation of duplicate issues for the same violation.
 2.  *Archive Repository*: Automatically archives the non-compliant repository, making it read-only.
+3.  *Comment on Pull Requests* (`comment-on-prs`): Comments on pull requests when policy violations are detected. Works in two modes:
+    - **Webhook Mode** (Primary): Real-time processing when PRs are opened or updated via webhooks, providing immediate feedback to developers.
+    - **Scan Mode** (Backward Compatible): Comments on all open PRs when violations are detected during periodic scans.
+    - Supports configurable comment messages and duplicate prevention to avoid spam.
+4.  *Block Pull Requests* (`block-prs`): Creates or updates status checks to block PR merges when policy violations are detected. Works in two modes:
+    - **Webhook Mode** (Primary): Real-time processing when PRs are opened or updated via webhooks, immediately blocking non-compliant PRs.
+    - **Scan Mode** (Backward Compatible): Blocks all open PRs when violations are detected during periodic scans.
+    - Status checks are automatically updated to "success" when violations are fixed, unblocking the PR.
+    - Supports configurable status check names and duplicate prevention.
 
 ### 3.6. Dashboard
 The web UI will feature a simple dashboard that includes:
