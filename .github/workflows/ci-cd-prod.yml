@@ -95,7 +95,7 @@ jobs:
           package: ./drop
 
       - name: Apply app settings
-        uses: azure/cli@965c8d7571d2231a54e321ddd07f7b10317f34d9 # v2
+        uses: azure/cli@9f7ce6f37c31b777ec6c6b6d1dfe7db79f497956 # v2
         with:
           inlineScript: |
             az webapp config appsettings set \
@@ -118,7 +118,7 @@ jobs:
         uses: haythem/public-ip@bdddd92c198b0955f0b494a8ebeac529754262ff # v1.3
 
       - name: Add firewall rule for runner
-        uses: azure/cli@965c8d7571d2231a54e321ddd07f7b10317f34d9 # v2
+        uses: azure/cli@9f7ce6f37c31b777ec6c6b6d1dfe7db79f497956 # v2
         with:
           inlineScript: |
             az sql server firewall-rule create \
@@ -138,7 +138,7 @@ jobs:
 
       - name: Get Azure AD token for SQL Database
         id: get-token
-        uses: azure/cli@965c8d7571d2231a54e321ddd07f7b10317f34d9 # v2
+        uses: azure/cli@9f7ce6f37c31b777ec6c6b6d1dfe7db79f497956 # v2
         with:
           inlineScript: |
             TOKEN=$(az account get-access-token --resource https://database.windows.net/ --query accessToken -o tsv)
@@ -156,7 +156,7 @@ jobs:
 
       - name: Remove firewall rule
         if: always()
-        uses: azure/cli@965c8d7571d2231a54e321ddd07f7b10317f34d9 # v2
+        uses: azure/cli@9f7ce6f37c31b777ec6c6b6d1dfe7db79f497956 # v2
         with:
           inlineScript: |
             az sql server firewall-rule delete \
