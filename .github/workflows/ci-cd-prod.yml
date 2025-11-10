@@ -46,7 +46,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@ff7abcd0c3c05ccf6adc123a8cd1fd4fb30fb493 # v4
+        uses: actions/checkout@71cf2267d89c5cb81562390fa70a37fa40b1305e # v4
 
       - name: Set up .NET Core
         uses: actions/setup-dotnet@d4c94342e560b34958eacfc5d055d21461ed1c5d # v4
@@ -134,7 +134,7 @@ jobs:
           dotnet-version: ${{ env.DOTNET_VERSION }}
 
       - name: Checkout code for migrations
-        uses: actions/checkout@ff7abcd0c3c05ccf6adc123a8cd1fd4fb30fb493 # v4
+        uses: actions/checkout@71cf2267d89c5cb81562390fa70a37fa40b1305e # v4
 
       - name: Get Azure AD token for SQL Database
         id: get-token
