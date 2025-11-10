@@ -80,7 +80,7 @@ jobs:
           path: ./drop
       
       - name: Login to Azure
-        uses: azure/login@8c334a195cbb38e46038007b304988d888bf676a # v2
+        uses: azure/login@a457da9ea143d694b1b9c7c869ebb04ebe844ef5 # v2
         with:
           client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_E448EBAFC853434F8DFC24251DA6AFEB }}
           tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_A7645CB8FB934C8B92E27DFD71893AF3 }}
