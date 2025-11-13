@@ -23,11 +23,13 @@ public class WebhookService : IWebhookService
 
     public Task ProcessPullRequestEventAsync(string eventType, string? action, string payload, string? deliveryId)
     {
+        // Remove line breaks/carriage returns from deliveryId to prevent log forging
+        var safeDeliveryId = deliveryId?.Replace("\r", string.Empty).Replace("\n", string.Empty);
         _logger.LogInformation(
             "Enqueuing pull request webhook processing: Event={EventType}, Action={Action}, Delivery={DeliveryId}",
             eventType,
             action,
-            deliveryId);
+            safeDeliveryId);
 
         // Enqueue background job for async processing
         // This ensures webhook response is returned quickly to GitHub
