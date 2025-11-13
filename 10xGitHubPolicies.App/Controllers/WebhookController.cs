@@ -20,6 +20,19 @@ public class WebhookController : ControllerBase
     private readonly ILogger<WebhookController> _logger;
 
     /// <summary>
+    /// Sanitizes user input for logging by removing line breaks.
+    /// Also ensures input is clearly marked for log integrity.
+    /// </summary>
+    private static string SanitizeForLog(string? input)
+    {
+        if (input is null) return "null";
+        // Remove CR/LF/newlines, replace common line endings
+        return input.Replace("\r\n", " ")
+                    .Replace("\n", " ")
+                    .Replace("\r", " ");
+    }
+
+    /// <summary>
     /// Sanitizes a string for safe inclusion in log entries.
     /// Removes CR and LF characters to prevent log forgery.
     /// </summary>
@@ -124,7 +137,7 @@ public class WebhookController : ControllerBase
         // Log the payload (be careful with sensitive data in production)
         if (_logger.IsEnabled(LogLevel.Debug))
         {
-            _logger.LogDebug("Webhook payload: {Payload}", body);
+            _logger.LogDebug("Webhook payload: {Payload}", SanitizeForLog(body));
         }
 
         // Handle different event types
