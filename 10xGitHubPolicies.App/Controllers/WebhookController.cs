@@ -18,6 +18,17 @@ namespace _10xGitHubPolicies.App.Controllers;
 public class WebhookController : ControllerBase
 {
     private readonly ILogger<WebhookController> _logger;
+
+    /// <summary>
+    /// Sanitizes a string for safe inclusion in log entries.
+    /// Removes CR and LF characters to prevent log forgery.
+    /// </summary>
+    private static string SanitizeForLog(string? input)
+    {
+        if (string.IsNullOrEmpty(input))
+            return "N/A";
+        return input.Replace("\r", "").Replace("\n", "");
+    }
     private readonly IConfiguration _configuration;
     private readonly IWebhookService _webhookService;
 
@@ -128,7 +139,10 @@ public class WebhookController : ControllerBase
                 _logger.LogInformation("🏓 Received ping event - webhook is configured correctly!");
                 return Ok(new { message = "pong", eventType, deliveryId });
             default:
-                _logger.LogInformation("ℹ️ Unhandled event type: {EventType} (Action: {Action})", eventType, action);
+                _logger.LogInformation(
+                    "ℹ️ Unhandled event type: {EventType} (Action: {Action})",
+                    SanitizeForLog(eventType),
+                    SanitizeForLog(action));
                 break;
         }
 
