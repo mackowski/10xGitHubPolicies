@@ -23,12 +23,14 @@ public class WebhookService : IWebhookService
 
     public Task ProcessPullRequestEventAsync(string eventType, string? action, string payload, string? deliveryId)
     {
-        // Remove line breaks/carriage returns from deliveryId to prevent log forging
+        // Remove line breaks/carriage returns from user input to prevent log forging
+        var safeEventType = eventType?.Replace("\r", string.Empty).Replace("\n", string.Empty);
+        var safeAction = action?.Replace("\r", string.Empty).Replace("\n", string.Empty);
         var safeDeliveryId = deliveryId?.Replace("\r", string.Empty).Replace("\n", string.Empty);
         _logger.LogInformation(
             "Enqueuing pull request webhook processing: Event={EventType}, Action={Action}, Delivery={DeliveryId}",
-            eventType,
-            action,
+            safeEventType,
+            safeAction,
             safeDeliveryId);
 
         // Enqueue background job for async processing
