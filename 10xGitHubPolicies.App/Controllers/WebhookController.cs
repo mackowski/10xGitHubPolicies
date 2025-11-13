@@ -77,7 +77,7 @@ public class WebhookController : ControllerBase
         // Log signature and secret info for debugging (first 10 chars only for security)
         _logger.LogDebug(
             "Verifying signature: Signature={SignaturePrefix}..., SecretLength={SecretLength}, BodyLength={BodyLength}",
-            signature.Length > 10 ? signature[..10] : signature,
+            SanitizeForLog(signature.Length > 10 ? signature[..10] : signature),
             webhookSecret.Length,
             bodyBytes.Length);
 
