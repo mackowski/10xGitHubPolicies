@@ -87,7 +87,7 @@ public class WebhookController : ControllerBase
         {
             _logger.LogWarning(
                 "Invalid webhook signature. Received={ReceivedSignaturePrefix}..., Computed={ComputedSignaturePrefix}..., BodyLength={BodyLength}, SecretConfigured={SecretConfigured}",
-                signature.Length > 10 ? signature[..10] : signature,
+                SanitizeForLog(signature.Length > 10 ? signature[..10] : signature),
                 computedSignature?.Length > 10 ? computedSignature[..10] : computedSignature ?? "null",
                 bodyBytes.Length,
                 !string.IsNullOrEmpty(webhookSecret));
