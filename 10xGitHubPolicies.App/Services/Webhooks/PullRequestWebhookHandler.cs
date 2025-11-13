@@ -39,11 +39,11 @@ public class PullRequestWebhookHandler : IPullRequestWebhookHandler
 
     public async Task HandlePullRequestEventAsync(string eventType, string? action, string payload, string? deliveryId)
     {
+        var safeDeliveryId = deliveryId?.Replace("\r", string.Empty).Replace("\n", string.Empty);
         _logger.LogInformation(
             "Processing pull request webhook: Event={EventType}, Action={Action}, Delivery={DeliveryId}",
             eventType,
-            action,
-            deliveryId);
+            safeDeliveryId);
 
         try
         {
@@ -158,7 +158,7 @@ public class PullRequestWebhookHandler : IPullRequestWebhookHandler
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error processing pull request webhook: Delivery={DeliveryId}", deliveryId);
+            _logger.LogError(ex, "Error processing pull request webhook: Delivery={DeliveryId}", deliveryId?.Replace("\r", string.Empty).Replace("\n", string.Empty));
         }
     }
 
