@@ -46,6 +46,8 @@ The application uses a dual-authentication strategy:
     *   **Create Issues:** Automatically creates GitHub issues in non-compliant repositories with duplicate prevention
     *   **Archive Repositories:** 🔒 **Automatically archives repositories** that violate critical policies, making them read-only to enforce compliance
     *   **Log-Only Mode:** Monitor violations without taking automated action
+    *   **Comment PRs** Comment all PRs in repository that violate policies
+    *   **Block PRs** Block all PRs in repository that violate policies
     *   All actions include comprehensive logging with status tracking and detailed audit trails
 *   **Compliance Dashboard:** A Blazor-based web UI to view non-compliant repositories, violation details, and overall compliance metrics.
 *   **Background Job Processing:** Uses Hangfire for reliable background processing of scans and actions, ensuring the UI remains responsive.
@@ -572,18 +574,18 @@ See the [Production Deployment guide](./docs/production-deployment.md) for detai
 *   Repository-level exceptions or overrides in the UI.
 
 ### Ideas
-*   Logs - production
-*   Advanced policy types (e.g., checking file content)
-*   Action - PR Blocking
-*   Action - Log only
+*   ✅ `[done]` Logs - production
+*   ✅ `[done]` Advanced policy types (e.g., checking file content)
+*   ✅ `[done]` Action - PR Blocking
+*   ✅ `[done]` Action - Log only
 *   Action - Slack notification
 *   Action - Fix (update github settings)
 *   Exception policies
-*   Getting team ownership 
-*   Better project structure e.g. FrontEnd/UI 
-*   Remove dups between .ai and /docs
-*   Review test coverage
-*   E2E tests and scenatios improvements
+*   ✅ `[done]` Getting team ownership 
+*   ✅ `[done]` Better project structure e.g. FrontEnd/UI 
+*   ✅ `[done]` Remove dups between .ai and /docs
+*   ✅ `[done]` Review test coverage
+*   ✅ `[done]` E2E tests and scenatios improvements
 
 ---
 
