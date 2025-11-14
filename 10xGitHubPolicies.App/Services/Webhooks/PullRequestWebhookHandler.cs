@@ -39,11 +39,15 @@ public class PullRequestWebhookHandler : IPullRequestWebhookHandler
 
     public async Task HandlePullRequestEventAsync(string eventType, string? action, string payload, string? deliveryId)
     {
+        // Sanitize user input before logging
+        var safeEventType = SanitizeForLog(eventType);
+        var safeAction = SanitizeForLog(action);
+        var safeDeliveryId = SanitizeForLog(deliveryId);
         _logger.LogInformation(
             "Processing pull request webhook: Event={EventType}, Action={Action}, Delivery={DeliveryId}",
-            eventType,
-            action,
-            deliveryId);
+            safeEventType,
+            safeAction,
+            safeDeliveryId);
 
         try
         {
@@ -164,6 +168,13 @@ public class PullRequestWebhookHandler : IPullRequestWebhookHandler
 
     private static string NormalizeActionName(string action)
     {
+    // Sanitize input to prevent log forging
+    private static string? SanitizeForLog(string? input)
+    {
+        return input?
+            .Replace("\r", "", StringComparison.Ordinal)
+            .Replace("\n", "", StringComparison.Ordinal);
+    }
         return action?.Replace("_", "-", StringComparison.Ordinal) ?? string.Empty;
     }
 }
