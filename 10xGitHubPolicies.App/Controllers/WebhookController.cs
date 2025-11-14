@@ -124,7 +124,7 @@ public class WebhookController : ControllerBase
         // Log the payload (be careful with sensitive data in production)
         if (_logger.IsEnabled(LogLevel.Debug))
         {
-            _logger.LogDebug("Webhook payload: {Payload}", body);
+            _logger.LogDebug("Webhook payload: {Payload}", SanitizeForLog(body));
         }
 
         // Handle different event types
